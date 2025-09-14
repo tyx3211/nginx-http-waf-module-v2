@@ -1,0 +1,22 @@
+ngx_addon_name=ngx_http_waf_module
+
+# STUB: minimal config for v2 skeleton to enable clangd compile_commands.json generation.
+
+COMMON_SRCS="$ngx_addon_dir/src/module/ngx_http_waf_module.c"
+COMMON_CFLAGS="-I$ngx_addon_dir/src/include"
+
+if test -n "$ngx_module_link"; then
+    # Dynamic module compilation
+    ngx_module_type=HTTP
+    ngx_module_name=$ngx_addon_name
+    ngx_module_srcs="$COMMON_SRCS"
+    CFLAGS="$CFLAGS $COMMON_CFLAGS"
+    . auto/module
+else
+    # Static module compilation
+    HTTP_MODULES="$HTTP_MODULES $ngx_addon_name"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $COMMON_SRCS"
+    CFLAGS="$CFLAGS $COMMON_CFLAGS"
+fi
+
+
