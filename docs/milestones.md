@@ -2,15 +2,15 @@
 
 说明：以下为实现阶段的单一事实来源（SoT）。每个里程碑包含范围、完成定义（DoD）、主要依赖、建议投入与交付物。
 
-### [ ] M0：骨架与工具链
+### [x] M0：骨架与工具链
 - 范围：
-  - [ ] 最小模块骨架可编译（config + module + include）
-  - [ ] vendored：yyjson/uthash 目录落地（可为空实现，但头/源路径正确）
-  - [ ] clangd 工作：`compile_commands.json` 可生成；符号跳转/包含路径解析正常
+  - [x] 最小模块骨架可编译（config + module + include）
+  - [x] vendored：yyjson/uthash 目录落地（可为空实现，但头/源路径正确）
+  - [x] clangd 工作：`compile_commands.json` 可生成；符号跳转/包含路径解析正常
 - DoD：
-  - [ ] `make modules` 通过，产出 `ngx_http_waf_module.so`
-  - [ ] `docs/clangd-setup.md` 可复现；`dev/setup-clangd.sh` 可一键生成 DB
-  - [ ] `README.md` 中有快速开始（构建/加载模块）
+  - [x] `make modules` 通过，产出 `ngx_http_waf_module.so`
+  - [x] `docs/clangd-setup.md` 可复现；`dev/setup-clangd.sh` 可一键生成 DB
+  - [x] `README.md` 中有快速开始（构建/加载模块）
 - 依赖：Nginx 1.24.0 源码与构建链（bear/openssl/zlib/pcre）
 - 投入：1-2 人日
 - 交付：骨架文件、config、文档与脚本
