@@ -1,3 +1,32 @@
+## 注意：编码偏好与装配脚本（置顶）
+
+- 编码偏好（强制）
+  - 头文件引入：禁止使用相对路径 include（如 `#include "third_party/yyjson/yyjson.h"`）；统一通过构建脚本配置头文件搜索路径，代码中使用 `<yyjson/yyjson.h>`、`<uthash/uthash.h>`、`"src/include/..."` 等标准形式。
+  - 构建配置：在模块 `config`/`CFLAGS` 中追加 `-I$ngx_addon_dir/src/include -I$ngx_addon_dir/third_party/yyjson -I$ngx_addon_dir/third_party/uthash`，避免在源码里写相对路径 include。
+  - 绝对路径优先：文档与脚本示例尽量给出绝对路径，命令行参数可覆盖默认路径。
+  - 注释与沟通：统一中文注释与中文说明，函数/模块级注释强调“为什么”。
+
+- 现有装配脚本（v1，参考）
+  - `nginx-src/debug1.sh`：`make clean` → `./configure --with-compat --add-dynamic-module=...` → `make modules` → 将 `objs/ngx_http_waf_module.so` 拷贝到 `/usr/local/nginx/modules/`。
+  - `nginx-src/debug2.sh`：删除 `objs/addon/src/*.o` 后 `make modules` → 拷贝 `.so`。
+  - `nginx-src/debug3.sh`：`make clean` → `./configure` → `make` → `make install` → 拷贝 `.so`。
+
+- v2 推荐装配脚本
+  - 新增 `nginx-src/build_v2.sh`（封装上述流程，支持 preset 与细粒度步骤、`--bear`、`--jobs`、`--link-compile-db`）。
+  - 常用示例：
+    - `./build_v2.sh --preset debug1`
+    - `./build_v2.sh --preset debug2`
+    - `./build_v2.sh --preset debug3`
+    - `./build_v2.sh --all --bear --link-compile-db --jobs 8`
+  - 关键默认值：`prefix=/usr/local/nginx`，`module-dir=<repo>/nginx-http-waf-module-v2`，模块产物 `objs/ngx_http_waf_module.so` 拷贝到 `$prefix/modules/`。
+
+## 注意：预置目录
+
+- nginx源码目录：`/home/william/myNginxWorkspace/nginx-src`
+- v2模块目录：`/home/william/myNginxWorkspace/nginx-http-waf-module-v2`
+- v1模块目录：`/home/william/myNginxWorkspace/nginx-http-waf-module`
+- nginx安装目录：`/usr/local/nginx`或者`/home/william/myNginxWorkspace/nginx-install`(软链接)
+
 ## Nginx HTTP WAF v2 重构设计与实施文档（破坏性变更版）
 
 ### 决策与范围
@@ -128,6 +157,7 @@
   - `waf_rules_json <path>;`（http/server/location；子块设置即替换父块）
   - `waf_jsons_dir <abs-path>;`（仅 http；作为 JSON 根目录）
   - `waf_json_log <path>|off;`（仅 http；JSON 行日志输出）
+  - `waf_json_extends_max_depth <number>;`（http/server/location；设置 `meta.extends` 最大深度，0 表示不限）
   - `waf_json_log_level off|error|info|debug;`（仅 http）
   - 动态封禁：`waf_shm_zone`、`waf_dynamic_block_enable`、`waf_dynamic_block_score_threshold`、`waf_dynamic_block_duration`、`waf_dynamic_block_window_size`
   - `waf_trust_xff on|off;`
@@ -146,7 +176,7 @@
 
 流程：
 1) 解析当前 JSON（允许注释与尾逗号）。
-2) 递归处理 `extends`（左→右），检测循环与深度上限（建议 5）。
+2) 递归处理 `extends`（左→右），检测循环与深度上限（默认 5，可通过指令配置；0 表示不限深度但仍进行环检测）。
 3) 对“被引入规则集合”应用 `includeTags/excludeTags` 过滤。
 4) 追加当前文件的 `rules`。
 5) 应用 `disableById/disableByTag`。
@@ -365,7 +395,7 @@ M0：骨架与工具链
 
 M1：JSON 解析与合并（数据面）
 - [ ] 解析入口与错误定位（yyjson）
-- [ ] `extends` 递归与循环检测、深度上限
+- [ ] `extends` 递归与循环检测、深度上限（支持指令配置：0=不限）
 - [ ] 过滤/禁用/追加与冲突策略（`include/excludeTags`、`disableById/Tag`、`extraRules`、`duplicatePolicy`）
 - [ ] 产出 `final_mut_doc`（用于诊断/导出）
 

@@ -2,8 +2,17 @@ ngx_addon_name=ngx_http_waf_module
 
 # STUB: minimal config for v2 skeleton to enable clangd compile_commands.json generation.
 
-COMMON_SRCS="$ngx_addon_dir/src/module/ngx_http_waf_module.c"
-COMMON_CFLAGS="-I$ngx_addon_dir/src/include -I$ngx_addon_dir/third_party/yyjson -I$ngx_addon_dir/third_party/uthash"
+COMMON_SRCS="$ngx_addon_dir/src/module/ngx_http_waf_module.c \
+$ngx_addon_dir/src/module/ngx_http_waf_config.c \
+$ngx_addon_dir/src/json/ngx_http_waf_json.c \
+$ngx_addon_dir/src/module/ngx_http_waf_utils.c \
+$ngx_addon_dir/third_party/yyjson/yyjson.c"
+COMMON_CFLAGS="-I$ngx_addon_dir/src/include -I$ngx_addon_dir/third_party -I$ngx_addon_dir/third_party/yyjson -I$ngx_addon_dir/third_party/uthash"
+
+# Keep addon deps for header changes (per v2 plan)
+NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
+  $ngx_addon_dir/src/include/*.h \
+  $ngx_addon_dir/third_party/uthash/uthash.h"
 
 if test -n "$ngx_module_link"; then
     # Dynamic module compilation
