@@ -2,6 +2,7 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 #include "ngx_http_waf_module_v2.h"
+#include <yyjson/yyjson.h>
 
 /*
  * 指令与配置：create/merge 与命令表
@@ -77,6 +78,14 @@ char* ngx_http_waf_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 			ngx_log_error(NGX_LOG_ERR, cf->log, 0,
 				      "waf: failed to load rules_json %V: file=%V ptr=%V msg=%V",
 				      &conf->rules_json_path, &err.file, &err.json_pointer, &err.message);
+		}
+		else {
+			yyjson_val* root = yyjson_doc_get_root(conf->rules_doc);
+			yyjson_val* rules = root ? yyjson_obj_get(root, "rules") : NULL;
+			size_t cnt = (rules && yyjson_is_arr(rules)) ? yyjson_arr_size(rules) : 0;
+			ngx_log_error(NGX_LOG_INFO, cf->log, 0,
+				      "waf: merged rules %uz from %V (depth=%ui)",
+				      (ngx_uint_t)cnt, &conf->rules_json_path, conf->json_extends_max_depth);
 		}
 	}
 

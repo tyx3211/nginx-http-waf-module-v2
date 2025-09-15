@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "meta": {"name": "depth_1", "extends": ["./depth_2.json"]},
+  "rules": [
+    {"id": 8001, "tags": ["depth"], "target": "URI", "match": "CONTAINS", "pattern": "/1", "action": "LOG"}
+  ]
+}
+
+
+

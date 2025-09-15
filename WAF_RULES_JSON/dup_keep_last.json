@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "meta": {"name": "dup_keep_last", "extends": ["./dup_child.json"], "duplicatePolicy": "warn_keep_last"},
+  "rules": [
+    {"id": 700, "tags": ["dup"], "target": "URI", "match": "CONTAINS", "pattern": "/parent", "action": "LOG"}
+  ]
+}
+
+
+

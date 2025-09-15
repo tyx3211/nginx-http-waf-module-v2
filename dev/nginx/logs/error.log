@@ -1,0 +1,2 @@
+2025/09/15 16:02:04 [warn] 129287#0: waf: duplicate rule id=700 at /home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/dup_keep_last.json, keep last (policy=warn_keep_last)
+2025/09/15 16:02:04 [info] 129287#0: waf: merged rules 1 from dup_keep_last.json (depth=5)

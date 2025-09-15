@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "meta": {
+    "name": "test_entry",
+    "extends": ["./base.json", "./lib/child.json"],
+    "includeTags": ["xss"],
+    "excludeTags": ["legacy"],
+    "duplicatePolicy": "warn_keep_last"
+  },
+  "disableById": [200],
+  "disableByTag": ["blockedTag"],
+  "rules": [
+    {"id": 400, "tags": ["entry"], "target": "URI", "match": "CONTAINS", "pattern": "/ok", "action": "LOG"},
+    {"id": 200, "tags": ["entry"], "target": "URI", "match": "CONTAINS", "pattern": "/still-enabled", "action": "LOG"}
+  ],
+  "extraRules": [
+    {"id": 600, "tags": ["extra"], "target": "URI", "match": "CONTAINS", "pattern": "/extra", "action": "LOG"}
+  ]
+}
+
+
+
+

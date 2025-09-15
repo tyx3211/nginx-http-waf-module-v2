@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "meta": {"name": "depth_3"},
+  "rules": [
+    {"id": 8003, "tags": ["depth"], "target": "URI", "match": "CONTAINS", "pattern": "/3", "action": "LOG"}
+  ]
+}
+
+
+

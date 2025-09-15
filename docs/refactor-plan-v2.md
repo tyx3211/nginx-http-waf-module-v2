@@ -1,3 +1,19 @@
+## 注意：内置工件优先哲学（置顶）
+
+- 内置优先（优先 Nginx，其次系统）：对路径解析、文件操作、正则、内存池/字符串、日志等，默认复用内置 API。
+- 不重复造轮子：除非存在明确缺口且经论证，否则不自研通用工具函数。
+- 保守处理：字符串层仅做必要的“格式化”而非“安全归一”；安全边界采用基于目录句柄的系统调用（如 `openat`/`fstatat`）进行约束。
+- 一致性与可维护：内存统一使用 `ngx_pool_t`/slab；`ngx_str_t`/`ngx_p[n]alloc` 字符串/内存族；API/行为与 Nginx 保持一致，随上游演进。
+- 评审门槛：如未采用内置实现，PR 必须给出理由、对比与测试覆盖。
+- 功能不失：在不改变既有语义的前提下引入内置替换，相关回归必须通过。
+
+- 参考（优先选型）：
+  - 路径：`ngx_get_full_name`、`ngx_conf_full_name`
+  - 文件：`ngx_file_info`、`ngx_open_file`、`ngx_read_file`
+  - 正则：`ngx_regex_compile`
+  - 内存/字符串：`ngx_pool_t`、`ngx_palloc/ngx_pnalloc`、`ngx_str_t`、`ngx_cpystrn`
+  - 日志：`ngx_log_error`
+
 ## 注意：编码偏好与装配脚本（置顶）
 
 - 编码偏好（强制）
