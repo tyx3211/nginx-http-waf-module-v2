@@ -235,9 +235,9 @@ typedef struct {
     yyjson_mut_val* out_root;
     yyjson_mut_val* out_rules; /* 最终规则数组 */
 
-    /* 仅作用于“被引入工件”的过滤/禁用集合（来源：入口 JSON） */
-    yyjson_val* include_tags;   /* meta.includeTags?: string[] */
-    yyjson_val* exclude_tags;   /* meta.excludeTags?: string[] */
+    /* 仅作用于“被引入工件”的禁用集合（来源：入口 JSON；v2.0 不支持 include/exclude） */
+    yyjson_val* include_tags;   /* 未使用（v2.0 简化版） */
+    yyjson_val* exclude_tags;   /* 未使用（v2.0 简化版） */
     yyjson_val* disable_by_id;  /* disableById?: number[] */
     yyjson_val* disable_by_tag; /* disableByTag?: string[] */
 
@@ -256,7 +256,7 @@ static waf_dup_policy_e waf_parse_duplicate_policy_from_root(yyjson_val* root) {
             if (ngx_strcmp(s, "warn_keep_last") == 0) return WAF_DUP_WARN_KEEP_LAST;
         }
     }
-    return WAF_DUP_ERROR; /* 默认严格 */
+    return WAF_DUP_WARN_SKIP; /* 默认 warn_skip，保持容忍且有日志 */
 }
 
 static ngx_uint_t waf_string_in_arr(yyjson_val* arr, const char* s, size_t slen) {
@@ -404,15 +404,7 @@ static ngx_int_t waf_merge_rules_from_array(waf_merge_ctx_t* ctx,
         if (!rule || !yyjson_is_obj(rule)) continue;
 
         if (apply_filters) {
-            /* includeTags：若给定，则要求命中至少一个标签 */
-            if (ctx->include_tags && yyjson_is_arr(ctx->include_tags)) {
-                if (!waf_rule_has_any_tag(rule, ctx->include_tags)) continue;
-            }
-            /* excludeTags：命中即排除 */
-            if (ctx->exclude_tags && yyjson_is_arr(ctx->exclude_tags)) {
-                if (waf_rule_has_any_tag(rule, ctx->exclude_tags)) continue;
-            }
-            /* disableById / disableByTag */
+            /* v2.0：仅支持对 imported_set 应用 disableById/disableByTag */
             int64_t id = 0;
             if (waf_rule_get_id(rule, &id)) {
                 if (waf_id_in_arr(ctx->disable_by_id, id)) continue;
@@ -661,8 +653,9 @@ yyjson_doc* ngx_http_waf_json_load_and_merge(ngx_pool_t* pool,
     }
 
     yyjson_val* meta = yyjson_obj_get(entry_root, "meta");
-    mctx.include_tags = meta ? yyjson_obj_get(meta, "includeTags") : NULL;
-    mctx.exclude_tags = meta ? yyjson_obj_get(meta, "excludeTags") : NULL;
+    /* v2.0：不支持 include/exclude，显式置空避免误用 */
+    mctx.include_tags = NULL;
+    mctx.exclude_tags = NULL;
     mctx.disable_by_id = yyjson_obj_get(entry_root, "disableById");
     mctx.disable_by_tag = yyjson_obj_get(entry_root, "disableByTag");
     mctx.dup_policy = waf_parse_duplicate_policy_from_root(entry_root);
@@ -744,26 +737,13 @@ yyjson_doc* ngx_http_waf_json_load_and_merge(ngx_pool_t* pool,
         }
     }
 
-    /* 再追加入口文件自身的 rules（不做 include/exclude/disable 过滤） */
+    /* 再追加入口文件自身的 rules（不做禁用过滤） */
     if (waf_merge_rules_from_doc(&mctx, entry_doc, /*apply_filters=*/0, &abs) != NGX_OK) {
         yyjson_mut_doc_free(out_doc);
         yyjson_doc_free(entry_doc);
         return NULL;
     }
 
-    /* 追加 extraRules（不做过滤） */
-    yyjson_val* extra = yyjson_obj_get(entry_root, "extraRules");
-    if (extra) {
-        if (!yyjson_is_arr(extra)) {
-            if (log) ngx_log_error(NGX_LOG_WARN, log, 0, "waf: extraRules 应为数组, %V", &abs);
-        } else {
-            if (waf_merge_rules_from_array(&mctx, extra, /*apply_filters=*/0, &abs) != NGX_OK) {
-                yyjson_mut_doc_free(out_doc);
-                yyjson_doc_free(entry_doc);
-                return NULL;
-            }
-        }
-    }
 
     /* 产出只读文档并清理可变文档 */
     yyjson_doc* final_doc = yyjson_mut_doc_imut_copy(out_doc, NULL);

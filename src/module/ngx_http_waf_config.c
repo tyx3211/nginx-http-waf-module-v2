@@ -3,6 +3,7 @@
 #include <ngx_http.h>
 #include "ngx_http_waf_module_v2.h"
 #include <yyjson/yyjson.h>
+// #include <stdlib.h>
 
 /*
  * 指令与配置：create/merge 与命令表
@@ -86,6 +87,17 @@ char* ngx_http_waf_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 			ngx_log_error(NGX_LOG_INFO, cf->log, 0,
 				      "waf: merged rules %uz from %V (depth=%ui)",
 				      (ngx_uint_t)cnt, &conf->rules_json_path, conf->json_extends_max_depth);
+
+			/* 输出 final_doc（单行 JSON，便于测试提取） */
+			// size_t out_len = 0;
+			// yyjson_write_err werr;
+			// char *json = yyjson_write_opts(conf->rules_doc, /*flags=*/0, /*alc=*/NULL, &out_len, &werr);
+			// if (json) {
+			// 	ngx_log_error(NGX_LOG_INFO, cf->log, 0, "waf: final_doc: %s", json);
+			// 	free(json);
+			// } else {
+			// 	ngx_log_error(NGX_LOG_WARN, cf->log, 0, "waf: final_doc dump failed: code=%ui", (ngx_uint_t)werr.code);
+			// }
 		}
 	}
 

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "meta": {"name": "required_missing_id"},
+  "rules": [
+    {"tags": ["t"], "target": "URI", "match": "CONTAINS", "pattern": "/x", "action": "LOG"},
+    {"id": 103, "tags": ["t"], "target": "URI", "match": "CONTAINS", "pattern": "/y", "action": "LOG"}
+  ]
+}
+
+
+
+
+

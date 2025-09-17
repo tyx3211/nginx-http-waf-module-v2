@@ -5,6 +5,3 @@
     {"id": 700, "tags": ["dup"], "target": "URI", "match": "CONTAINS", "pattern": "/child", "action": "LOG"}
   ]
 }
-
-
-

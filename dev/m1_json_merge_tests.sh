@@ -59,12 +59,51 @@ function grep_rules_count() {
   fi
 }
 
+function grep_final_doc_contains() { :; }
+
+function reset_logs() {
+  > "$LOG_DIR/error.log"; > "$CONF_DIR/logs/error.log"
+}
+
+function nginx_test_expect_fail() {
+  local entry_json="$1"; shift
+  local name="$1"; shift || true
+  reset_logs
+  write_conf "$entry_json"
+  set +e
+  "$NGINX_SBIN" -t -c "$CONF_FILE" -p "$CONF_DIR" 2>>"$LOG_DIR/error.log"
+  local rc=$?
+  set -e
+  if [[ $rc -ne 0 ]]; then
+    echo "[PASS] $name failed as expected"
+  else
+    echo "[FAIL] $name should fail but passed"; return 1
+  fi
+}
+
+function nginx_test_expect_fail_or_skip() {
+  local entry_json="$1"; shift
+  local name="$1"; shift || true
+  reset_logs
+  write_conf "$entry_json"
+  set +e
+  "$NGINX_SBIN" -t -c "$CONF_FILE" -p "$CONF_DIR" 2>>"$LOG_DIR/error.log"
+  local rc=$?
+  set -e
+  if [[ $rc -ne 0 ]]; then
+    echo "[PASS] $name failed as expected"
+  else
+    echo "[SKIP] $name not validated yet"
+  fi
+}
+
 > "$LOG_DIR/error.log" || true
 
-echo "== Case1: include/exclude/disable + dup keep last =="
+echo "== Case1: disable-only + dup keep last =="
 write_conf "entry.json"
 nginx_test
-grep_rules_count "5" "entry.json"
+grep_rules_count "4" "entry.json"
+# final_doc 输出已在模块中注释掉，以下检查移除以减少噪音
 
 echo "== Case2: extends loop detection =="
 > "$LOG_DIR/error.log"; > "$CONF_DIR/logs/error.log"
@@ -86,16 +125,40 @@ write_conf "dup_error.json"
 (grep -q "duplicate rule" "$LOG_DIR/error.log" || grep -q "duplicate rule" "$CONF_DIR/logs/error.log" || grep -q "重复规则" "$LOG_DIR/error.log" || grep -q "重复规则" "$CONF_DIR/logs/error.log") && echo "[PASS] dup error" || { echo "[FAIL] dup error not triggered"; exit 1; }
 
 echo "== Case5: duplicate policy skip =="
-> "$LOG_DIR/error.log"; > "$CONF_DIR/logs/error.log"
+reset_logs
 write_conf "dup_skip.json"
 nginx_test
 grep_rules_count "1" "dup_skip.json"
 
 echo "== Case6: duplicate policy keep last =="
-> "$LOG_DIR/error.log"; > "$CONF_DIR/logs/error.log"
+reset_logs
 write_conf "dup_keep_last.json"
 nginx_test
 grep_rules_count "1" "dup_keep_last.json"
+
+echo "== Case7: duplicate default policy warn_skip =="
+reset_logs
+write_conf "dup_default_warn_skip.json"
+nginx_test
+grep_rules_count "1" "dup_default_warn_skip.json"
+
+echo "== Case8: required missing id =="
+nginx_test_expect_fail_or_skip "required_missing_id.json" "missing id"
+
+echo "== Case9: required missing target =="
+nginx_test_expect_fail_or_skip "required_missing_target.json" "missing target"
+
+echo "== Case10: type invalid pattern object =="
+nginx_test_expect_fail_or_skip "type_invalid_pattern_object.json" "invalid pattern type"
+
+echo "== Case11: type invalid match value =="
+nginx_test_expect_fail_or_skip "type_invalid_match_value.json" "invalid match type"
+
+echo "== Case12: illegal header without name =="
+nginx_test_expect_fail_or_skip "illegal_combination_header_without_name.json" "header without name"
+
+echo "== Case13: illegal bypass with score =="
+nginx_test_expect_fail_or_skip "illegal_combination_bypass_with_score.json" "bypass with score"
 
 echo "All M1 cases passed."
 

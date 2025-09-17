@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "meta": {"name": "type_invalid_match_value"},
+  "rules": [
+    {"id": 401, "tags": ["t"], "target": "URI", "match": 123, "pattern": "/x", "action": "LOG"}
+  ]
+}
+
+
+
+
+

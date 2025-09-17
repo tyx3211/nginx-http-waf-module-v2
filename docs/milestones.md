@@ -52,26 +52,50 @@
 - 投入：1-2 人日
 - 交付：骨架文件、config、文档与脚本
 
-### [x] M1：JSON 解析与合并（数据面）
+### [ ] M1：JSON 合并与导入级重写（数据面 · v2.0 简化规范）
 - 范围：
-  - [x] 解析入口，错误定位到 JSON 路径
-  - [x] `extends` 递归 + 循环检测 + 深度上限（支持 0=不限）
-  - [x] 过滤/禁用/追加与冲突策略（include/excludeTags、disableById/Tag、extraRules、duplicatePolicy 三策略）
-  - [x] 产出 `final_mut_doc`（以只读 `yyjson_doc` 返回）
-  - [x] loc 合并后按“合并结果 max_depth”对本块 `waf_rules_json` 进行后置解析
-- DoD：
-  - [ ] 单测覆盖：必填/类型/非法组合/循环/深度/冲突三模式（待补充单测用例）
-  - [x] 大小写、尾逗号、注释等容错（已启用 yyjson 相关 flags）
-  - [x] 失败信息含文件与 JSON pointer（已在错误路径处填充）
+  - [ ] 解析入口 JSON（容错：注释/尾逗号等）
+  - [ ] `meta.extends` 递归（左→右）+ 循环检测 + 深度上限（0=不限）
+  - [ ] extends 元素支持 字符串路径 或 对象：
+        - `file: string`（必填）
+        - `rewriteTargetsForTag?: Record<string, Target[]>`
+        - `rewriteTargetsForIds?: Array<{ ids: number[]; target: Target[] }>`
+        - 重写仅作用当前层 imported_set；先按 tag 后按 ids 应用
+  - [ ] imported_set 上禁用：`disableById:number[]`、`disableByTag:string[]`（仅移除父集，不影响本地 rules）
+  - [ ] 目标归一化与校验：
+        - `target: string|string[]`；加载期展开 `ALL_PARAMS` 为 `["URI","ARGS_COMBINED","BODY"]`
+        - 若含 `HEADER`：数组长度必须为 1 且必须提供 `headerName`
+        - 非法/空数组报错并定位 JSON 指针
+  - [ ] 追加本地 `rules` 到集合尾部
+  - [ ] 去重：按 `meta.duplicatePolicy`（默认 `warn_skip`）对“本层可见集合”基于 `id` 去重，支持 `error|warn_skip|warn_keep_last`
+  - [ ] 最终产出：仅 `rules` 数组；从入口 JSON 透传 `version`、`meta.name`、`meta.versionId`、`policies`
+  - [ ] v2.0 简化：不支持 `includeTags`/`excludeTags`/`extraRules`；`meta` 不跨层继承
+  - [ ] 路径解析：绝对/相对/裸路径（相对 `waf_jsons_dir` 或 Nginx prefix）；错误信息含文件与 JSON pointer
+- DoD（测试优先）：
+  - [ ] 单测矩阵覆盖：
+        1) 必填/类型校验与非法组合（`HEADER` 约束、`pattern[]` 非空、`caseless` 类型）
+        2) `extends`：递归顺序、循环、深度上限
+        3) 导入级重写：按 tag 和按 ids 均生效；非法 target 值与 `HEADER` 组合报错；`ALL_PARAMS` 展开
+        4) 禁用作用域：仅影响 imported_set；本地 `rules` 不受影响
+        5) 去重三策略：`error`/`warn_skip`/`warn_keep_last` 的顺序与结果
+        6) 路径解析：绝对/相对/裸路径与 `waf_jsons_dir`；错误指针定位
+        7) 兼容性：注释/尾逗号解析成功
+  - [ ] 用例目录与脚本：
+        - `WAF_RULES_JSON/` 新增：`rewrite_tags.json`、`rewrite_ids.json`、`invalid_target_combo.json`、`header_array_invalid.json`、`all_params_expand.json`、`disable_scope.json`、`duplicate_policy_{error,warn_skip,warn_keep_last}.json` 等
+        - 更新 `dev/m1_json_merge_tests.sh`：新增用例并校验退出码与 stdout 片段
+  - [ ] 返回 `yyjson_doc`（只读）且内存安全；日志包含必要 `WARN/ERR`
 - 依赖：M0
-- 投入：3-5 人日
-- 交付：`src/json/*` 最小实现 + 单测
+- 投入：4-6 人日
+- 交付：
+  - `src/json/ngx_http_waf_json.c` 完成上述合并/重写/校验逻辑
+  - 测试用 JSON 与脚本
+  - 文档：`docs/waf-json-spec-v2.0-simplified.md`（已对齐）
 
 ### [ ] M2：编译期快照
 - 范围：
   - [ ] 规则校验与 phase 推断/覆盖校验
   - [ ] REGEX/CONTAINS/CIDR 预编译
-  - [ ] `id_map` 与分桶；loc_conf 快照；请求期零分配校验
+  - [ ] 唯一性校验与分桶（uthash 仅编译期临时使用；运行期 loc_conf 仅保留 `ngx_array` 分桶；可选 debug 只读 `id_index`）
 - DoD：
   - [ ] 单测覆盖：分桶/排序/去重/空集行为；`ngx_array_create` 最小容量保证
   - [ ] REGEX 编译失败时定位具体规则与模式

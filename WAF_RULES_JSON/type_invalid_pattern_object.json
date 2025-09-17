@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "meta": {"name": "type_invalid_pattern_object"},
+  "rules": [
+    {"id": 201, "tags": ["t"], "target": "URI", "match": "CONTAINS", "pattern": {"not": "string"}, "action": "LOG"}
+  ]
+}
+
+
+
+
+

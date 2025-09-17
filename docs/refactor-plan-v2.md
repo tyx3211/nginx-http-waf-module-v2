@@ -199,6 +199,8 @@
 6) 追加 `extraRules`。
 7) 依据 `duplicatePolicy` 处理冲突 id（error|warn_skip|warn_keep_last）。
 
+默认值：若未在入口 JSON 指定 `duplicatePolicy`，默认采用 `warn_skip`（跳过后出现的重复规则，并输出 warn 日志）。
+
 校验：
 - 必填字段与类型；HEADER→`headerName` 必填；BYPASS 不允许 `score`；`phase/target/action` 组合合法。
 - 错误信息指向 JSON 路径（如 `rules[3].target`）。
@@ -207,13 +209,16 @@
 
 ---
 
-## 七、运行期编译（uthash + 分桶索引）
+## 七、运行期编译（分桶索引；uthash 仅编译期）
 
 编译产物（挂 loc_conf，只读）：
 - `compiled_rule_t`（核心字段）
   - `rule_id:uint32`, `tags:ngx_array_t(ngx_str_t)`, `phase`, `target`, `header_name`, `match`,
     `pattern_list:ngx_array_t(ngx_str_t)`, `compiled_matchers`, `action`, `score:uint32`, `caseless:bool`, `priority:int`。
-- `id_map`（uthash）：`id → compiled_rule_t*`，用于去重与诊断。
+- 不持久化第三方哈希结构（遵循“内置工件优先”与“运行期零分配”）：
+  - 编译期使用临时 uthash（`id → compiled_rule_t*`）做唯一性校验与诊断（仅在编译过程中存在）；
+  - 运行期 loc_conf 中仅保留分桶的 `ngx_array_t(compiled_rule_t*)`；
+  - 可选（调试构建或显式开关）：生成只读 `id_index`（`ngx_array_t` of `{id:uint32, ptr:compiled_rule_t*}`），便于二分检索与诊断；默认关闭。
 - `buckets`：5 段 × target 的 `ngx_array_t(compiled_rule_t*)`。
 - `policies_snapshot`：如 `baseAccessScore`。
 
