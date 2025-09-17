@@ -93,23 +93,33 @@
 
 ### [ ] M2：编译期快照
 - 范围：
-  - [ ] 规则校验与 phase 推断/覆盖校验
-  - [ ] REGEX/CONTAINS/CIDR 预编译
-  - [ ] 唯一性校验与分桶（uthash 仅编译期临时使用；运行期 loc_conf 仅保留 `ngx_array` 分桶；可选 debug 只读 `id_index`）
+  - [ ] 输入为 M1 产出的最终 `rules`（targets 已归一、`ALL_PARAMS` 已展开、`HEADER` 约束已校验）与入口 JSON 透传的 `policies`
+  - [ ] 规则校验与 phase 推断（基于 target/action 的最小推断；允许显式覆盖并做一致性校验）
+  - [ ] REGEX/CONTAINS/CIDR 预编译（大小写按 `caseless`）
+  - [ ] 唯一性校验与分桶：编译期可用 uthash；运行期在 `loc_conf` 仅保留 `ngx_array` 分桶；可选 debug 暴露只读 `id_index`
+  - [ ] 将 `policies` 挂载到快照（仅透传；不在 M2 解释语义）
 - DoD：
-  - [ ] 单测覆盖：分桶/排序/去重/空集行为；`ngx_array_create` 最小容量保证
-  - [ ] REGEX 编译失败时定位具体规则与模式
+  - [ ] 单测覆盖：
+        1) 分桶/排序/空集行为
+        2) phase 推断/显式覆盖与冲突检测
+        3) REGEX 编译失败与 CIDR 非法掩码：定位到 ruleId 与来源文件
+        4) `ngx_array_create` 最小容量与扩容路径
+  - [ ] 编译产物可被 M3/M4 加载并执行最小请求链路
 - 依赖：M1
 - 投入：4-6 人日
-- 交付：`src/core/ngx_http_waf_compiler.*` + 相关工具
+- 交付：`src/core/ngx_http_waf_compiler.*` + 相关工具（含快照结构与 debug 导出助手）
 
-### [ ] M3：指令与路径解析
+### [ ] M3：指令与装配（入口/目录/深度）
 - 范围：
-  - [ ] 新指令最小集；`waf_json_extends_max_depth <number>`（http/server/location；0=不限）；动态封禁组；`waf_trust_xff`、`waf_shm_zone`
-  - [ ] JSON 路径解析与继承覆盖策略
+  - [ ] 新指令最小集：
+        - `waf_rules_json <path>`（声明入口规则 JSON；作用域：http/server/location；可继承）
+        - `waf_jsons_dir <path>`（裸路径基准目录；默认取 Nginx prefix；作用域：http/server；可继承）
+        - `waf_json_extends_max_depth <number>`（0=不限；作用域：http/server/location；可继承）
+        - 网络/共享内存/信任头：`waf_trust_xff`、`waf_shm_zone`（为 M4/M5 做准备）
+  - [ ] 装配链路：在 `postconfiguration` 或合适钩子中按指令解析加载入口 JSON → 调用 M1 合并 → 调用 M2 编译 → 将快照落入 `loc_conf`
 - DoD：
-  - [ ] `nginx -t` 通过；http/srv/loc 继承符合预期
-  - [ ] 示例 `nginx.conf` 可跑通（无规则仅基础日志）
+  - [ ] `nginx -t` 通过；http/srv/loc 指令继承与覆盖符合预期（未设置处继承父级快照）
+  - [ ] 示例 `nginx.conf` 可跑通（未声明 `waf_rules_json` 时仅基础日志；声明后最小规则生效）
 - 依赖：M2
 - 投入：3-4 人日
 - 交付：`src/module/*` 指令实现 + 示例配置
