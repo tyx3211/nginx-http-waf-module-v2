@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "meta": {"name": "invalid_target_combo"},
+  "rules": [
+    {
+      "id": 602,
+      "target": [],
+      "match": "CONTAINS",
+      "pattern": "oops",
+      "action": "LOG"
+    }
+  ]
+}

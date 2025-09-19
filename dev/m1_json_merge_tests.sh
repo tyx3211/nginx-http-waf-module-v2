@@ -143,22 +143,55 @@ nginx_test
 grep_rules_count "1" "dup_default_warn_skip.json"
 
 echo "== Case8: required missing id =="
-nginx_test_expect_fail_or_skip "required_missing_id.json" "missing id"
+nginx_test_expect_fail "required_missing_id.json" "missing id"
 
 echo "== Case9: required missing target =="
-nginx_test_expect_fail_or_skip "required_missing_target.json" "missing target"
+nginx_test_expect_fail "required_missing_target.json" "missing target"
 
 echo "== Case10: type invalid pattern object =="
-nginx_test_expect_fail_or_skip "type_invalid_pattern_object.json" "invalid pattern type"
+nginx_test_expect_fail "type_invalid_pattern_object.json" "invalid pattern type"
 
 echo "== Case11: type invalid match value =="
-nginx_test_expect_fail_or_skip "type_invalid_match_value.json" "invalid match type"
+nginx_test_expect_fail "type_invalid_match_value.json" "invalid match type"
 
 echo "== Case12: illegal header without name =="
-nginx_test_expect_fail_or_skip "illegal_combination_header_without_name.json" "header without name"
+nginx_test_expect_fail "illegal_combination_header_without_name.json" "header without name"
 
 echo "== Case13: illegal bypass with score =="
-nginx_test_expect_fail_or_skip "illegal_combination_bypass_with_score.json" "bypass with score"
+nginx_test_expect_fail "illegal_combination_bypass_with_score.json" "bypass with score"
+
+echo "== Case14: header with other targets (array invalid) =="
+nginx_test_expect_fail "header_array_invalid.json" "header with other targets"
+
+echo "== Case15: empty target array invalid =="
+nginx_test_expect_fail "invalid_target_combo.json" "empty target array"
+
+echo "== Case16: unknown fields in rule should fail =="
+nginx_test_expect_fail "unknown_field_rule.json" "unknown field in rule"
+
+echo "== Case17: bad score types should fail =="
+nginx_test_expect_fail "bad_score_types.json" "bad score types"
+
+echo "== Case18: boundary values should fail =="
+nginx_test_expect_fail "boundary_values.json" "boundary values"
+
+echo "== Case19: rewrite targets by tag (counts unchanged) =="
+reset_logs
+write_conf "rewrite_tags.json"
+nginx_test
+grep_rules_count "2" "rewrite_tags.json"
+
+echo "== Case20: rewrite targets by ids (counts unchanged) =="
+reset_logs
+write_conf "rewrite_ids.json"
+nginx_test
+grep_rules_count "2" "rewrite_ids.json"
+
+echo "== Case21: missing parent file should fail =="
+nginx_test_expect_fail "missing_parent_entry.json" "missing parent file"
+
+echo "== Case22: empty file should fail =="
+nginx_test_expect_fail "empty_file.json" "empty file"
 
 echo "All M1 cases passed."
 

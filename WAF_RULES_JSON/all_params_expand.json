@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "meta": {"name": "all_params_expand"},
+  "rules": [
+    {
+      "id": 501,
+      "target": "ALL_PARAMS",
+      "match": "CONTAINS",
+      "pattern": "drop table",
+      "action": "LOG"
+    }
+  ]
+}

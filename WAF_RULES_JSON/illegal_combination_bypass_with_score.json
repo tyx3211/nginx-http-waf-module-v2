@@ -2,7 +2,7 @@
   "version": 1,
   "meta": {"name": "illegal_combination_bypass_with_score"},
   "rules": [
-    {"id": 302, "tags": ["bypass"], "target": "URI", "match": "PREFIX", "pattern": ["/health"], "action": "BYPASS", "score": 5}
+    {"id": 302, "tags": ["bypass"], "target": "URI", "match": "CONTAINS", "pattern": "/health", "action": "BYPASS", "score": 5}
   ]
 }
 

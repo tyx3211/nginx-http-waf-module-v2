@@ -1,3 +1,53 @@
+## 置顶：当前实现与控制台联动建议（不丢失可视化能力）
+
+- **现状（M1）可观测面**
+  - 合并/解析期通过 Nginx 日志接口输出固定前缀的行：
+    - ERR：`waf: json read failed ...`、`waf: failed to load rules_json ...`
+    - WARN：`waf: duplicate rule id=..., skip (policy=warn_skip)` / `keep last (policy=warn_keep_last)`
+    - INFO：`waf: merged rules N from ... (depth=...)`、`waf: final_doc: {...}`（调试友好）
+  - 输出去向：
+    - Nginx `error_log`（持久化，便于审计）。
+    - `nginx -t -q` 的 stderr（dry-run 时可直接抓取返回前端）。
+  - 结论：前端/控制台只需过滤前缀 `waf:` 的行即可获得“应用新配置时”的启动告警与摘要；当前实现不会丢失可视化能力。
+
+- **建议联动流程（控制台/CI）**
+  1) Dry-run 验证并收集可读反馈（只检查，不生效）：
+  ```bash
+  /usr/sbin/nginx -t -q \
+    -p /usr/local/nginx \
+    -c /usr/local/nginx/conf/nginx.conf 2>&1 | grep -E "waf:"
+  ```
+  - 以退出码作为是否允许继续的判据；stderr 中的 `waf:` 行直接返回给前端展示。
+  2) 成功后再平滑重载：
+  ```bash
+  /usr/sbin/nginx -s reload -p /usr/local/nginx -c /usr/local/nginx/conf/nginx.conf
+  ```
+  - 如需补充运行期的即时告警，可在短窗口内从 `error_log` 追加抓取 `waf:` 行（例如 tail 最近若干行再按时间裁剪）。
+  3) 前端返回建议结构（示意）：
+  ```json
+  { "ok": true, "warnings": ["duplicate rule id=700, skip (policy=warn_skip)"], "errors": [], "summary": "merged rules: 4" }
+  ```
+
+- **可选增强（非刚需，按需后置）**
+  - 结构化报告开关（示例命名）：新增可选指令写入 JSON 报告（warnings/errors/merged 计数），便于机读；默认关闭。
+  - 告警丰富度：将重复规则的 WARN 补充 `file/json_pointer`，定位更精确（错误分支已具备这两字段）。
+  - `final_doc` 输出开关：在生产默认关闭，调试时开启以减少日志噪音与体积。
+
+### 编译期开关：WAF_DEBUG_FINAL_DOC（仅调试）
+
+- 用途：在 `nginx -t` 阶段将合并后的 `final_doc` 以单行 JSON 打印到 `error_log`（前缀 `waf: final_doc:`），用于调试与测试脚本提取。
+- 默认：关闭。生产环境不建议开启，避免日志噪音与泄露规则细节。
+- 开启方式：在模块构建时追加 CFLAGS 宏，例如：
+  ```bash
+  ./configure ... --add-dynamic-module=... && \
+  make modules CFLAGS+=" -DWAF_DEBUG_FINAL_DOC"
+  ```
+  或在自定义构建脚本中追加 `-DWAF_DEBUG_FINAL_DOC`。
+  代码位置：`src/module/ngx_http_waf_config.c` 中的 `#if defined(WAF_DEBUG_FINAL_DOC)` 宏块。
+
+- **结论**
+  - 保持现状即可满足“发布前验证 + 可视化反馈”；推荐“先 `-t -q` 收敛问题，再 `reload`”的业界常规流程，增强项按需推进。
+
 ## 注意：内置工件优先哲学（置顶）
 
 - 内置优先（优先 Nginx，其次系统）：对路径解析、文件操作、正则、内存池/字符串、日志等，默认复用内置 API。

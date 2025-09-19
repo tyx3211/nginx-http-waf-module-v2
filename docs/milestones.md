@@ -52,27 +52,27 @@
 - 投入：1-2 人日
 - 交付：骨架文件、config、文档与脚本
 
-### [ ] M1：JSON 合并与导入级重写（数据面 · v2.0 简化规范）
+### [x] M1：JSON 合并与导入级重写（数据面 · v2.0 简化规范）
 - 范围：
-  - [ ] 解析入口 JSON（容错：注释/尾逗号等）
-  - [ ] `meta.extends` 递归（左→右）+ 循环检测 + 深度上限（0=不限）
-  - [ ] extends 元素支持 字符串路径 或 对象：
+  - [x] 解析入口 JSON（容错：注释/尾逗号等）
+  - [x] `meta.extends` 递归（左→右）+ 循环检测 + 深度上限（0=不限）
+  - [x] extends 元素支持 字符串路径 或 对象：
         - `file: string`（必填）
         - `rewriteTargetsForTag?: Record<string, Target[]>`
         - `rewriteTargetsForIds?: Array<{ ids: number[]; target: Target[] }>`
         - 重写仅作用当前层 imported_set；先按 tag 后按 ids 应用
-  - [ ] imported_set 上禁用：`disableById:number[]`、`disableByTag:string[]`（仅移除父集，不影响本地 rules）
-  - [ ] 目标归一化与校验：
+  - [x] imported_set 上禁用：`disableById:number[]`、`disableByTag:string[]`（仅移除父集，不影响本地 rules）
+  - [x] 目标归一化与校验：
         - `target: string|string[]`；加载期展开 `ALL_PARAMS` 为 `["URI","ARGS_COMBINED","BODY"]`
         - 若含 `HEADER`：数组长度必须为 1 且必须提供 `headerName`
         - 非法/空数组报错并定位 JSON 指针
-  - [ ] 追加本地 `rules` 到集合尾部
-  - [ ] 去重：按 `meta.duplicatePolicy`（默认 `warn_skip`）对“本层可见集合”基于 `id` 去重，支持 `error|warn_skip|warn_keep_last`
-  - [ ] 最终产出：仅 `rules` 数组；从入口 JSON 透传 `version`、`meta.name`、`meta.versionId`、`policies`
-  - [ ] v2.0 简化：不支持 `includeTags`/`excludeTags`/`extraRules`；`meta` 不跨层继承
-  - [ ] 路径解析：绝对/相对/裸路径（相对 `waf_jsons_dir` 或 Nginx prefix）；错误信息含文件与 JSON pointer
+  - [x] 追加本地 `rules` 到集合尾部
+  - [x] 去重：按 `meta.duplicatePolicy`（默认 `warn_skip`）对“本层可见集合”基于 `id` 去重，支持 `error|warn_skip|warn_keep_last`
+  - [x] 最终产出：仅 `rules` 数组；从入口 JSON 透传 `version`、`meta.name`、`meta.versionId`、`policies`
+  - [x] v2.0 简化：不支持 `includeTags`/`excludeTags`/`extraRules`；`meta` 不跨层继承
+  - [x] 路径解析：绝对/相对/裸路径（相对 `waf_jsons_dir` 或 Nginx prefix）；错误信息含文件与 JSON pointer
 - DoD（测试优先）：
-  - [ ] 单测矩阵覆盖：
+  - [x] 单测矩阵覆盖：
         1) 必填/类型校验与非法组合（`HEADER` 约束、`pattern[]` 非空、`caseless` 类型）
         2) `extends`：递归顺序、循环、深度上限
         3) 导入级重写：按 tag 和按 ids 均生效；非法 target 值与 `HEADER` 组合报错；`ALL_PARAMS` 展开
@@ -80,10 +80,10 @@
         5) 去重三策略：`error`/`warn_skip`/`warn_keep_last` 的顺序与结果
         6) 路径解析：绝对/相对/裸路径与 `waf_jsons_dir`；错误指针定位
         7) 兼容性：注释/尾逗号解析成功
-  - [ ] 用例目录与脚本：
+  - [x] 用例目录与脚本：
         - `WAF_RULES_JSON/` 新增：`rewrite_tags.json`、`rewrite_ids.json`、`invalid_target_combo.json`、`header_array_invalid.json`、`all_params_expand.json`、`disable_scope.json`、`duplicate_policy_{error,warn_skip,warn_keep_last}.json` 等
         - 更新 `dev/m1_json_merge_tests.sh`：新增用例并校验退出码与 stdout 片段
-  - [ ] 返回 `yyjson_doc`（只读）且内存安全；日志包含必要 `WARN/ERR`
+  - [x] 返回 `yyjson_doc`（只读）且内存安全；日志包含必要 `WARN/ERR`
 - 依赖：M0
 - 投入：4-6 人日
 - 交付：

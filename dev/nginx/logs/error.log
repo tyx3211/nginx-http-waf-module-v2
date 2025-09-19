@@ -1,1 +1,2 @@
-2025/09/16 22:35:29 [info] 239195#0: waf: merged rules 1 from illegal_combination_bypass_with_score.json (depth=5)
+2025/09/19 01:37:48 [error] 70055#0: waf: json read failed: /home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/empty_file.json
+2025/09/19 01:37:48 [error] 70055#0: waf: failed to load rules_json empty_file.json: file=/home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/empty_file.json ptr= msg=input data is empty at byte 0

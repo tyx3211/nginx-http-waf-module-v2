@@ -3,7 +3,7 @@
 #include <ngx_http.h>
 #include "ngx_http_waf_module_v2.h"
 #include <yyjson/yyjson.h>
-// #include <stdlib.h>
+#include <stdlib.h>
 
 /*
  * 指令与配置：create/merge 与命令表
@@ -79,6 +79,7 @@ char* ngx_http_waf_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 			ngx_log_error(NGX_LOG_ERR, cf->log, 0,
 				      "waf: failed to load rules_json %V: file=%V ptr=%V msg=%V",
 				      &conf->rules_json_path, &err.file, &err.json_pointer, &err.message);
+			return NGX_CONF_ERROR;
 		}
 		else {
 			yyjson_val* root = yyjson_doc_get_root(conf->rules_doc);
@@ -88,16 +89,18 @@ char* ngx_http_waf_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 				      "waf: merged rules %uz from %V (depth=%ui)",
 				      (ngx_uint_t)cnt, &conf->rules_json_path, conf->json_extends_max_depth);
 
-			/* 输出 final_doc（单行 JSON，便于测试提取） */
-			// size_t out_len = 0;
-			// yyjson_write_err werr;
-			// char *json = yyjson_write_opts(conf->rules_doc, /*flags=*/0, /*alc=*/NULL, &out_len, &werr);
-			// if (json) {
-			// 	ngx_log_error(NGX_LOG_INFO, cf->log, 0, "waf: final_doc: %s", json);
-			// 	free(json);
-			// } else {
-			// 	ngx_log_error(NGX_LOG_WARN, cf->log, 0, "waf: final_doc dump failed: code=%ui", (ngx_uint_t)werr.code);
-			// }
+			#if defined(WAF_DEBUG_FINAL_DOC)
+			/* 输出 final_doc（单行 JSON，调试专用；生产默认关闭） */
+			size_t out_len = 0;
+			yyjson_write_err werr;
+			char *json = yyjson_write_opts(conf->rules_doc, /*flags=*/0, /*alc=*/NULL, &out_len, &werr);
+			if (json) {
+				ngx_log_error(NGX_LOG_INFO, cf->log, 0, "waf: final_doc: %s", json);
+				free(json);
+			} else {
+				ngx_log_error(NGX_LOG_WARN, cf->log, 0, "waf: final_doc dump failed: code=%ui", (ngx_uint_t)werr.code);
+			}
+			#endif
 		}
 	}
 

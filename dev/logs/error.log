@@ -1,2 +1,3 @@
-nginx: the configuration file /home/william/myNginxWorkspace/nginx-http-waf-module-v2/dev/nginx/nginx_m1.conf syntax is ok
-nginx: configuration file /home/william/myNginxWorkspace/nginx-http-waf-module-v2/dev/nginx/nginx_m1.conf test is successful
+nginx: [error] waf: json read failed: /home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/empty_file.json
+nginx: [error] waf: failed to load rules_json empty_file.json: file=/home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/empty_file.json ptr= msg=input data is empty at byte 0
+nginx: configuration file /home/william/myNginxWorkspace/nginx-http-waf-module-v2/dev/nginx/nginx_m1.conf test failed
