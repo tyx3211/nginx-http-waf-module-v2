@@ -5,6 +5,7 @@ ngx_addon_name=ngx_http_waf_module
 COMMON_SRCS="$ngx_addon_dir/src/module/ngx_http_waf_module.c \
 $ngx_addon_dir/src/module/ngx_http_waf_config.c \
 $ngx_addon_dir/src/json/ngx_http_waf_json.c \
+$ngx_addon_dir/src/core/ngx_http_waf_compiler.c \
 $ngx_addon_dir/src/module/ngx_http_waf_utils.c \
 $ngx_addon_dir/third_party/yyjson/yyjson.c"
 COMMON_CFLAGS="-I$ngx_addon_dir/src/include -I$ngx_addon_dir/third_party -I$ngx_addon_dir/third_party/yyjson -I$ngx_addon_dir/third_party/uthash"

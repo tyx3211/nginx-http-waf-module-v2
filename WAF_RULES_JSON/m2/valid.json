@@ -1,0 +1,13 @@
+{
+  // 合法：CIDR + 正则 + 多目标拆分，触发分桶与排序
+  "rules": [
+    { "id": 1001, "target": "CLIENT_IP", "match": "CIDR",  "pattern": ["10.0.0.0/8"], "action": "BYPASS", "priority": 5 },
+    { "id": 1101, "target": "CLIENT_IP", "match": "CIDR",  "pattern": ["1.2.3.4/32"],    "action": "DENY",   "priority": 1 },
+    { "id": 2001, "target": ["ARGS_COMBINED","BODY"], "match": "REGEX",  "pattern": ["(?i)select\\s+from"], "action": "DENY", "caseless": true, "priority": 3 }
+  ],
+  "policies": { "dynamicBlock": { "baseAccessScore": 1 } }
+}
+
+
+
+

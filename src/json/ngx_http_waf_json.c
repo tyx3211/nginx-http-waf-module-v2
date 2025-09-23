@@ -5,6 +5,7 @@
 #include <yyjson/yyjson.h>
 
 #include <stdarg.h>
+#include <uthash/uthash.h>
 
 /*
  * JSON 解析与合并实现（符合 waf-json-spec-v2.0-simplified）
@@ -1445,49 +1446,118 @@ waf_apply_rewrite_plan(waf_merge_ctx_t* ctx,
 
 /* ------------------------ 规则集合操作 ------------------------ */
 
-/*
- * 函数: waf_append_rule_with_policy
- * 作用: 依据 duplicatePolicy 写入规则，采用线性查重
- */
+/* 基于 uthash 的 id->index 查重项（仅在单层合并期使用） */
+typedef struct {
+    int64_t         id;
+    ngx_uint_t      idx;      /* 在 result->elts 中的位置 */
+    ngx_str_t       file;     /* 首次（或最近一次 keep_last 后）来源 */
+    ngx_str_t       pointer;  /* 首次（或最近一次 keep_last 后）JSON 指针 */
+    UT_hash_handle  hh;
+} waf_id_idx_entry_t;
+
+/* 依据 duplicatePolicy 写入规则（O(1) 查重），保持既有语义/日志不变 */
 static ngx_int_t
-waf_append_rule_with_policy(waf_merge_ctx_t* ctx,
-                            ngx_array_t* result,
-                            const waf_rule_entry_t* entry,
-                            waf_dup_policy_e policy)
+waf_append_rule_with_policy_hashed(waf_merge_ctx_t* ctx,
+                                   ngx_array_t* result,
+                                   waf_id_idx_entry_t** id_map,
+                                   const waf_rule_entry_t* entry,
+                                   waf_dup_policy_e policy)
 {
-    waf_rule_entry_t* items = result->elts;
-    for (ngx_uint_t i = 0; i < result->nelts; i++) {
-        if (items[i].id == entry->id) {
-            switch (policy) {
-            case WAF_DUP_POLICY_ERROR:
-                return waf_json_set_error(ctx, &entry->file, (const char*)entry->pointer.data,
-                                          "重复规则 id=%L (duplicatePolicy=error)", entry->id);
-            case WAF_DUP_POLICY_WARN_SKIP:
-                if (ctx->log) {
-                    ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
-                                  "waf: duplicate rule id=%L, skip (policy=warn_skip)",
-                                  entry->id);
-                }
-                return NGX_OK;
-            case WAF_DUP_POLICY_WARN_KEEP_LAST:
-                if (ctx->log) {
-                    ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
-                                  "waf: duplicate rule id=%L, keep last (policy=warn_keep_last)",
-                                  entry->id);
-                }
-                items[i] = *entry;
-                return NGX_OK;
+    waf_id_idx_entry_t* found = NULL;
+    HASH_FIND(hh, *id_map, &entry->id, sizeof(entry->id), found);
+
+    if (found) {
+        switch (policy) {
+        case WAF_DUP_POLICY_ERROR:
+            return waf_json_set_error(ctx, &entry->file, (const char*)entry->pointer.data,
+                                      "重复规则 id=%L (duplicatePolicy=error)", entry->id);
+        case WAF_DUP_POLICY_WARN_SKIP:
+            if (ctx->log) {
+                ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+                              "waf: duplicate rule id=%L, skip (policy=warn_skip)",
+                              entry->id);
             }
-        }
+            return NGX_OK;
+        case WAF_DUP_POLICY_WARN_KEEP_LAST: {
+            /* 就地覆盖首个位置，保持保序语义与原日志格式 */
+            waf_rule_entry_t* items = result->elts;
+            if (ctx->log) {
+                ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+                              "waf: duplicate rule id=%L, keep last (policy=warn_keep_last)",
+                              entry->id);
+            }
+            items[found->idx] = *entry;
+            /* 更新来源，便于后续再次冲突时参考（不影响现有日志格式） */
+            found->file = entry->file;
+            found->pointer = entry->pointer;
+            return NGX_OK;
+        }}
     }
 
+    /* 首次出现：追加并登记索引 */
     waf_rule_entry_t* slot = ngx_array_push(result);
     if (slot == NULL) {
         return waf_json_set_error(ctx, &entry->file, (const char*)entry->pointer.data, "内存不足");
     }
     *slot = *entry;
+
+    waf_id_idx_entry_t* e = ngx_pcalloc(ctx->pool, sizeof(*e));
+    if (e == NULL) {
+        return waf_json_set_error(ctx, &entry->file, (const char*)entry->pointer.data, "内存不足");
+    }
+    e->id = entry->id;
+    e->idx = result->nelts - 1;
+    e->file = entry->file;
+    e->pointer = entry->pointer;
+    HASH_ADD(hh, *id_map, id, sizeof(e->id), e);
     return NGX_OK;
 }
+
+/* 线性查重版本已移除，使用哈希索引版本替代 */
+/*
+ * 函数: waf_append_rule_with_policy
+ * 作用: 依据 duplicatePolicy 写入规则，采用线性查重
+ */
+//  static ngx_int_t
+//  waf_append_rule_with_policy(waf_merge_ctx_t* ctx,
+//                              ngx_array_t* result,
+//                              const waf_rule_entry_t* entry,
+//                              waf_dup_policy_e policy)
+//  {
+//      waf_rule_entry_t* items = result->elts;
+//      for (ngx_uint_t i = 0; i < result->nelts; i++) {
+//          if (items[i].id == entry->id) {
+//              switch (policy) {
+//              case WAF_DUP_POLICY_ERROR:
+//                  return waf_json_set_error(ctx, &entry->file, (const char*)entry->pointer.data,
+//                                            "重复规则 id=%L (duplicatePolicy=error)", entry->id);
+//              case WAF_DUP_POLICY_WARN_SKIP:
+//                  if (ctx->log) {
+//                      ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+//                                    "waf: duplicate rule id=%L, skip (policy=warn_skip)",
+//                                    entry->id);
+//                  }
+//                  return NGX_OK;
+//              case WAF_DUP_POLICY_WARN_KEEP_LAST:
+//                  if (ctx->log) {
+//                      ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+//                                    "waf: duplicate rule id=%L, keep last (policy=warn_keep_last)",
+//                                    entry->id);
+//                  }
+//                  items[i] = *entry;
+//                  return NGX_OK;
+//              }
+//          }
+//      }
+ 
+//      waf_rule_entry_t* slot = ngx_array_push(result);
+//      if (slot == NULL) {
+//          return waf_json_set_error(ctx, &entry->file, (const char*)entry->pointer.data, "内存不足");
+//      }
+//      *slot = *entry;
+//      return NGX_OK;
+//  }
+
 
 /*
  * 函数: waf_merge_append_array
@@ -1574,6 +1644,9 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
         return waf_json_set_error(ctx, abs_path, NULL, "内存不足");
     }
 
+    /* 本层去重索引（O(1)）：id -> index */
+    waf_id_idx_entry_t* id_map = NULL;
+
     yyjson_val* meta = yyjson_obj_get(root, "meta");
     yyjson_val* extends = NULL;
     if (meta) {
@@ -1581,6 +1654,7 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
         if (extends && !yyjson_is_arr(extends)) {
             yyjson_doc_free(doc);
             ctx->stack->nelts--;
+            HASH_CLEAR(hh, id_map);
             return waf_json_set_error(ctx, abs_path, "/meta/extends", "meta.extends 必须为数组");
         }
     }
@@ -1589,6 +1663,7 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
     if (ngx_http_waf_dirname(ctx->pool, abs_path, &current_dir) != NGX_OK) {
         yyjson_doc_free(doc);
         ctx->stack->nelts--;
+        HASH_CLEAR(hh, id_map);
         return waf_json_set_error(ctx, abs_path, NULL, "解析目录失败");
     }
 
@@ -1604,6 +1679,7 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
             if (p_ptr == NULL) {
                 yyjson_doc_free(doc);
                 ctx->stack->nelts--;
+                HASH_CLEAR(hh, id_map);
                 return waf_json_set_error(ctx, abs_path, NULL, "内存不足");
             }
             ngx_memcpy(p_ptr, tmp, plen);
@@ -1625,6 +1701,7 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
                 if (!p) {
                     yyjson_doc_free(doc);
                     ctx->stack->nelts--;
+                    HASH_CLEAR(hh, id_map);
                     return waf_json_set_error(ctx, abs_path, NULL, "内存不足");
                 }
                 ngx_memcpy(p, s, sl);
@@ -1651,11 +1728,13 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
                 if (waf_parse_rewrite_plan(ctx, item, abs_path, (const char*)pointer.data, &plan) != NGX_OK) {
                     yyjson_doc_free(doc);
                     ctx->stack->nelts--;
+                    HASH_CLEAR(hh, id_map);
                     return NGX_ERROR;
                 }
             } else {
                 yyjson_doc_free(doc);
                 ctx->stack->nelts--;
+                HASH_CLEAR(hh, id_map);
                 return waf_json_set_error(ctx, abs_path, "/meta/extends[]", "extends 元素必须为字符串或对象");
             }
 
@@ -1664,6 +1743,7 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
                                           &child_ref, &child_abs, ctx->err) != NGX_OK) {
                 yyjson_doc_free(doc);
                 ctx->stack->nelts--;
+                HASH_CLEAR(hh, id_map);
                 return waf_json_set_error(ctx, abs_path, (const char*)pointer.data, "extends 路径解析失败");
             }
 
@@ -1672,6 +1752,7 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
             if (waf_collect_rules(ctx, &child_abs, depth + 1, &child_rules) != NGX_OK) {
                 yyjson_doc_free(doc);
                 ctx->stack->nelts--;
+                HASH_CLEAR(hh, id_map);
                 return NGX_ERROR;
             }
 
@@ -1680,6 +1761,7 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
                 if (waf_apply_rewrite_plan(ctx, &plan, child_rules) != NGX_OK) {
                     yyjson_doc_free(doc);
                     ctx->stack->nelts--;
+                    HASH_CLEAR(hh, id_map);
                     return NGX_ERROR;
                 }
             }
@@ -1688,6 +1770,7 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
             if (waf_merge_append_array(imported, child_rules) != NGX_OK) {
                 yyjson_doc_free(doc);
                 ctx->stack->nelts--;
+                HASH_CLEAR(hh, id_map);
                 return waf_json_set_error(ctx, abs_path, NULL, "内存不足");
             }
         }
@@ -1697,12 +1780,14 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
     if (disable_by_id && !yyjson_is_arr(disable_by_id)) {
         yyjson_doc_free(doc);
         ctx->stack->nelts--;
+        HASH_CLEAR(hh, id_map);
         return waf_json_set_error(ctx, abs_path, "/disableById", "disableById 必须为数组");
     }
     yyjson_val* disable_by_tag = yyjson_obj_get(root, "disableByTag");
     if (disable_by_tag && !yyjson_is_arr(disable_by_tag)) {
         yyjson_doc_free(doc);
         ctx->stack->nelts--;
+        HASH_CLEAR(hh, id_map);
         return waf_json_set_error(ctx, abs_path, "/disableByTag", "disableByTag 必须为数组");
     }
 
@@ -1712,6 +1797,7 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
         if (!filtered) {
             yyjson_doc_free(doc);
             ctx->stack->nelts--;
+            HASH_CLEAR(hh, id_map);
             return waf_json_set_error(ctx, abs_path, NULL, "内存不足");
         }
         /* 先过滤禁用项，再按策略合并 */
@@ -1727,6 +1813,7 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
             if (!slot) {
                 yyjson_doc_free(doc);
                 ctx->stack->nelts--;
+                HASH_CLEAR(hh, id_map);
                 return waf_json_set_error(ctx, abs_path, NULL, "内存不足");
             }
             *slot = *entry;
@@ -1734,9 +1821,10 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
 
         waf_rule_entry_t* filtered_entries = filtered->elts;
         for (ngx_uint_t i = 0; i < filtered->nelts; i++) {
-            if (waf_append_rule_with_policy(ctx, result, &filtered_entries[i], policy) != NGX_OK) {
+            if (waf_append_rule_with_policy_hashed(ctx, result, &id_map, &filtered_entries[i], policy) != NGX_OK) {
                 yyjson_doc_free(doc);
                 ctx->stack->nelts--;
+                HASH_CLEAR(hh, id_map);
                 return NGX_ERROR;
             }
         }
@@ -1746,6 +1834,7 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
     if (!rules_arr || !yyjson_is_arr(rules_arr)) {
         yyjson_doc_free(doc);
         ctx->stack->nelts--;
+        HASH_CLEAR(hh, id_map);
         return waf_json_set_error(ctx, abs_path, "/rules", "缺少必填字段 rules 或类型错误");
     }
 
@@ -1759,17 +1848,21 @@ waf_collect_rules(waf_merge_ctx_t* ctx,
         if (waf_parse_rule(ctx, rule_node, &entry, abs_path, pointer_buf) != NGX_OK) {
             yyjson_doc_free(doc);
             ctx->stack->nelts--;
+            HASH_CLEAR(hh, id_map);
             return NGX_ERROR;
         }
-        if (waf_append_rule_with_policy(ctx, result, &entry, policy) != NGX_OK) {
+        if (waf_append_rule_with_policy_hashed(ctx, result, &id_map, &entry, policy) != NGX_OK) {
             yyjson_doc_free(doc);
             ctx->stack->nelts--;
+            HASH_CLEAR(hh, id_map);
             return NGX_ERROR;
         }
     }
 
     yyjson_doc_free(doc);
     ctx->stack->nelts--;
+    /* 清理 uthash 表结构（元素由 pool 承载） */
+    HASH_CLEAR(hh, id_map);
     *out_rules = result;
     return NGX_OK;
 }

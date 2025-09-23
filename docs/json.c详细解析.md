@@ -19,15 +19,15 @@
        - 应用重写计划（若存在）: `waf_apply_rewrite_plan`（按 tag/ids 改写 target）。
        - 累加到 `imported`（先收齐所有导入集）: `waf_merge_append_array`.
   5) 解析禁用: `disableById` / `disableByTag`，先过滤 `imported`。
-  6) 合并导入集到 `result`（按重复策略）: `waf_append_rule_with_policy`.
+  6) 合并导入集到 `result`（按重复策略）: `waf_append_rule_with_policy_hashed`.
   7) 解析本地 `rules`（当前文件）:
      - 对每个 rule 调 `waf_parse_rule`（强校验 + 规范化 + 生成可变 `yyjson_mut_val*`）；
-     - 按重复策略并入 `result`: `waf_append_rule_with_policy`.
+     - 按重复策略并入 `result`: `waf_append_rule_with_policy_hashed`.
   8) 返回 `result`（类型为 `ngx_array_t`，元素是 `waf_rule_entry_t`）。
 
 ### 关键依赖关系（谁调用谁）
 - 入口 `ngx_http_waf_json_load_and_merge` → `ngx_http_waf_resolve_path`、`waf_collect_rules`、yyjson 构造与拷贝。
-- `waf_collect_rules` → 读文件、取策略、处理 extends（递归自身 + `waf_parse_rewrite_plan` + `waf_apply_rewrite_plan`）、处理禁用（`waf_rule_match_disable_id/tag`）、解析本地规则（`waf_parse_rule`）、合并策略（`waf_append_rule_with_policy`）。
+- `waf_collect_rules` → 读文件、取策略、处理 extends（递归自身 + `waf_parse_rewrite_plan` + `waf_apply_rewrite_plan`）、处理禁用（`waf_rule_match_disable_id/tag`）、解析本地规则（`waf_parse_rule`）、合并策略（`waf_append_rule_with_policy_hashed`）。
 - `waf_parse_rule` → 字段合法性校验（`waf_validate_additional_properties`、`waf_match_validate`、`waf_action_validate`、`waf_phase_validate` 等）、target 解析（`waf_parse_target_value` → `waf_target_code_from_string`/`waf_target_list_expand_and_add`）、target 回写（`waf_assign_target_to_rule` → `waf_build_target_mut_value`），标签复制（`waf_copy_tags_array`）。
 - 路径与错误工具：`ngx_http_waf_dirname`、`ngx_http_waf_join_path`、`ngx_http_waf_normalize_path`、`waf_json_set_error` 等被上述流程穿插调用。
 
@@ -79,9 +79,26 @@
       - resolve_path(child) → collect_rules(child, d+1)
       - parse_rewrite_plan(object extends) → apply_rewrite_plan(child_rules)
       - merge_append_array(imported, child_rules)
-    - filter imported (disableById/Tag) → append to result with dupPolicy
-    - for each local rule: parse_rule → append to result with dupPolicy
+    - filter imported (disableById/Tag) → append to result with dupPolicy (hashed)
+    - for each local rule: parse_rule → append to result with dupPolicy (hashed)
   - build root + rules_arr → append result[i].rule
   - passthrough version/meta/policies → imut_copy → return
+### 基于 uthash 的去重索引（M1 优化）
+- 核心目的：在单层合并期对 `id` 去重从 O(n) 降为均摊 O(1)。
+- 关键结构：
+  - `waf_id_idx_entry_t { int64_t id; ngx_uint_t idx; ngx_str_t file; ngx_str_t pointer; UT_hash_handle hh; }`
+  - `id → idx` 将规则 `id` 映射到 `result->elts` 中的下标，支持原地覆盖。
+- 关键函数：
+  - `waf_append_rule_with_policy_hashed(ctx, result, &id_map, entry, policy)`：
+    - `HASH_FIND` 命中：按 `duplicatePolicy` 执行
+      - `error` → 返回错误（保持原有错误文本与指向位置）。
+      - `warn_skip` → 记录告警并跳过。
+      - `warn_keep_last` → 原地覆盖 `items[found->idx] = *entry`，并更新 `found->file/pointer` 以便后续冲突定位。
+    - 未命中：`ngx_array_push` 追加，再以 `HASH_ADD` 登记新下标。
+- 生存期与清理：
+  - 哈希节点通过 `ngx_pcalloc(ctx->pool, ...)` 分配，生命周期受 Nginx `pool` 管理；
+  - 每次 `waf_collect_rules` 返回前调用 `HASH_CLEAR(hh, id_map)` 仅清理表结构指针，不释放元素内存（由 pool 统一回收）。
+- 适用范围：仅用于“单层结果集合”的合并阶段；跨文件的禁用、重写仍在进入哈希前完成，保持既有语义与日志不变。
+- 回退说明：旧的线性查重版本 `waf_append_rule_with_policy` 已移除（保留注释示例），如需对比可查看 `ngx_http_waf_json.c` 中相关注释块。
 
 若你需要，我可以把上述流程以注释“索引跳转”形式嵌入到文件顶部，或再画一张更详细的时序图帮助你在 IDE 中快速定位对应实现。

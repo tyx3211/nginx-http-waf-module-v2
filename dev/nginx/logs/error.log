@@ -1,2 +1,2 @@
-2025/09/19 01:37:48 [error] 70055#0: waf: json read failed: /home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/empty_file.json
-2025/09/19 01:37:48 [error] 70055#0: waf: failed to load rules_json empty_file.json: file=/home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/empty_file.json ptr= msg=input data is empty at byte 0
+2025/09/24 01:25:26 [error] 12800#0: waf: json read failed: /home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/empty_file.json
+2025/09/24 01:25:26 [error] 12800#0: waf: failed to load rules_json empty_file.json: file=/home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/empty_file.json ptr= msg=input data is empty at byte 0

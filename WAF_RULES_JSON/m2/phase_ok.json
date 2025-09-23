@@ -1,0 +1,12 @@
+{
+  // 合法：显式 phase 指定到 ip_allow / uri_allow
+  "rules": [
+    { "id": 3001, "target": "CLIENT_IP", "match": "CIDR",  "pattern": ["10.0.0.0/8"], "action": "BYPASS", "phase": "ip_allow" },
+    { "id": 3002, "target": "URI",        "match": "CONTAINS",  "pattern": ["/health"],    "action": "BYPASS", "phase": "uri_allow" },
+    { "id": 3003, "target": "ARGS_COMBINED", "match": "REGEX", "pattern": ["xss|sqli"], "action": "DENY", "phase": "detect" }
+  ]
+}
+
+
+
+

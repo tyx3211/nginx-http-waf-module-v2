@@ -3,6 +3,7 @@
 #include <ngx_http.h>
 #include "ngx_http_waf_module_v2.h"
 #include <yyjson/yyjson.h>
+#include "ngx_http_waf_compiler.h"
 #include <stdlib.h>
 
 /*
@@ -101,6 +102,22 @@ char* ngx_http_waf_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 				ngx_log_error(NGX_LOG_WARN, cf->log, 0, "waf: final_doc dump failed: code=%ui", (ngx_uint_t)werr.code);
 			}
 			#endif
+
+			/* M2：调用编译器生成只读快照并挂载到 lcf */
+			{
+				waf_compiled_snapshot_t* snap = NULL;
+				ngx_http_waf_json_error_t c_err;
+				c_err.file.len = 0; c_err.file.data = NULL;
+				c_err.json_pointer.len = 0; c_err.json_pointer.data = NULL;
+				c_err.message.len = 0; c_err.message.data = NULL;
+				if (ngx_http_waf_compile_rules(cf->pool, cf->log, conf->rules_doc, &snap, &c_err) != NGX_OK) {
+					ngx_log_error(NGX_LOG_ERR, cf->log, 0,
+						      "waf: compile failed: file=%V ptr=%V msg=%V",
+						      &c_err.file, &c_err.json_pointer, &c_err.message);
+					return NGX_CONF_ERROR;
+				}
+				conf->compiled = snap;
+			}
 		}
 	}
 

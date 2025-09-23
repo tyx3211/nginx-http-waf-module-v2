@@ -1,0 +1,10 @@
+{
+  // 非法：CIDR 掩码错误
+  "rules": [
+    { "id": 6001, "target": "CLIENT_IP", "match": "CIDR", "pattern": ["10.0.0.0/99"], "action": "BYPASS" }
+  ]
+}
+
+
+
+

@@ -76,6 +76,9 @@ typedef struct {
 
     /* 合并后（post-merge）解析得到的只读文档句柄（M1 完成后填充）；允许为空 */
     yyjson_doc* rules_doc;
+
+    /* 编译期只读快照（M2 完成后填充）；允许为空 */
+    struct waf_compiled_snapshot_s* compiled;
 } ngx_http_waf_loc_conf_t;
 
 #endif /* NGX_HTTP_WAF_MODULE_V2_H */
