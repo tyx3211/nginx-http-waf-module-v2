@@ -68,6 +68,7 @@
         - 非法/空数组报错并定位 JSON 指针
   - [x] 追加本地 `rules` 到集合尾部
   - [x] 去重：按 `meta.duplicatePolicy`（默认 `warn_skip`）对“本层可见集合”基于 `id` 去重，支持 `error|warn_skip|warn_keep_last`
+  - [x] 优化：基于 uthash 的 `id→idx` 去重索引（`waf_append_rule_with_policy_hashed`），替代线性查重
   - [x] 最终产出：仅 `rules` 数组；从入口 JSON 透传 `version`、`meta.name`、`meta.versionId`、`policies`
   - [x] v2.0 简化：不支持 `includeTags`/`excludeTags`/`extraRules`；`meta` 不跨层继承
   - [x] 路径解析：绝对/相对/裸路径（相对 `waf_jsons_dir` 或 Nginx prefix）；错误信息含文件与 JSON pointer
@@ -93,13 +94,13 @@
 
 ### [ ] M2：编译期快照
 - 范围：
-  - [ ] 输入为 M1 产出的最终 `rules`（targets 已归一、`ALL_PARAMS` 已展开、`HEADER` 约束已校验）与入口 JSON 透传的 `policies`
-  - [ ] 规则校验与 phase 推断（基于 target/action 的最小推断；允许显式覆盖并做一致性校验）
-  - [ ] REGEX/CONTAINS/CIDR 预编译（大小写按 `caseless`）
-  - [ ] 唯一性校验与分桶：编译期可用 uthash；运行期在 `loc_conf` 仅保留 `ngx_array` 分桶；可选 debug 暴露只读 `id_index`
-  - [ ] 将 `policies` 挂载到快照（仅透传；不在 M2 解释语义）
+  - [x] 输入为 M1 产出的最终 `rules`（targets 已归一、`ALL_PARAMS` 已展开、`HEADER` 约束已校验）与入口 JSON 透传的 `policies`
+  - [x] 规则校验与 phase 推断（基于 target/action 的最小推断；允许显式覆盖并做一致性校验）
+  - [x] REGEX/CONTAINS/CIDR 预编译（大小写按 `caseless`）
+  - [x] 唯一性校验与分桶：编译期可用 uthash；运行期在 `loc_conf` 仅保留 `ngx_array` 分桶；可选 debug 暴露只读 `id_index`
+  - [x] 将 `policies` 挂载到快照（仅透传；不在 M2 解释语义）
 - DoD：
-  - [ ] 单测覆盖：
+  - [x] 单测覆盖：
         1) 分桶/排序/空集行为
         2) phase 推断/显式覆盖与冲突检测
         3) REGEX 编译失败与 CIDR 非法掩码：定位到 ruleId 与来源文件
