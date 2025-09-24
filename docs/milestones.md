@@ -110,6 +110,18 @@
 - 投入：4-6 人日
 - 交付：`src/core/ngx_http_waf_compiler.*` + 相关工具（含快照结构与 debug 导出助手）
 
+### [ ] M2.5：核心模块存根（action/log/shm）
+- 范围：
+  - `src/core/ngx_http_waf_action.[ch]`：接口冻结与最小实现。仅归并事件意图与全局策略；BLOCK 路径返回 `403` 并触发最终 `flush`；LOG/BYPASS 路径返回不拦截（例如 `NGX_DECLINED`）。
+  - `src/core/ngx_http_waf_log.[ch]`：接口冻结与最小实现。仅做请求内存聚合（`log_doc`/`events`）与 `effective_level` 维护；`flush` 可先退化为向 `error_log` 输出一行 JSON（或在 `waf_json_log off` 时静默）。提供 `waf_json_log`/`waf_json_log_level` 指令读取但允许关闭写盘。
+  - `src/core/ngx_http_waf_dynamic_block.[ch]` + `waf_shm_zone` 指令骨架：创建 `ngx_shm_zone_t`，初始化 slab + rbtree/queue 框架，暴露评分/封禁 API；存根阶段读路径恒“未封禁”，评分仅更新 `ctx` 不写 shm。
+- DoD：
+  - 可编译、`nginx -t` 通过；装配阶段可被引用；热加载不崩。
+  - ACCESS 最小链路可调用 action/log 接口；BLOCK 时在 `error_log` 看到一行 JSON 摘要；BYPASS/LOG 不落盘（除非级别达阈值）。
+  - 共享内存创建成功但不执法；评分/封禁 API 可调用且返回稳定占位值。
+- 依赖：M2
+- 交付：上述三个模块的头文件与最小实现 + 指令声明
+
 ### [ ] M3：指令与装配（入口/目录/深度）
 - 范围：
   - [ ] 新指令最小集：
@@ -121,7 +133,7 @@
 - DoD：
   - [ ] `nginx -t` 通过；http/srv/loc 指令继承与覆盖符合预期（未设置处继承父级快照）
   - [ ] 示例 `nginx.conf` 可跑通（未声明 `waf_rules_json` 时仅基础日志；声明后最小规则生效）
-- 依赖：M2
+- 依赖：M2、M2.5（接口已冻结且存根可用）
 - 投入：3-4 人日
 - 交付：`src/module/*` 指令实现 + 示例配置
 
@@ -132,7 +144,7 @@
 - DoD：
   - [ ] 集成测试：GET/POST/大体；BYPASS/BLACKLIST 路径生效
   - [ ] 检测段遍历与优先级生效（可先少量规则）
-- 依赖：M2（基础）与 M3（指令装配）
+- 依赖：M2（基础）、M2.5（action/log/shm 存根）与 M3（指令装配）
 - 投入：4-6 人日
 - 交付：`src/module/ngx_http_waf_module.c` 扩展 + 目标提取工具
 
@@ -143,7 +155,7 @@
 - DoD：
   - [ ] 单/集成测试：加分到阈值自动封禁，窗口外衰减/过期
   - [ ] 并发与锁正确性（基本验证）
-- 依赖：M3（指令）与 M4（事件触发点），但可与 M4 并行
+- 依赖：M2.5（接口/数据结构）与 M3（指令）与 M4（事件触发点），但可与 M4 并行
 - 投入：5-7 人日
 - 交付：`src/core/ngx_http_waf_dynamic_block.*` + `src/core/ngx_http_waf_action.*`
 
@@ -153,7 +165,7 @@
 - DoD：
   - [ ] JSONL 格式稳定；包含 rule/reputation/ban/bypass 事件
   - [ ] 性能基线下无明显退化
-- 依赖：M4/M5
+- 依赖：M2.5（接口与请求内聚合）与 M4/M5
 - 投入：2-3 人日
 - 交付：`src/core/ngx_http_waf_log.*` + 文档
 

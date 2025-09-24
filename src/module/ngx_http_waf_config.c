@@ -5,6 +5,7 @@
 #include <yyjson/yyjson.h>
 #include "ngx_http_waf_compiler.h"
 #include <stdlib.h>
+#include "../core/ngx_http_waf_dynamic_block.h"
 
 /*
  * 指令与配置：create/merge 与命令表
@@ -23,6 +24,11 @@ void* ngx_http_waf_create_main_conf(ngx_conf_t *cf)
 	mcf->json_extends_max_depth = WAF_JSON_MAX_EXTENDS_DEPTH; /* 默认 5；0 表示不限 */
 	mcf->jsons_dir.len = 0;
 	mcf->jsons_dir.data = NULL;
+    mcf->json_log_path.len = 0;
+    mcf->json_log_path.data = NULL;
+    mcf->json_log_level = 0; /* off */
+    mcf->shm_zone_raw.len = 0;
+    mcf->shm_zone_raw.data = NULL;
 	return mcf;
 }
 
@@ -148,6 +154,30 @@ ngx_command_t ngx_http_waf_commands[] = {
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_waf_loc_conf_t, rules_json_path),
+		NULL
+	},
+    {
+        ngx_string("waf_shm_zone"),
+        NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE12,
+        ngx_conf_set_str_slot, /* 存根：保存原始字符串，M5 解析 */
+        NGX_HTTP_MAIN_CONF_OFFSET,
+        offsetof(ngx_http_waf_main_conf_t, shm_zone_raw),
+        NULL
+    },
+	{
+		ngx_string("waf_json_log"),
+		NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_MAIN_CONF_OFFSET,
+		offsetof(ngx_http_waf_main_conf_t, json_log_path),
+		NULL
+	},
+	{
+		ngx_string("waf_json_log_level"),
+		NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+		ngx_conf_set_num_slot,
+		NGX_HTTP_MAIN_CONF_OFFSET,
+		offsetof(ngx_http_waf_main_conf_t, json_log_level),
 		NULL
 	},
 	ngx_null_command

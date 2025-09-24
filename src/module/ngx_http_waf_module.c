@@ -11,11 +11,61 @@ extern char* ngx_http_waf_init_main_conf(ngx_conf_t *cf, void *conf);
 extern void* ngx_http_waf_create_loc_conf(ngx_conf_t *cf);
 extern char* ngx_http_waf_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
 extern ngx_command_t ngx_http_waf_commands[];
+extern ngx_module_t ngx_http_waf_module; /* 前置声明，供 ngx_http_get_module_*_conf 使用 */
+
+/* STUB 接口（M2.5）：日志与动作 */
+#include "ngx_http_waf_log.h"
+#include "ngx_http_waf_action.h"
+
+static ngx_int_t ngx_http_waf_access_handler(ngx_http_request_t *r)
+{
+    /* STUB: 初始化请求态 ctx 并进行一次最小动作与日志调用 */
+    ngx_http_waf_ctx_t *ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_waf_ctx_t));
+    if (ctx == NULL) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+    waf_log_init_request(r, ctx);
+
+    /* 示例：对 GET/HEAD 不拦截，仅记录 DEBUG 事件；其他方法示例触发 BYPASS 或 BLOCK */
+    if (r->method == NGX_HTTP_GET || r->method == NGX_HTTP_HEAD) {
+        waf_log_append_event(r, ctx, WAF_LOG_DEBUG);
+        ctx->final_action = 3; /* BYPASS 占位 */
+        ctx->final_status = 0;
+        /* 非阻断：交还给后续相位 */
+        return NGX_DECLINED;
+    }
+
+    /* 非 GET/HEAD：演示调用统一动作（intent=LOG） */
+    (void)waf_enforce(r, ngx_http_get_module_main_conf(r, ngx_http_waf_module),
+                      ngx_http_get_module_loc_conf(r, ngx_http_waf_module),
+                      ctx, WAF_INTENT_LOG, 0, 0);
+
+    /* 仅在此示例中立即 flush（真实实现中在最终动作处统一 flush） */
+    waf_log_flush(r,
+                  ngx_http_get_module_main_conf(r, ngx_http_waf_module),
+                  ngx_http_get_module_loc_conf(r, ngx_http_waf_module),
+                  ctx);
+
+    return NGX_DECLINED;
+}
 
 static ngx_int_t ngx_http_waf_postconfiguration(ngx_conf_t *cf)
 {
-    /* STUB: no handlers registered yet */
-    (void)cf;
+    /* 注册 ACCESS 阶段处理函数（优先级靠前） */
+    ngx_http_handler_pt        *h;
+    ngx_http_core_main_conf_t  *cmcf;
+
+    cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
+    if (cmcf == NULL) {
+        return NGX_ERROR;
+    }
+
+    h = ngx_array_push(&cmcf->phases[NGX_HTTP_ACCESS_PHASE].handlers);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+    *h = ngx_http_waf_access_handler;
+
     return NGX_OK;
 }
 

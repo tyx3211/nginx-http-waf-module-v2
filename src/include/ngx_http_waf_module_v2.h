@@ -64,6 +64,11 @@ typedef struct {
     ngx_uint_t json_extends_max_depth;
     /* JSON 根目录（仅 http/main 级设置），供相对路径解析 */
     ngx_str_t  jsons_dir;
+    /* JSONL 日志（M2.5 存根：仅配置存储；M6 落地写盘） */
+    ngx_str_t  json_log_path;   /* off | 路径 */
+    ngx_uint_t json_log_level;  /* 0=off,1=error,2=info,3=debug */
+    /* 动态信誉共享内存（M2.5 存根：仅保存原始参数字符串） */
+    ngx_str_t  shm_zone_raw;    /* 形如 name=10m 的原串，M5 解析 */
 } ngx_http_waf_main_conf_t;
 
 /* v2 loc conf（可在 http/server/location 级配置与继承） */
