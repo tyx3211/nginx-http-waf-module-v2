@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "meta": { "name": "m25_demo", "duplicatePolicy": "warn_skip" },
+  "rules": [
+    { "id": 1001, "tags": ["demo"], "target": "URI", "match": "CONTAINS", "pattern": "/ping", "action": "LOG" },
+    { "id": 1002, "tags": ["whitelist:ip"], "target": "CLIENT_IP", "match": "CIDR", "pattern": ["127.0.0.1/32"], "action": "BYPASS" }
+  ]
+}

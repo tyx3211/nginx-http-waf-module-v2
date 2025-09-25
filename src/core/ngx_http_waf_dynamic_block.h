@@ -35,3 +35,5 @@ ngx_flag_t waf_dyn_is_banned(ngx_http_request_t* r);
 #endif /* NGX_HTTP_WAF_DYNAMIC_BLOCK_H */
 
 
+
+
