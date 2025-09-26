@@ -1,4 +1,4 @@
-#include "../include/ngx_http_waf_action.h"
+#include "ngx_http_waf_action.h"
 
 /*
  * ================================================================

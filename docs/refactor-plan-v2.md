@@ -67,7 +67,7 @@
 ## 注意：编码偏好与装配脚本（置顶）
 
 - 编码偏好（强制）
-  - 头文件引入：禁止使用相对路径 include（如 `#include "third_party/yyjson/yyjson.h"`）；统一通过构建脚本配置头文件搜索路径，代码中使用 `<yyjson/yyjson.h>`、`<uthash/uthash.h>`、`"src/include/..."` 等标准形式。
+- 头文件引入：禁止使用以 `./` 或 `../` 开头的相对路径 include；统一通过构建脚本配置头文件搜索路径。第三方头使用 `<yyjson/yyjson.h>`、`<uthash/uthash.h>`；内部头一律使用 `"ngx_http_waf_*.h"`（不带目录名），通过 `-I$ngx_addon_dir/src/include` 解析。
   - 构建配置：在模块 `config`/`CFLAGS` 中追加 `-I$ngx_addon_dir/src/include -I$ngx_addon_dir/third_party/yyjson -I$ngx_addon_dir/third_party/uthash`，避免在源码里写相对路径 include。
   - 绝对路径优先：文档与脚本示例尽量给出绝对路径，命令行参数可覆盖默认路径。
   - 注释与沟通：统一中文注释与中文说明，函数/模块级注释强调“为什么”。
@@ -708,7 +708,7 @@ return NGX_DECLINED;
 
 ## 二十五、clangd/compile_commands.json 开发环境
 
-- 目标：为 v2 目录提供可用的 `compile_commands.json`，使 clangd 正确解析 `#include "src/include/..."` 等路径。
+- 目标：为 v2 目录提供可用的 `compile_commands.json`，使 clangd 正确解析 `#include "ngx_http_waf_*.h"` 等内部头路径。
 - 方法（建议在仓库平级创建 Nginx 源码构建目录）：
 
 步骤：

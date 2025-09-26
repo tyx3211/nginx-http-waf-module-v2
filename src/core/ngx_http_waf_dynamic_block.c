@@ -30,3 +30,60 @@ ngx_flag_t waf_dyn_is_banned(ngx_http_request_t* r) {
 }
 
 
+static void waf_dyn_rbtree_insert_value(ngx_rbtree_node_t *temp,
+                                        ngx_rbtree_node_t *node,
+                                        ngx_rbtree_node_t *sentinel)
+{
+    /* 简单按 key 插入，后续可扩展为 hash(ip) 或复合键 */
+    ngx_rbtree_node_t  **p;
+
+    for ( ;; ) {
+        p = (node->key < temp->key) ? &temp->left : &temp->right;
+
+        if (*p == sentinel) {
+            break;
+        }
+
+        temp = *p;
+    }
+
+    *p = node;
+    node->parent = temp;
+    node->left = sentinel;
+    node->right = sentinel;
+
+    ngx_rbt_red(node);
+}
+
+ngx_int_t waf_dyn_shm_zone_init(ngx_shm_zone_t *shm_zone, void *data)
+{
+    ngx_slab_pool_t   *shpool;
+    waf_dyn_shm_ctx_t *ctx;
+
+    shpool = (ngx_slab_pool_t *) shm_zone->shm.addr;
+    if (shpool == NULL) {
+        return NGX_ERROR;
+    }
+
+    if (shm_zone->shm.exists) {
+        /* 复用旧的上下文 */
+        shm_zone->data = shpool->data;
+        return NGX_OK;
+    }
+
+    /* 新建：从 slab 分配上下文并初始化 rbtree/queue */
+    ctx = ngx_slab_alloc(shpool, sizeof(waf_dyn_shm_ctx_t));
+    if (ctx == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_rbtree_init(&ctx->rbtree, &ctx->sentinel, waf_dyn_rbtree_insert_value);
+    ngx_queue_init(&ctx->lru_queue);
+
+    shpool->data = ctx;
+    shm_zone->data = ctx;
+
+    return NGX_OK;
+}
+
+

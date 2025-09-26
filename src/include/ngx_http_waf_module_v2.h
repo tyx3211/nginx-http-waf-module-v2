@@ -67,8 +67,11 @@ typedef struct {
     /* JSONL 日志（M2.5 存根：仅配置存储；M6 落地写盘） */
     ngx_str_t  json_log_path;   /* off | 路径 */
     ngx_uint_t json_log_level;  /* 0=off,1=error,2=info,3=debug */
-    /* 动态信誉共享内存（M2.5 存根：仅保存原始参数字符串） */
-    ngx_str_t  shm_zone_raw;    /* 形如 name=10m 的原串，M5 解析 */
+    /* 动态信誉共享内存（M2.5：创建 zone；M5：执法） */
+    ngx_str_t         shm_zone_raw;   /* 兼容保留：若通过字符串配置 */
+    ngx_shm_zone_t   *shm_zone;       /* 共享内存区句柄（M2.5 初始化） */
+    ngx_str_t         shm_zone_name;  /* 区域名称 */
+    size_t            shm_zone_size;  /* 区域大小（字节） */
 } ngx_http_waf_main_conf_t;
 
 /* v2 loc conf（可在 http/server/location 级配置与继承） */

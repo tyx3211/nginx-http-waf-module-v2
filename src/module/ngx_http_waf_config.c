@@ -5,7 +5,7 @@
 #include <yyjson/yyjson.h>
 #include "ngx_http_waf_compiler.h"
 #include <stdlib.h>
-#include "../core/ngx_http_waf_dynamic_block.h"
+#include "ngx_http_waf_dynamic_block.h"
 
 /*
  * 指令与配置：create/merge 与命令表
@@ -13,6 +13,9 @@
  */
 
 extern ngx_module_t ngx_http_waf_module; /* 用于 merge 时获取 main_conf */
+
+/* 前置声明：自定义指令处理函数（M2.5 共享内存创建） */
+static char* ngx_http_waf_set_shm_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 /* 主配置 */
 void* ngx_http_waf_create_main_conf(ngx_conf_t *cf)
@@ -29,6 +32,10 @@ void* ngx_http_waf_create_main_conf(ngx_conf_t *cf)
     mcf->json_log_level = 0; /* off */
     mcf->shm_zone_raw.len = 0;
     mcf->shm_zone_raw.data = NULL;
+    mcf->shm_zone = NULL;
+    mcf->shm_zone_name.len = 0;
+    mcf->shm_zone_name.data = NULL;
+    mcf->shm_zone_size = 0;
 	return mcf;
 }
 
@@ -159,9 +166,9 @@ ngx_command_t ngx_http_waf_commands[] = {
     {
         ngx_string("waf_shm_zone"),
         NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE12,
-        ngx_conf_set_str_slot, /* 存根：保存原始字符串，M5 解析 */
+        ngx_http_waf_set_shm_zone,
         NGX_HTTP_MAIN_CONF_OFFSET,
-        offsetof(ngx_http_waf_main_conf_t, shm_zone_raw),
+        0,
         NULL
     },
 	{
@@ -183,4 +190,58 @@ ngx_command_t ngx_http_waf_commands[] = {
 	ngx_null_command
 };
 
+
+/* 解析并创建共享内存区域：waf_shm_zone <name> <size> */
+static char*
+ngx_http_waf_set_shm_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_http_waf_main_conf_t *mcf = conf;
+    ngx_str_t       *value;
+    ngx_int_t        size;
+    ngx_shm_zone_t  *zone;
+
+    if (cf->args->nelts < 3) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "waf: invalid args for waf_shm_zone, expect: <name> <size>");
+        return NGX_CONF_ERROR;
+    }
+
+    value = cf->args->elts; /* [0]=directive, [1]=name, [2]=size */
+
+    if (mcf->shm_zone != NULL) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "waf: waf_shm_zone duplicated");
+        return NGX_CONF_ERROR;
+    }
+
+    if (value[1].len == 0) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "waf: shm name empty");
+        return NGX_CONF_ERROR;
+    }
+
+    size = ngx_parse_size(&value[2]);
+    if (size == NGX_ERROR || size <= 0) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "waf: invalid shm size %V", &value[2]);
+        return NGX_CONF_ERROR;
+    }
+
+    zone = ngx_shared_memory_add(cf, &value[1], (size_t)size, &ngx_http_waf_module);
+    if (zone == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    zone->init = waf_dyn_shm_zone_init;
+    /* data 在 init 中设置为 shm 上下文；此处保留 main_conf 信息 */
+    mcf->shm_zone = zone;
+    mcf->shm_zone_name = value[1];
+    mcf->shm_zone_size = (size_t)size;
+
+    ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0,
+                       "waf: shm zone configured name=%V size=%uz", &value[1], (size_t)size);
+
+    (void)cmd;
+    return NGX_CONF_OK;
+}
 

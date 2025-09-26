@@ -64,3 +64,10 @@ void waf_log_flush(ngx_http_request_t* r,
 
 
 
+
+
+
+
+
+
+
