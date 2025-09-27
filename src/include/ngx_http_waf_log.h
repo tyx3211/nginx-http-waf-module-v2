@@ -5,6 +5,7 @@
 #include <ngx_http.h>
 #include <yyjson/yyjson.h>
 #include "ngx_http_waf_module_v2.h"
+#include "ngx_http_waf_types.h"
 
 /*
  * ================================================================
@@ -24,7 +25,8 @@ typedef enum {
     WAF_LOG_NONE  = 0,
     WAF_LOG_DEBUG = 1,
     WAF_LOG_INFO  = 2,
-    WAF_LOG_ERROR = 3
+    WAF_LOG_ALERT = 3,
+    WAF_LOG_ERROR = 4
 } waf_log_level_e;
 
 typedef struct ngx_http_waf_ctx_s {
@@ -35,6 +37,7 @@ typedef struct ngx_http_waf_ctx_s {
     ngx_uint_t      final_status;    /* 最终 HTTP 状态（若有） */
     ngx_uint_t      final_action;    /* 0=未知 1=BLOCK 2=LOG 3=BYPASS（存根占位语义） */
     unsigned        has_complete_events:1; /* 是否写入过完整性事件 */
+    unsigned        log_flushed:1;       /* 是否已最终落盘（去重保护） */
 } ngx_http_waf_ctx_t;
 
 void waf_log_init_request(ngx_http_request_t* r, ngx_http_waf_ctx_t* ctx);
@@ -49,11 +52,18 @@ void waf_log_append_event(ngx_http_request_t* r,
                           ngx_http_waf_ctx_t* ctx,
                           waf_log_level_e level);
 
-/* 最终落盘（存根阶段仅 error_log 一行摘要；BLOCK 强制输出） */
+/* 最终落盘（存根阶段仅 error_log 一行摘要；BLOCK/BYPASS 强制输出） */
 void waf_log_flush(ngx_http_request_t* r,
                    ngx_http_waf_main_conf_t* mcf,
                    ngx_http_waf_loc_conf_t* lcf,
                    ngx_http_waf_ctx_t* ctx);
+
+/* 统一最终落盘接口（建议被 action 在 BLOCK/BYPASS 以及 handler 尾部调用） */
+void waf_log_flush_final(ngx_http_request_t* r,
+                         ngx_http_waf_main_conf_t* mcf,
+                         ngx_http_waf_loc_conf_t*  lcf,
+                         ngx_http_waf_ctx_t*       ctx,
+                         const char* final_action_hint /* "BLOCK"|"BYPASS"|"ALLOW"|NULL */);
 
 #ifdef __cplusplus
 }

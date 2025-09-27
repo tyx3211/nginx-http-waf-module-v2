@@ -31,21 +31,24 @@ static ngx_int_t ngx_http_waf_access_handler(ngx_http_request_t *r)
         waf_log_append_event(r, ctx, WAF_LOG_DEBUG);
         ctx->final_action = 3; /* BYPASS 占位 */
         ctx->final_status = 0;
-        /* 非阻断：交还给后续相位 */
+        /* 尾部统一 FINAL flush（ALLOW），具备去重保护 */
+        ngx_http_waf_main_conf_t* mcf = ngx_http_get_module_main_conf(r, ngx_http_waf_module);
+        ngx_http_waf_loc_conf_t*  lcf = ngx_http_get_module_loc_conf(r, ngx_http_waf_module);
+        waf_log_flush_final(r, mcf, lcf, ctx, "ALLOW");
         return NGX_DECLINED;
     }
 
-    /* 非 GET/HEAD：演示调用统一动作（intent=LOG） */
-    (void)waf_enforce(r, ngx_http_get_module_main_conf(r, ngx_http_waf_module),
+    /* 非 GET/HEAD：演示调用统一动作（intent=LOG，score_delta=0） */
+    waf_enforce(r, ngx_http_get_module_main_conf(r, ngx_http_waf_module),
                       ngx_http_get_module_loc_conf(r, ngx_http_waf_module),
-                      ctx, WAF_INTENT_LOG, 0, 0);
+                      ctx, WAF_INTENT_LOG, 0, 0, 0);
 
-    /* 仅在此示例中立即 flush（真实实现中在最终动作处统一 flush） */
-    waf_log_flush(r,
-                  ngx_http_get_module_main_conf(r, ngx_http_waf_module),
-                  ngx_http_get_module_loc_conf(r, ngx_http_waf_module),
-                  ctx);
-
+    /* 尾部统一 FINAL flush（ALLOW），若前面已 BLOCK/BYPASS，将被去重 */
+    {
+        ngx_http_waf_main_conf_t* mcf = ngx_http_get_module_main_conf(r, ngx_http_waf_module);
+        ngx_http_waf_loc_conf_t*  lcf = ngx_http_get_module_loc_conf(r, ngx_http_waf_module);
+        waf_log_flush_final(r, mcf, lcf, ctx, "ALLOW");
+    }
     return NGX_DECLINED;
 }
 

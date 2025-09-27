@@ -5,6 +5,7 @@
 #include <ngx_http.h>
 #include "ngx_http_waf_module_v2.h"
 #include "ngx_http_waf_log.h"
+#include "ngx_http_waf_types.h"
 
 /*
  * ================================================================
@@ -31,7 +32,40 @@ ngx_int_t waf_enforce(ngx_http_request_t* r,
                       ngx_http_waf_ctx_t* ctx,
                       waf_intent_e intent,
                       ngx_int_t http_status,
-                      ngx_uint_t rule_id_or_0);
+                      ngx_uint_t rule_id_or_0,
+                      ngx_uint_t score_delta);
+
+/* 语义包装：BLOCK/LOG/BYPASS */
+static inline ngx_int_t
+waf_enforce_block(ngx_http_request_t* r, ngx_http_waf_main_conf_t* mcf,
+                  ngx_http_waf_loc_conf_t* lcf, ngx_http_waf_ctx_t* ctx,
+                  ngx_int_t http_status, ngx_uint_t rule_id_or_0, ngx_uint_t score_delta)
+{
+    return waf_enforce(r, mcf, lcf, ctx, WAF_INTENT_BLOCK, http_status, rule_id_or_0, score_delta);
+}
+
+static inline ngx_int_t
+waf_enforce_log(ngx_http_request_t* r, ngx_http_waf_main_conf_t* mcf,
+                ngx_http_waf_loc_conf_t* lcf, ngx_http_waf_ctx_t* ctx,
+                ngx_uint_t rule_id_or_0, ngx_uint_t score_delta)
+{
+    return waf_enforce(r, mcf, lcf, ctx, WAF_INTENT_LOG, NGX_DECLINED, rule_id_or_0, score_delta);
+}
+
+static inline ngx_int_t
+waf_enforce_bypass(ngx_http_request_t* r, ngx_http_waf_main_conf_t* mcf,
+                   ngx_http_waf_loc_conf_t* lcf, ngx_http_waf_ctx_t* ctx,
+                   ngx_uint_t rule_id_or_0)
+{
+    return waf_enforce(r, mcf, lcf, ctx, WAF_INTENT_BYPASS, NGX_DECLINED, rule_id_or_0, 0);
+}
+
+/* 基础访问加分（可触发封禁）：返回 waf_rc_e 以便被 STAGE 宏统一处理 */
+waf_rc_e waf_enforce_base_add(ngx_http_request_t* r,
+                              ngx_http_waf_main_conf_t* mcf,
+                              ngx_http_waf_loc_conf_t* lcf,
+                              ngx_http_waf_ctx_t* ctx,
+                              ngx_uint_t score_delta);
 
 #endif /* NGX_HTTP_WAF_ACTION_H */
 
