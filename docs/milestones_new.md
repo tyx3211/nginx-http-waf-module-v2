@@ -58,7 +58,7 @@
 ### [ ] M4：执行管线（ACCESS + STAGE 宏）
 - 范围：
   - ACCESS 阶段“5 段流水线”：IP allow → IP deny → 信誉评分/封禁（base_add）→ URI allow → 检测段（SQLi/XSS/UA/非法方法/Cookie…）
-  - `WAF_STAGE` 宏替换早退逻辑；handler/回调尾部统一 `waf_log_flush_final(...,"ALLOW")`
+  - `WAF_STAGE` 宏替换早退逻辑；handler/回调尾部统一调用 action 的 `waf_action_finalize_allow(...)`
   - 请求体三段式与回调推进（同步 GET/HEAD vs 异步读体）
 - DoD：
   - BYPASS/BLACKLIST 路径生效；未早退时尾部 `ALLOW` 落盘一次

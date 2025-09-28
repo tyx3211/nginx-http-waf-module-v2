@@ -145,7 +145,7 @@
   - 一请求一行 JSONL；事件模型（评分/规则/封禁/放行）；可控详略级别。
 
 - 动态封禁模块
-  - API 拆分：`waf_apply_reputation`（纯评分）与 `waf_enforce`（执法/日志），共享内存采用 rbtree + queue + slab。
+  - API 拆分：`waf_apply_reputation`（纯评分）与 `waf_enforce*`（执法/日志包装器），共享内存采用 rbtree + queue + slab。
 
 - 指令系统
   - 保留最小集：`waf`、`waf_rules_json`、`waf_jsons_dir`、`waf_json_log`、`waf_json_log_level`、`waf_trust_xff`、动态封禁指令组、`waf_shm_zone`。
@@ -283,21 +283,73 @@
 
 API：
 ```c
-void waf_apply_reputation(ngx_http_request_t* r,
-                          ngx_http_waf_ctx_t* ctx,
-                          int delta_score,
-                          const char* reason_tag);
-
 typedef enum { WAF_INTENT_BLOCK, WAF_INTENT_LOG, WAF_INTENT_BYPASS } waf_intent_e;
 
+// 阶段与编排返回枚举（仅供阶段与编排层使用）
+typedef enum { WAF_RC_CONTINUE, WAF_RC_BYPASS, WAF_RC_BLOCK, WAF_RC_ASYNC, WAF_RC_ERROR } waf_rc_e;
+
+// 统一动作入口（基础函数）：返回 Nginx rc；阶段层应忽略其返回值
 ngx_int_t waf_enforce(ngx_http_request_t* r,
                       ngx_http_waf_main_conf_t* mcf,
-                      ngx_http_waf_loc_conf_t* lcf,
-                      ngx_http_waf_ctx_t* ctx,
-                      waf_intent_e intent,
-                      int http_status,
-                      uint32_t rule_id_or_0);
+                      ngx_http_waf_loc_conf_t*  lcf,
+                      ngx_http_waf_ctx_t*       ctx,
+                      waf_intent_e               intent,
+                      ngx_int_t                  http_status_if_block,
+                      ngx_uint_t                 rule_id_or_0,
+                      ngx_uint_t                 score_delta);
+
+// 语义包装器（推荐在阶段函数内部调用）
+static inline ngx_int_t waf_enforce_block(ngx_http_request_t* r, ngx_http_waf_main_conf_t* mcf,
+                                          ngx_http_waf_loc_conf_t* lcf, ngx_http_waf_ctx_t* ctx,
+                                          ngx_int_t http_status, ngx_uint_t rule_id_or_0, ngx_uint_t score_delta);
+
+static inline ngx_int_t waf_enforce_log(ngx_http_request_t* r, ngx_http_waf_main_conf_t* mcf,
+                                        ngx_http_waf_loc_conf_t* lcf, ngx_http_waf_ctx_t* ctx,
+                                        ngx_uint_t rule_id_or_0, ngx_uint_t score_delta);
+
+static inline ngx_int_t waf_enforce_bypass(ngx_http_request_t* r, ngx_http_waf_main_conf_t* mcf,
+                                           ngx_http_waf_loc_conf_t* lcf, ngx_http_waf_ctx_t* ctx,
+                                           ngx_uint_t rule_id_or_0);
+
+// 基础访问加分（可触发封禁）：直接返回 waf_rc_e，便于在编排层统一早退
+waf_rc_e waf_enforce_base_add(ngx_http_request_t* r,
+                              ngx_http_waf_main_conf_t* mcf,
+                              ngx_http_waf_loc_conf_t*  lcf,
+                              ngx_http_waf_ctx_t*       ctx,
+                              ngx_uint_t                 score_delta);
 ```
+
+说明（强约定）：
+- 阶段函数只返回 `waf_rc_e`，不返回 Nginx rc；如需执法/放行/记录，调用 `waf_enforce_*` 后再返回相应的 `WAF_RC_*`。
+- `waf_enforce*` 在 action 层内部聚合全局策略与事件意图，必要时更新 `ctx->final_*` 并在 BLOCK/BYPASS 内部完成最终落盘；其返回的 Nginx rc 不应在阶段层进一步传播。
+- `WAF_RC_CONTINUE`：继续后续阶段；`WAF_RC_BLOCK`：需要拦截；`WAF_RC_BYPASS`：跳过后续检测段；`WAF_RC_ERROR`：内部错误；`WAF_RC_ASYNC`：阶段内部进入异步（保留位）。
+
+参考（伪代码）：
+```c
+// 仅在编排层（handler/请求体回调）使用；不在阶段函数里使用
+#define WAF_STAGE(ctx, CALL)                                                     \
+    do {                                                                         \
+        waf_rc_e _waf_rc = (CALL);                                               \
+        if (_waf_rc == WAF_RC_ASYNC)   { return NGX_DONE; }                      \
+        if (_waf_rc == WAF_RC_BLOCK)   {                                         \
+            return (ctx)->final_status > 0 ? (ctx)->final_status                 \
+                                           : NGX_HTTP_FORBIDDEN;                 \
+        }                                                                        \
+        if (_waf_rc == WAF_RC_BYPASS)  { return NGX_DECLINED; }                  \
+        if (_waf_rc == WAF_RC_ERROR)   { return NGX_HTTP_INTERNAL_SERVER_ERROR; }\
+    } while (0)
+```
+
+调用约定：
+- 阶段函数与检测循环：只返回 `waf_rc_e`；如需执法/放行/记录，调用 `waf_enforce_*` 后用 if/return 返回 `WAF_RC_BLOCK/BYPASS/CONTINUE/ERROR`。
+- 编排层（ACCESS handler/请求体回调）：统一使用 `WAF_STAGE(ctx, waf_stage_xxx(...))` 做早退映射；不直接返回 Nginx rc。
+- 全局策略（BLOCK/LOG）仅在 action 内部生效；编排/阶段无需读取或判断策略。
+- GET/HEAD 优化仅影响“是否读取请求体”，不改变策略语义；BYPASS 仅由规则/策略决定并在 action 内部完成标记与落盘。
+
+决策日志（偏差记录）：
+- 过去错误：将 action 设计为直接返回 Nginx rc，且在 GET/HEAD 优化处误用 BYPASS 语义，遗漏 `WAF_STAGE` 映射层。
+- 现已修正：action 改为只返回 `waf_rc_e`；调用侧以 `WAF_STAGE` 统一映射；GET/HEAD 仅做体读取优化，不改变策略语义。
+
 
 共享内存设计：
 - 结构：`ngx_rbtree_t + ngx_queue_t`（LRU/TTL），内存来自 `ngx_slab_pool`；使用 `ngx_shmtx_t` 加锁。
@@ -305,8 +357,8 @@ ngx_int_t waf_enforce(ngx_http_request_t* r,
 - 禁止第三方可写哈希表用于共享内存路径。
 
 请求期调用：
-- 基础访问加分：`waf_apply_reputation(..., baseAccessScore, "base_access")` → 达阈值则 `waf_enforce(..., WAF_INTENT_BLOCK, 403, 0)`。
-- 规则命中：DENY→`waf_enforce(...BLOCK, 403, rule_id)`；LOG→`waf_enforce(...LOG, NGX_DECLINED, rule_id)`；有 `score` 时同步加分。
+- 基础访问加分：`waf_enforce_base_add(r, mcf, lcf, ctx, baseAccessScore)` 返回 `waf_rc_e`，由编排层通过 `WAF_STAGE` 统一早退。
+- 规则命中：DENY → 调用 `waf_enforce_block(...)` 后返回 `WAF_RC_BLOCK`；LOG → 调用 `waf_enforce_log(...)` 后继续；BYPASS → 调用 `waf_enforce_bypass(...)` 后返回 `WAF_RC_BYPASS`。
 
 ---
 
@@ -428,7 +480,7 @@ http {
 - ACCESS 阶段入口：按 5 段流水线顺序执行；只在检测段内按 `priority` 排序。
 - 请求体异步：`ngx_http_read_client_request_body` + 回调；回调结束显式推进阶段。
 - 请求体收集：朴素合并（支持内存/文件缓冲区），必要时按 `content-type` 解码 `x-www-form-urlencoded`。
-- rc 语义：默认继续（`NGX_DECLINED`/`NGX_OK`），只有在拦截或错误时返回 HTTP 特殊响应码；统一经 `waf_enforce` 产出最终 rc。
+- rc 语义：阶段与 action 均返回 `waf_rc_e`；调用侧通过 `WAF_STAGE` 统一映射为 Nginx rc。任何直接返回 Nginx rc 的做法均为违规。
 
 ---
 
@@ -525,6 +577,7 @@ M8：清理与交付
 
 - 命名：完整语义，函数用动词短语；变量避免缩写；结构体字段自解释。
 - 控制流：早返回；错误优先；避免深层嵌套；不捕获后丢弃错误。
+- switch/case：如需在 case 内引入新声明，采用 `case XXX:;` 风格开启声明作用域，避免用额外花括号包裹整个 case 分支。
 - 注释：模块/文件/关键函数提供中文注释（解释“为什么”）。
 - JSON 指针：禁止把本地指针写入 JSON 节点；跨模块只传值或只读句柄。
 - 共享内存：仅用 Nginx 原生结构；所有内存来自 slab；锁使用 `ngx_shmtx_t`。
@@ -612,28 +665,42 @@ M8：清理与交付
 ```c
 // 省略: 获取 mcf/lcf/ctx, 过滤内部/子请求, 提取 client_ip
 
-// 1) IP BYPASS
-if (match_ip_bypass(ctx)) return NGX_DECLINED;
+// 1) IP BYPASS（策略放行仅由 action 返回 waf_rc 表达）
+if (match_ip_bypass(ctx)) {
+  (void)waf_enforce_bypass(r, mcf, lcf, ctx, rule_id);
+  return WAF_STAGE(ctx, WAF_RC_BYPASS);
+}
 
 // 2) IP DENY
-if (match_ip_deny(ctx)) return waf_enforce(..., WAF_INTENT_BLOCK, NGX_HTTP_FORBIDDEN, rule_id);
+if (match_ip_deny(ctx)) {
+  (void)waf_enforce_block(r, mcf, lcf, ctx, NGX_HTTP_FORBIDDEN, rule_id, 0);
+  return WAF_STAGE(ctx, WAF_RC_BLOCK);
+}
 
 // 3) 信誉评分与封禁
 waf_apply_reputation(r, ctx, baseAccessScore, "base_access");
-if (is_banned(ctx)) return waf_enforce(..., WAF_INTENT_BLOCK, NGX_HTTP_FORBIDDEN, 0);
+if (is_banned(ctx)) {
+  (void)waf_enforce_block(r, mcf, lcf, ctx, NGX_HTTP_FORBIDDEN, 0, 0);
+  return WAF_STAGE(ctx, WAF_RC_BLOCK);
+}
 
 // 4) URI BYPASS（软放行）
-if (match_uri_bypass(r)) return NGX_DECLINED;
+if (match_uri_bypass(r)) {
+  (void)waf_enforce_bypass(r, mcf, lcf, ctx, rule_id);
+  return WAF_STAGE(ctx, WAF_RC_BYPASS);
+}
 
 // 5) 检测段（按 priority）
 for (each rule in detect_bucket_sorted) {
   if (rule_match(r, rule)) {
     if (rule.score) waf_apply_reputation(r, ctx, rule.score, "rule");
-    ngx_int_t rc = waf_enforce(..., map_intent(rule.action), status_for(rule), rule.id);
-    if (rc != NGX_OK && rc != NGX_DECLINED) return rc;
+    waf_intent_e it = map_intent(rule.action);
+    int status = (it == WAF_INTENT_BLOCK) ? NGX_HTTP_FORBIDDEN : 0;
+    (void)waf_enforce(r, mcf, lcf, ctx, it, status, rule.id, 0);
+    if (it == WAF_INTENT_BLOCK) return WAF_STAGE(ctx, WAF_RC_BLOCK);
   }
 }
-return NGX_DECLINED;
+return WAF_STAGE(WAF_RC_CONTINUE);
 ```
 
 ---
@@ -663,6 +730,32 @@ return NGX_DECLINED;
   - 加分后立刻再次检查封禁状态（避免“先记录、后封禁”的时间窗）；
   - 统一记录事件日志（含 ruleId/intent/scoreDelta/totalScore）。
 - 这样可确保“任何能触发日志的安全事件”都能触发信誉评分路径，避免遗漏。
+
+### A. 职责边界：全局策略裁决仅在 action 模块
+
+- 核心动机：是否真正拦截由“事件意图 × 全局策略”综合决定，这一心智负担仅应由 action 模块承接；模块入口/阶段函数不应参与策略裁决。
+- 强约束：
+  - 阶段函数与检测循环只做“匹配 → 形成意图（BLOCK/LOG/BYPASS）→ 交给 `waf_action_enforce`”。
+  - 阶段函数严禁：
+    - 读取/判断全局策略（例如 LOG-only）并据此绕过 action；
+    - 直接返回 Nginx rc（例如 `NGX_HTTP_FORBIDDEN` 或 `NGX_DECLINED`），绕过 `WAF_STAGE` 映射；
+    - 在 GET/HEAD 优化等路径擅自使用 BYPASS 语义替代真实策略裁决。
+- 反例（禁止）：
+```c
+// 坏：阶段函数自行读取全局策略并直接返回 Nginx rc
+if (mcf->global_policy == WAF_POLICY_LOG_ONLY && intent == WAF_INTENT_BLOCK) {
+    return NGX_DECLINED; // 绕过 action，导致日志/加分/封禁检查不一致
+}
+```
+- 正例（推荐）：
+```c
+// 好：阶段函数仅产出意图，交由 action 统一裁决，并用 WAF_STAGE 映射 rc
+waf_intent_e intent = WAF_INTENT_BLOCK; // 由命中规则/上下文决定
+int status = NGX_HTTP_FORBIDDEN;
+waf_rc_e rc = waf_action_enforce(r, mcf, lcf, ctx, intent, status, rule_id);
+return WAF_STAGE(rc);
+```
+- 备注：LOG-only 策略下，即便规则意图为 BLOCK，action 也会返回 `WAF_RC_CONTINUE`，同时完成事件日志与评分路径，阶段函数无需关心全局策略细节。
 
 ---
 

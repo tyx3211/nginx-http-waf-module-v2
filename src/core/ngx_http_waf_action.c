@@ -1,3 +1,4 @@
+#define WAF_STUB 1
 #include "ngx_http_waf_action.h"
 
 /*
@@ -5,9 +6,10 @@
  *  STUB IMPLEMENTATION (M2.5)
  *  统一动作存根：
  *  - 合并全局策略与事件意图
- *  - BLOCK 路径返回 http_status（默认 403）
- *  - 非阻断返回 NGX_DECLINED
- *  - 同时提升 ctx 日志级别并在最终动作处交给 waf_log_flush
+ *  - 统一返回 waf_rc_e，由 STAGE 宏映射为 Nginx rc
+ *  - BLOCK 路径设置 ctx->final_status（默认 403）并返回 WAF_RC_BLOCK
+ *  - BYPASS 路径返回 WAF_RC_BYPASS，并立即 final flush
+ *  - LOG 路径返回 WAF_RC_CONTINUE
  *  - M5：接入动态信誉评分/封禁与共享内存复检
  * ================================================================
  */
@@ -31,7 +33,7 @@ static void waf_record_event(ngx_http_request_t* r,
     }
 }
 
-ngx_int_t waf_enforce(ngx_http_request_t* r,
+waf_rc_e waf_enforce(ngx_http_request_t* r,
                       ngx_http_waf_main_conf_t* mcf,
                       ngx_http_waf_loc_conf_t* lcf,
                       ngx_http_waf_ctx_t* ctx,
@@ -50,7 +52,7 @@ ngx_int_t waf_enforce(ngx_http_request_t* r,
     /* 策略：当全局策略 BLOCK 且意图 BLOCK → 实际阻断 */
     if (waf_global_block_policy_enabled && intent == WAF_INTENT_BLOCK) {
         if (ctx) {
-            ctx->final_action = 1; /* BLOCK */
+            ctx->final_action = WAF_FINAL_BLOCK;
             ctx->final_status = (ngx_uint_t)http_status;
             if (ctx->effective_level < WAF_LOG_ALERT) {
                 ctx->effective_level = WAF_LOG_ALERT;
@@ -58,18 +60,23 @@ ngx_int_t waf_enforce(ngx_http_request_t* r,
         }
         /* 在最终动作处强制 FINAL flush（BLOCK） */
         waf_log_flush_final(r, mcf, lcf, ctx, "BLOCK");
-        return http_status;
+        return WAF_RC_BLOCK;
     }
 
-    /* 非阻断路径：仅标注最终动作为 LOG 或 BYPASS，占位为 2/3 */
+    /* 非阻断路径：仅在 BYPASS 时标注最终动作并立即 flush；LOG 保持 NONE */
     if (ctx) {
-        ctx->final_action = (intent == WAF_INTENT_BYPASS) ? 3 : 2;
         ctx->final_status = 0;
         if (intent == WAF_INTENT_BYPASS) {
+            ctx->final_action = WAF_FINAL_BYPASS;
             waf_log_flush_final(r, mcf, lcf, ctx, "BYPASS");
+        } else {
+            ctx->final_action = WAF_FINAL_NONE;
         }
     }
-    return NGX_DECLINED;
+    if (intent == WAF_INTENT_BYPASS) {
+        return WAF_RC_BYPASS;
+    }
+    return WAF_RC_CONTINUE;
 }
 
 
@@ -85,5 +92,20 @@ waf_enforce_base_add(ngx_http_request_t* r,
     /* 存根阶段不触发封禁，直接继续 */
     return WAF_RC_CONTINUE;
 }
+
+
+void
+waf_action_finalize_allow(ngx_http_request_t* r,
+                          ngx_http_waf_main_conf_t* mcf,
+                          ngx_http_waf_loc_conf_t*  lcf,
+                          ngx_http_waf_ctx_t*       ctx)
+{
+    if (ctx == NULL) return;
+    if (ctx->final_action == WAF_FINAL_NONE) {
+        ctx->final_status = 0;
+    }
+    waf_log_flush_final(r, mcf, lcf, ctx, "ALLOW");
+}
+
 
 

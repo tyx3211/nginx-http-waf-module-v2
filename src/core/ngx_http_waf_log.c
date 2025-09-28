@@ -18,14 +18,14 @@ static const char* waf_log_level_str(waf_log_level_e lv) {
     }
 }
 
-void waf_log_init_request(ngx_http_request_t* r, ngx_http_waf_ctx_t* ctx) {
+void waf_log_init_ctx(ngx_http_request_t* r, ngx_http_waf_ctx_t* ctx) {
     if (ctx == NULL) return;
     ctx->log_doc = NULL;
     ctx->events = NULL;
     ctx->effective_level = WAF_LOG_NONE;
     ctx->total_score = 0;
     ctx->final_status = 0;
-    ctx->final_action = 0;
+    ctx->final_action = WAF_FINAL_NONE;
     ctx->has_complete_events = 0;
     ctx->log_flushed = 0;
 }
@@ -59,7 +59,7 @@ void waf_log_flush(ngx_http_request_t* r,
     if (r == NULL || ctx == NULL) return;
 
     /* 存根阶段：统一输出一行 error_log 日志，包含最终状态/动作/级别/score */
-    ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+    ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                   "waf-stub-log: final_status=%ui final_action=%ui level=%s total_score=%ui uri=\"%V\"",
                   ctx->final_status,
                   ctx->final_action,
@@ -77,7 +77,7 @@ void waf_log_flush_final(ngx_http_request_t* r,
     if (ctx->log_flushed) return;
 
     /* 存根：复用 waf_log_flush 行为，附带 hint 输出 */
-    ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+    ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                   "waf-stub-final: hint=%s final_status=%ui final_action=%ui level=%s total_score=%ui uri=\"%V\"",
                   (final_action_hint ? final_action_hint : ""),
                   ctx->final_status,

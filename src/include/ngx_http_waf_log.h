@@ -30,17 +30,17 @@ typedef enum {
 } waf_log_level_e;
 
 typedef struct ngx_http_waf_ctx_s {
-    yyjson_mut_doc* log_doc;         /* 存根阶段可为空：不真正构建 JSON 文档 */
-    yyjson_mut_val* events;          /* 存根阶段可为空 */
-    waf_log_level_e effective_level; /* 本次请求的整体日志级别 */
-    ngx_uint_t      total_score;     /* 动态信誉累计分（存根阶段仅内存字段） */
-    ngx_uint_t      final_status;    /* 最终 HTTP 状态（若有） */
-    ngx_uint_t      final_action;    /* 0=未知 1=BLOCK 2=LOG 3=BYPASS（存根占位语义） */
-    unsigned        has_complete_events:1; /* 是否写入过完整性事件 */
-    unsigned        log_flushed:1;       /* 是否已最终落盘（去重保护） */
+    yyjson_mut_doc*      log_doc;         /* 存根阶段可为空：不真正构建 JSON 文档 */
+    yyjson_mut_val*      events;          /* 存根阶段可为空 */
+    waf_log_level_e      effective_level; /* 本次请求的整体日志级别 */
+    ngx_uint_t           total_score;     /* 动态信誉累计分（存根阶段仅内存字段） */
+    ngx_uint_t           final_status;    /* 最终 HTTP 状态（若有） */
+    waf_final_action_e   final_action;    /* 最终动作：NONE/BLOCK/BYPASS（LOG 不作为最终动作） */
+    unsigned             has_complete_events:1; /* 是否写入过完整性事件 */
+    unsigned             log_flushed:1;       /* 是否已最终落盘（去重保护） */
 } ngx_http_waf_ctx_t;
 
-void waf_log_init_request(ngx_http_request_t* r, ngx_http_waf_ctx_t* ctx);
+void waf_log_init_ctx(ngx_http_request_t* r, ngx_http_waf_ctx_t* ctx);
 
 /* 完整性接口：一定附加事件并提升 effective_level（存根不真正构建 JSON） */
 void waf_log_append_event_complete(ngx_http_request_t* r,
