@@ -18,21 +18,21 @@ extern "C" {
 #endif
 
 typedef struct {
-    ngx_str_t   name;    /* shm zone 名称 */
-    ngx_uint_t  size;    /* shm 大小（字节） */
+  ngx_str_t name;  /* shm zone 名称 */
+  ngx_uint_t size; /* shm 大小（字节） */
 } ngx_http_waf_shm_conf_t;
 
 /* 评分与封禁 API（存根：不执法） */
-void waf_dyn_init_shm_zone(ngx_cycle_t* cycle); /* 存根：声明周期入口，占位 */
+void waf_dyn_init_shm_zone(ngx_cycle_t *cycle); /* 存根：声明周期入口，占位 */
 
-void waf_dyn_score_add(ngx_http_request_t* r, ngx_uint_t delta);
-ngx_flag_t waf_dyn_is_banned(ngx_http_request_t* r);
+void waf_dyn_score_add(ngx_http_request_t *r, ngx_uint_t delta);
+ngx_flag_t waf_dyn_is_banned(ngx_http_request_t *r);
 
 /* 共享内存上下文（M2.5：仅初始化结构，不执法） */
 typedef struct waf_dyn_shm_ctx_s {
-    ngx_rbtree_t         rbtree;
-    ngx_rbtree_node_t    sentinel;
-    ngx_queue_t          lru_queue;
+  ngx_rbtree_t rbtree;
+  ngx_rbtree_node_t sentinel;
+  ngx_queue_t lru_queue;
 } waf_dyn_shm_ctx_t;
 
 /* 共享内存初始化回调（挂到 ngx_shm_zone_t->init） */
@@ -43,12 +43,3 @@ ngx_int_t waf_dyn_shm_zone_init(ngx_shm_zone_t *shm_zone, void *data);
 #endif
 
 #endif /* NGX_HTTP_WAF_DYNAMIC_BLOCK_H */
-
-
-
-
-
-
-
-
-
