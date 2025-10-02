@@ -100,9 +100,10 @@
   - 语法糖：`ALL_PARAMS` 在加载期等价展开为 `["URI","ARGS_COMBINED","BODY"]`
   - 约束：当包含 `HEADER` 时，数组长度必须为 1，且需同时提供 `headerName`
 - headerName：`string`（当 `target=HEADER` 时必填，否则禁止出现）
-- match：`"CONTAINS"|"REGEX"|"CIDR"`（必填）
+- match：`"CONTAINS"|"REGEX"|"CIDR"|"EXACT"`（必填）
 - pattern：`string | string[]`（必填；数组为 OR 语义；必须非空）
 - caseless：`boolean`（可选；默认 false）
+- negate：`boolean`（可选；默认 false）
 - action：`"DENY"|"LOG"|"BYPASS"`（必填）
 - score：`number`（可选；默认 10；当 action=BYPASS 忽略；编译期校验）
 - priority：`number`（可选；默认 0；仅检测段内部排序使用）
@@ -146,6 +147,25 @@
 - `disableById/disableByTag` 仅过滤 imported_set；不影响本地 `rules`。不想要的本地规则可直接删除。
 - `duplicatePolicy` 为分层策略：每层在自己的合并完成后执行一次去重，然后将“本层最终结果”作为子层的父集输入。
 
+#### 4.1 匹配与取反（negate）语义
+
+- `pattern` 为字符串数组时采用 OR 语义：任意一个元素匹配即命中；单字符串等价于单元素数组。
+- `EXACT`：精确匹配（等值比较），是否忽略大小写由 `caseless` 控制；不使用正则引擎。
+- `CONTAINS`：子串匹配；`caseless=true` 时采用大小写无关比较。
+- `REGEX`：使用 Nginx 的 `ngx_regex_compile` 预编译；`caseless=true` 时启用忽略大小写选项。
+- `CIDR`：仅当 `target=CLIENT_IP` 时合法；编译为网络前缀结构。
+- 取反：当 `negate=true` 时，对上述“整体匹配结果”取反后作为最终结果（先聚合 OR，再取反）。
+  - 例如配合 `action="DENY"` 可表达“非白名单即拒绝”。
+
+#### 4.2 解码与归一化策略（运行期）
+
+- 匹配前对各目标的取值与归一化：
+  - URI：使用 Nginx 已解码的 URI，不重复解码。
+  - Query：对原始查询字符串做一次 URL 解码后参与匹配。
+  - BODY：当 `Content-Type=application/x-www-form-urlencoded` 时对请求体做一次 URL 解码；其他类型（如 JSON/二进制）不解码，按原文匹配。
+  - HEADER：按原文匹配，不做 URL 解码。
+- 实现建议：在 `src/core/ngx_http_waf_utils.[ch]` 提供统一取值/解码封装（示例）：`waf_get_decoded_uri`、`waf_get_decoded_args_combined`、`waf_collect_request_body`/`waf_decode_form_urlencoded`；返回池内只读视图以避免额外拷贝与泄漏。
+
 ### 5. 路径解析与错误
 
 - 路径：绝对路径按原样；`./`、`../` 相对当前 JSON 所在目录；裸路径相对 `waf_jsons_dir`（若设置）否则相对 Nginx prefix。
@@ -154,6 +174,16 @@
   - 重复策略为 `error` 且冲突：报错并包含文件与 JSON 指针（若可用）。
 
 ### 6. 示例（entry 继承 base 与 child）
+ 
+附：规则项 `EXACT` 与 `negate` 简短示例：
+
+```json
+{ "id": 500001, "target": "URI", "match": "EXACT", "pattern": "/health", "action": "BYPASS" }
+```
+
+```json
+{ "id": 500002, "target": "CLIENT_IP", "match": "CIDR", "pattern": ["10.0.0.0/8","192.168.0.0/16"], "negate": true, "action": "DENY" }
+```
 
 - base.rules: [100{tags:[xss]}, 200{tags:[legacy,blockedTag]}]
 - child.rules: [300{tags:[xss]}, 200{tags:[xss]}]
@@ -218,7 +248,7 @@
 
 - 匹配类型：
   - v1 `MATCH_TYPE`（CONTAINS | REGEX）
-  - v2 `match`（CONTAINS | REGEX | CIDR），新增 `CIDR` 以配合 IP 类规则
+- v2 `match`（CONTAINS | REGEX | CIDR | EXACT），新增 `CIDR` 与 `EXACT`
   - 等价性：强等价（并向上兼容）
 
 - 模式：

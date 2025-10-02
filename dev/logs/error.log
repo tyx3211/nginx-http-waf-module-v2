@@ -1,3 +1,2 @@
-nginx: [error] waf: json read failed: /home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/empty_file.json
-nginx: [error] waf: failed to load rules_json empty_file.json: file=/home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/empty_file.json ptr= msg=input data is empty at byte 0
+nginx: [error] waf: failed to load rules_json invalid_exact_pattern_array_empty.json: file=/home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/invalid_exact_pattern_array_empty.json ptr=/rules[0]�W�� msg=pattern 数组不能为空
 nginx: configuration file /home/william/myNginxWorkspace/nginx-http-waf-module-v2/dev/nginx/nginx_m1.conf test failed

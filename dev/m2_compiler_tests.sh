@@ -62,6 +62,9 @@ run_case "invalid_phase_combo"     "$CONF_DIR/test_phase_invalid.conf"   1
 run_case "invalid_regex_compile"   "$CONF_DIR/test_regex_invalid.conf"    1
 run_case "invalid_cidr_parse"      "$CONF_DIR/test_cidr_invalid.conf"     1
 run_case "empty_rules"             "$CONF_DIR/test_empty.conf"            0
+run_case "header_ok"               "$CONF_DIR/test_header_ok.conf"        0
+run_case "header_missing_name"     "$CONF_DIR/test_header_invalid_no_header_name.conf" 1
+run_case "header_mixed_targets"    "$CONF_DIR/test_header_invalid_mixed_targets.conf"   1
 
 echo "\n[M2] 测试完成：PASS=$pass_cnt FAIL=$fail_cnt" | cat
 if [ "$fail_cnt" -ne 0 ]; then

@@ -1,0 +1,7 @@
+{
+  "rules": [
+    { "id": 7003, "target": "URI", "match": "CONTAINS", "pattern": "/admin", "negate": "true", "action": "DENY" }
+  ]
+}
+
+

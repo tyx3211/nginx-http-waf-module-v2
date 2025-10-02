@@ -17,19 +17,53 @@
 ### 🚀 **建议策略调整**
 **优先进行测试验证**，因为核心功能已就绪，可直接测试SQLi/XSS拦截效果！
 
+## 📋 **最新设计变更摘要（v2近期增强）**
+
+根据 `后续详细设计.md` 和 `waf-json-spec-v2.0-simplified.md` 的最新变更：
+
+### 🆕 新增功能特性
+1. **EXACT匹配器与negate语义**
+   - ✅ 新增 `match=EXACT`（等值匹配器）
+   - ✅ `pattern` 支持 `string|string[]`（数组为OR语义）
+   - ✅ 新增规则级 `negate:boolean`，在OR聚合后取反
+   - 💡 用途：表达"非白名单即拒绝"等语义
+
+2. **URL解码与归一化策略**
+   - ✅ 明确统一"一次性解码"规则
+   - ✅ `URI/ARGS_COMBINED/BODY` 各自单次解码，不交叉复用
+   - ✅ 禁止二次解码，防止绕过攻击
+   - ✅ 已通过 `src/core/ngx_http_waf_utils.[ch]` 封装
+
+3. **日志可观测性（取反命中）**
+   - ✅ 仅对"最终命中"为真的规则记录 `rule` 事件
+   - ✅ "取反取消"（取反后未命中）不记录事件，避免噪音
+   - ✅ 事件中保留 `negate` 字段标注规则是否取反
+
+### 🎯 与指令体系的对齐
+- ✅ 指令体系已同步至 [waf-directives-spec-v2.0.md](./waf-directives-spec-v2.0.md)
+- ✅ 运维面指令（MAIN级）与数据面JSON规则清晰分离
+- ✅ `baseAccessScore` 保持在JSON `policies.dynamicBlock` 中定义
+- ⚠️ **7个核心运维指令待实现**（详见下文"Nginx指令体系"章节）
+
+---
+
 ## 总体策略
 
 ~~基于项目现状分析和详细设计文档（`后续详细设计.md`）的澄清，我们需要将重点放在 **填充存根实现** 和 **严格按照统一action层架构** 上。~~ 
 
-**调整后策略**：核心功能已完成，采用 **测试先行、功能验证** 的策略，确保已有功能稳定可靠，然后补充剩余模块。
+**调整后策略**：核心功能已完成，采用 **双线并行推进**：
+1. **测试先行、功能验证**：确保已有功能稳定可靠
+2. **补充运维指令**：实现剩余7个核心运维指令（`waf on|off`、`waf_default_action`等）
 
 ## 关键设计原则确认
 
 - [x] **统一动作层是核心**：所有拦截/放行/评分决策都必须通过 `waf_enforce_*` 族函数
 - [x] **累积评分触发封禁**：通过评分累积达到阈值触发封禁，受全局策略BLOCK控制
 - [x] **WAF_STAGE宏统一编排**：module层使用WAF_STAGE宏处理早退，不做flush
-- [x] **JSONL事件聚合**：实现decisive事件标记、finalActionType等详细格式要求
+- [x] **JSONL事件聚合**：实现decisive事件标记、finalActionType、negate字段
 - [x] **异步请求体处理**：严格按照回调函数的错误处理流程
+- [x] **EXACT匹配与negate**：支持等值匹配和取反语义（"非白名单即拒绝"）
+- [x] **一次性解码策略**：URI/ARGS/BODY各自单次解码，禁止二次解码
 
 ## 第一阶段：核心引擎实现（优先级最高）
 
@@ -47,6 +81,9 @@
 - [x] 预编译REGEX模式（使用ngx_regex_compile）
 - [x] 实现分桶索引（按phase+target组织规则）
 - [x] 创建只读快照结构，挂载到loc_conf
+- [x] **支持EXACT匹配器**（等值比较，pattern支持数组OR语义）
+- [x] **支持negate字段**（规则级取反，在OR聚合后生效）
+- [x] **支持pattern数组**（OR语义，任意一个元素匹配即命中）
 
 **测试设计**：
 - [ ] **单元测试**：创建 `test/test_compiler.c`
@@ -55,6 +92,9 @@
   - [ ] 测试REGEX编译失败时的错误定位
   - [ ] 测试target归一化的正确性（ALL_PARAMS展开）
   - [ ] 测试phase推断逻辑的各种组合
+  - [ ] **测试EXACT匹配器的编译**（单值和数组pattern）
+  - [ ] **测试negate字段的解析和存储**
+  - [ ] **测试pattern数组的OR语义**
 - [ ] **集成测试**：编译实际规则集验证分桶结果
 
 **验收标准**：
@@ -132,42 +172,75 @@
 - [ ] 错误处理使用ngx_http_finalize_request(r, 500)符合最佳实践
 - [ ] action层单元测试覆盖率达到95%以上（最关键模块）
 
-## Nginx指令体系：v2.0精简指令集 [状态跟踪] ✅ **95%完成**
+## Nginx指令体系：v2.0运维面指令集 [状态跟踪]
 
 ### 🎯 v2.0指令设计理念
-**简化指令体系 + JSON规则工件**：将大部分业务逻辑配置从nginx指令迁移到JSON规则文件中，实现运维-业务分离。
+**运维-数据分离**：运维侧全局策略由nginx指令控制（MAIN级），数据面规则由JSON工件承载，实现清晰的职责分离。
 
-详细规范文档：[nginx-directives-spec-v2.0.md](./nginx-directives-spec-v2.0.md)
+详细规范文档：[waf-directives-spec-v2.0.md](./waf-directives-spec-v2.0.md)
 
-### 📊 指令实现状态
+### 📊 指令实现状态（按waf-directives-spec-v2.0.md Roadmap）
 
-#### ✅ 运维基础指令（http级，已实现）
-| 指令 | 实现状态 | 文件位置 | 说明 |
-|------|---------|----------|------|
-| `waf_jsons_dir` | ✅ 完成 | ngx_http_waf_config.c:151-157 | JSON工件根目录 |
-| `waf_shm_zone` | ✅ 完成 | ngx_http_waf_config.c:167-173 | 共享内存区域配置 |
-| `waf_json_log` | ✅ 完成 | ngx_http_waf_config.c:175-181 | JSONL日志路径 |
-| `waf_json_log_level` | ✅ 完成 | ngx_http_waf_config.c:183-189 | 日志级别控制 |
+#### ✅ 已实现指令（6个，MAIN/继承级）
+| 指令 | 作用域 | 实现状态 | 文件位置 | 说明 |
+|------|--------|---------|----------|------|
+| `waf_jsons_dir` | MAIN | ✅ 完成 | ngx_http_waf_config.c:161-163 | JSON工件根目录 |
+| `waf_rules_json` | HTTP/SRV/LOC | ✅ 完成 | ngx_http_waf_config.c:164-168 | 规则JSON入口文件（可覆盖） |
+| `waf_json_extends_max_depth` | HTTP/SRV/LOC | ✅ 完成 | ngx_http_waf_config.c:156-160 | extends继承深度限制 |
+| `waf_shm_zone <name> <size>` | MAIN | ✅ 完成 | ngx_http_waf_config.c:169-170 | 共享内存区域配置 |
+| `waf_json_log <path>` | MAIN | ✅ 完成 | ngx_http_waf_config.c:171-173 | JSONL日志路径 |
+| `waf_json_log_level off\|debug\|info\|alert` | MAIN | ✅ 完成 | ngx_http_waf_config.c:174-176 | 日志级别控制 |
 
-#### ✅ 业务配置指令（继承支持，已实现）
-| 指令 | 实现状态 | 文件位置 | 继承性 |
-|------|---------|----------|--------|
-| `waf_rules_json` | ✅ 完成 | ngx_http_waf_config.c:159-165 | ✅ http/server/location |
-| `waf_json_extends_max_depth` | ✅ 完成 | ngx_http_waf_config.c:143-149 | ✅ http/server/location |
+#### 🚧 待实现指令（7个核心运维指令）
 
-#### 📈 对比v1简化效果
-- **v1指令数量**: 30+ 个复杂指令
-- **v2指令数量**: 6 个核心指令（减少80%）
-- **配置复杂度**: nginx.conf简化，业务逻辑统一到JSON
-- **维护成本**: 大幅降低，运维-业务分离清晰
+**模块总开关（高优先级）**
+- [ ] `waf on|off` - HTTP/SRV/LOC，location可覆盖；off时完全旁路WAF
+  - 默认值：`on`
+  - 影响：控制本模块是否在对应作用域启用
+  - 实现位置：`ngx_http_waf_config.c`（添加到loc_conf，支持继承）
+
+**全局动作策略（高优先级）**
+- [ ] `waf_default_action BLOCK|LOG` - MAIN级，全局裁决策略
+  - 默认值：`BLOCK`
+  - 影响：规则/信誉产生执法意图时的全局裁决
+  - 实现位置：`ngx_http_waf_config.c`（添加到main_conf）
+
+**XFF信任配置（高优先级）**
+- [ ] `waf_trust_xff on|off` - MAIN级，X-Forwarded-For信任配置
+  - 默认值：`off`
+  - 影响：客户端源IP提取逻辑（动态封禁与日志）
+  - 实现位置：`ngx_http_waf_config.c` + `ngx_http_waf_utils.c`（IP提取逻辑）
+
+**动态封禁系统（中等优先级，4个指令）**
+- [ ] `waf_dynamic_block_enable on|off` - MAIN级，动态封禁开关
+  - 默认值：`off`
+  - 实现位置：`ngx_http_waf_config.c`（添加到main_conf）
+
+- [ ] `waf_dynamic_block_score_threshold <number>` - MAIN级，封禁阈值
+  - 默认值：`100`
+  - 实现位置：`ngx_http_waf_config.c`（添加到main_conf）
+
+- [ ] `waf_dynamic_block_duration <time>` - MAIN级，封禁持续时长
+  - 默认值：`30m`
+  - 支持单位：`ms/s/m/h`
+  - 实现位置：`ngx_http_waf_config.c`（使用ngx_conf_set_msec_slot）
+
+- [ ] `waf_dynamic_block_window_size <time>` - MAIN级，评分窗口大小
+  - 默认值：`1m`
+  - 支持单位：`ms/s/m/h`
+  - 实现位置：`ngx_http_waf_config.c`（使用ngx_conf_set_msec_slot）
+
+**v2.1规划指令（低优先级）**
+- [ ] `waf_json_log_allow_empty on|off|sample(N)` - MAIN级，空事件ALLOW落盘控制
+- [ ] `waf_debug_final_doc on|off` - MAIN级，最终规则文档调试输出
 
 ### 🧪 指令测试任务
 
-#### 基础功能测试 [状态：⚠️ 待完成]
-- [ ] **配置解析测试**：验证所有指令的参数解析
+#### 已实现指令测试 [状态：⚠️ 待完成]
+- [ ] **配置解析测试**：验证已实现的6个指令
   - [ ] 测试相对路径解析（基于waf_jsons_dir）
-  - [ ] 测试共享内存大小解析（支持k/m/g单位）
-  - [ ] 测试日志级别枚举值（0-3）
+  - [ ] 测试共享内存大小解析（支持k/m单位）
+  - [ ] 测试日志级别字符串解析（off|debug|info|alert）
   - [ ] 测试extends深度限制范围
 - [ ] **继承机制测试**：验证http/server/location级继承
   - [ ] 测试waf_rules_json的层级覆盖
@@ -176,7 +249,23 @@
 - [ ] **错误处理测试**：验证异常配置的处理
   - [ ] 测试不存在的JSON文件路径
   - [ ] 测试无效的共享内存大小
-  - [ ] 测试超出范围的日志级别
+  - [ ] 测试未知的日志级别字符串
+
+#### 待实现指令测试 [状态：⚠️ 待规划]
+- [ ] **waf on|off测试**：
+  - [ ] 测试location级旁路功能（/static/ waf off）
+  - [ ] 测试继承覆盖逻辑
+- [ ] **waf_default_action测试**：
+  - [ ] 测试BLOCK模式的拦截行为
+  - [ ] 测试LOG模式的仅记录行为
+  - [ ] 测试与规则action的交互
+- [ ] **waf_trust_xff测试**：
+  - [ ] 测试X-Forwarded-For第一个IP的提取
+  - [ ] 测试关闭时使用remote_addr
+- [ ] **动态封禁系统测试**：
+  - [ ] 测试评分累积达阈值的封禁触发
+  - [ ] 测试封禁持续时长的过期逻辑
+  - [ ] 测试评分窗口滑动机制
 
 #### 集成测试 [状态：⚠️ 待完成]
 - [ ] **与JSON编译器集成**：验证指令与JSON解析的协同
@@ -184,21 +273,42 @@
 - [ ] **与日志系统集成**：验证JSONL输出和级别控制
 - [ ] **配置重载测试**：验证nginx -s reload的正确性
 
-#### 性能基准测试 [状态：⚠️ 待完成]
-- [ ] **配置解析性能**：启动时配置解析耗时
-- [ ] **内存使用测试**：配置结构体内存占用
-- [ ] **多worker测试**：并发访问配置的安全性
-
 ### 📝 文档完成度
-- [x] ✅ **指令规范文档**：[nginx-directives-spec-v2.0.md](./nginx-directives-spec-v2.0.md)
-- [ ] ⚠️ **配置示例文档**：实际部署的nginx.conf模板
-- [ ] ⚠️ **迁移指南文档**：v1到v2的升级步骤
+- [x] ✅ **指令规范文档**：[waf-directives-spec-v2.0.md](./waf-directives-spec-v2.0.md)
+- [ ] ⚠️ **配置示例文档**：实际部署的nginx.conf模板（含最小示例）
+- [ ] ⚠️ **迁移指南文档**：v1到v2的指令映射关系
 - [ ] ⚠️ **故障排查文档**：常见配置问题和解决方案
 
-### 🚀 下一步计划
-1. **补充指令测试**：创建comprehensive配置测试用例
-2. **完善配置模板**：提供production-ready的nginx.conf示例
-3. **编写迁移工具**：自动化v1配置转换到v2脚本
+### 🚀 实施优先级排序
+
+**第一优先级（核心功能开关，必需）**：
+1. `waf on|off` - 模块总开关
+2. `waf_default_action BLOCK|LOG` - 全局动作策略
+3. `waf_trust_xff on|off` - XFF信任配置
+
+**第二优先级（动态封禁系统，重要）**：
+4. `waf_dynamic_block_enable on|off`
+5. `waf_dynamic_block_score_threshold <number>`
+6. `waf_dynamic_block_duration <time>`
+7. `waf_dynamic_block_window_size <time>`
+
+**第三优先级（v2.1规划，可后置）**：
+8. `waf_json_log_allow_empty`
+9. `waf_debug_final_doc`
+
+### 📈 与v1指令对比
+
+| v1指令（已废弃） | v2替代方案 | 说明 |
+|-----------------|-----------|------|
+| `waf_default_action` | `waf_default_action BLOCK\|LOG` | ✅ 保留但简化（移除BYPASS） |
+| `waf_trust_xff` | `waf_trust_xff on\|off` | ✅ 保留 |
+| `waf_rules_file` | `waf_rules_json` | ⚠️ 替换为JSON格式 |
+| `waf_dynamic_block_*` | 4个动态封禁指令 | ✅ 保留并细化 |
+| `waf_csrf_*` | JSON: `rules.csrf.*` | ❌ 移除，迁移到JSON |
+| `waf_cookie_*` | JSON: `rules.cookie.*` | ❌ 移除，迁移到JSON |
+| 其他30+指令 | JSON规则工件 | ❌ 全部移除，JSON承载 |
+
+**总结**：v1约35个指令 → v2约13个指令（6已实现+7待实现），简化率约63%
 
 ## 第二阶段：动态封禁系统（高优先级）
 
@@ -268,6 +378,8 @@
 - [ ] 使用yyjson_mut构建完整的JSONL格式（当前输出到error_log）
 - [x] 实现ctx->log_flushed防重复落盘机制
 - [ ] 实现时间戳格式化（ISO 8601）和UTF-8编码处理
+- [x] **实现negate字段记录**：事件中标注规则是否取反
+- [x] **实现取反取消逻辑**：取反后未命中不记录事件（避免噪音）
 
 **测试设计**：
 - [ ] **单元测试**：创建 `test/test_log.c`
@@ -289,11 +401,29 @@
   "uri": "/api/login",
   "events": [
     {"type": "reputation", "scoreDelta": 1, "totalScore": 1, "reason": "base_access"},
-    {"type": "rule", "ruleId": 200010, "intent": "BLOCK", "scoreDelta": 20, "totalScore": 21, "target": "BODY", "decisive": true}
+    {"type": "rule", "ruleId": 200010, "intent": "BLOCK", "scoreDelta": 20, "totalScore": 21, 
+     "target": "BODY", "negate": false, "decisive": true}
   ],
   "finalAction": "BLOCK",
   "finalActionType": "BLOCK_BY_RULE", 
   "blockRuleId": 200010,
+  "status": 403
+}
+```
+
+**negate语义示例**（非白名单即拒绝）：
+```json
+{
+  "time": "2025-09-14T12:34:56.789Z",
+  "clientIp": "192.168.1.100",
+  "uri": "/admin/dashboard",
+  "events": [
+    {"type": "rule", "ruleId": 500002, "intent": "BLOCK", "scoreDelta": 50, "totalScore": 50,
+     "target": "CLIENT_IP", "negate": true, "matchedPattern": null, "decisive": true}
+  ],
+  "finalAction": "BLOCK",
+  "finalActionType": "BLOCK_BY_RULE",
+  "blockRuleId": 500002,
   "status": 403
 }
 ```

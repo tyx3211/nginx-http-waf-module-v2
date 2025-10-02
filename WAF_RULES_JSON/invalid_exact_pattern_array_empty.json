@@ -1,0 +1,7 @@
+{
+  "rules": [
+    { "id": 7004, "target": "URI", "match": "EXACT", "pattern": [], "action": "LOG" }
+  ]
+}
+
+

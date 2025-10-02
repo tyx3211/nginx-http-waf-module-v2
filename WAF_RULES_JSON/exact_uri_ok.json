@@ -1,0 +1,7 @@
+{
+  "rules": [
+    { "id": 7001, "target": "URI", "match": "EXACT", "pattern": "/health", "action": "BYPASS" }
+  ]
+}
+
+

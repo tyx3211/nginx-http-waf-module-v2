@@ -26,70 +26,7 @@ static void ngx_http_waf_post_read_body_handler(ngx_http_request_t *r);
 #include "ngx_http_waf_utils.h"
 #include <ngx_regex.h>
 
-/* 工具函数改为从 utils 复用 */
-
-/* 请求体整理（内存/文件缓冲合并，带空终止符） */
-static ngx_int_t ngx_http_waf_collect_request_body(ngx_http_request_t *r,
-                                                   ngx_str_t *body_str)
-{
-  ngx_chain_t *cl;
-  ngx_buf_t *b;
-  size_t len = 0;
-  u_char *p_start;
-  u_char *p_current;
-  size_t buf_size;
-  ssize_t n;
-
-  body_str->data = NULL;
-  body_str->len = 0;
-
-  if (r->request_body == NULL || r->request_body->bufs == NULL) {
-    body_str->data = (u_char *)"";
-    body_str->len = 0;
-    return NGX_OK;
-  }
-
-  for (cl = r->request_body->bufs; cl; cl = cl->next) {
-    b = cl->buf;
-    if (b->in_file) {
-      len += b->file_last - b->file_pos;
-    } else if (ngx_buf_in_memory(b)) {
-      len += ngx_buf_size(b);
-    }
-  }
-
-  if (len == 0) {
-    body_str->data = (u_char *)"";
-    body_str->len = 0;
-    return NGX_OK;
-  }
-
-  p_start = ngx_palloc(r->pool, len + 1);
-  if (p_start == NULL) {
-    return NGX_ERROR;
-  }
-  body_str->data = p_start;
-  body_str->len = len;
-  p_current = p_start;
-
-  for (cl = r->request_body->bufs; cl; cl = cl->next) {
-    b = cl->buf;
-    if (b->in_file) {
-      buf_size = b->file_last - b->file_pos;
-      n = ngx_read_file(b->file, p_current, buf_size, b->file_pos);
-      if (n == NGX_ERROR || (size_t)n != buf_size) {
-        return NGX_ERROR;
-      }
-      p_current += buf_size;
-    } else if (ngx_buf_in_memory(b)) {
-      buf_size = ngx_buf_size(b);
-      p_current = ngx_copy(p_current, b->pos, buf_size);
-    }
-  }
-
-  body_str->data[len] = '\0';
-  return NGX_OK;
-}
+/* 工具函数改为从 utils 复用：ngx_http_waf_collect_request_body 等 */
 
 static waf_rc_e waf_stage_ip_allow(ngx_http_request_t *r,
                                    ngx_http_waf_main_conf_t *mcf,
@@ -182,6 +119,16 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
                 }
               }
             }
+          } else if (rule->match == WAF_MATCH_EXACT) {
+            ngx_str_t *pats = rule->patterns ? rule->patterns->elts : NULL;
+            if (pats) {
+              for (ngx_uint_t k = 0; k < rule->patterns->nelts; k++) {
+                if (ngx_http_waf_equals_ci(&subj, &pats[k], rule->caseless)) {
+                  matched = 1;
+                  break;
+                }
+              }
+            }
           } else if (rule->match == WAF_MATCH_REGEX) {
             matched =
                 ngx_http_waf_regex_any_match(rule->compiled_regexes, &subj);
@@ -190,8 +137,9 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
         }
 
         case WAF_T_ARGS_COMBINED: {
-          ngx_str_t subj = r->args;
-          if (subj.len == 0) {
+          ngx_str_t subj;
+          if (ngx_http_waf_get_decoded_args_combined(r, &subj) != NGX_OK ||
+              subj.len == 0) {
             matched = 0;
             break;
           }
@@ -200,6 +148,16 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
             if (pats) {
               for (ngx_uint_t k = 0; k < rule->patterns->nelts; k++) {
                 if (ngx_http_waf_contains_ci(&subj, &pats[k], rule->caseless)) {
+                  matched = 1;
+                  break;
+                }
+              }
+            }
+          } else if (rule->match == WAF_MATCH_EXACT) {
+            ngx_str_t *pats = rule->patterns ? rule->patterns->elts : NULL;
+            if (pats) {
+              for (ngx_uint_t k = 0; k < rule->patterns->nelts; k++) {
+                if (ngx_http_waf_equals_ci(&subj, &pats[k], rule->caseless)) {
                   matched = 1;
                   break;
                 }
@@ -214,17 +172,29 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
 
         case WAF_T_ARGS_NAME: {
           ngx_str_t subj = r->args;
-          matched = ngx_http_waf_args_iter_match(
-              &subj, /*match_name=*/1, rule->caseless, rule->patterns,
-              rule->compiled_regexes, (rule->match == WAF_MATCH_REGEX));
+          if (rule->match == WAF_MATCH_EXACT) {
+            matched = ngx_http_waf_args_iter_exact(&subj, /*match_name=*/1,
+                                                   rule->caseless,
+                                                   rule->patterns);
+          } else {
+            matched = ngx_http_waf_args_iter_match(
+                &subj, /*match_name=*/1, rule->caseless, rule->patterns,
+                rule->compiled_regexes, (rule->match == WAF_MATCH_REGEX));
+          }
           break;
         }
 
         case WAF_T_ARGS_VALUE: {
           ngx_str_t subj = r->args;
-          matched = ngx_http_waf_args_iter_match(
-              &subj, /*match_name=*/0, rule->caseless, rule->patterns,
-              rule->compiled_regexes, (rule->match == WAF_MATCH_REGEX));
+          if (rule->match == WAF_MATCH_EXACT) {
+            matched = ngx_http_waf_args_iter_exact(&subj, /*match_name=*/0,
+                                                   rule->caseless,
+                                                   rule->patterns);
+          } else {
+            matched = ngx_http_waf_args_iter_match(
+                &subj, /*match_name=*/0, rule->caseless, rule->patterns,
+                rule->compiled_regexes, (rule->match == WAF_MATCH_REGEX));
+          }
           break;
         }
 
@@ -268,11 +238,37 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
             matched = 0;
             break;
           }
+          ngx_str_t body_view = body;
+          if (r->headers_in.content_type &&
+              r->headers_in.content_type->value.len >=
+                  sizeof("application/x-www-form-urlencoded") - 1 &&
+              ngx_strncasecmp(r->headers_in.content_type->value.data,
+                              (u_char *)"application/x-www-form-urlencoded",
+                              sizeof("application/x-www-form-urlencoded") - 1) ==
+                  0) {
+            ngx_str_t decoded_body;
+            if (ngx_http_waf_decode_form_urlencoded(r->pool, &body,
+                                                    &decoded_body) == NGX_OK) {
+              body_view = decoded_body;
+            }
+          }
           if (rule->match == WAF_MATCH_CONTAINS) {
             ngx_str_t *pats = rule->patterns ? rule->patterns->elts : NULL;
             if (pats) {
               for (ngx_uint_t k = 0; k < rule->patterns->nelts; k++) {
-                if (ngx_http_waf_contains_ci(&body, &pats[k], rule->caseless)) {
+                if (ngx_http_waf_contains_ci(&body_view, &pats[k],
+                                             rule->caseless)) {
+                  matched = 1;
+                  break;
+                }
+              }
+            }
+          } else if (rule->match == WAF_MATCH_EXACT) {
+            ngx_str_t *pats = rule->patterns ? rule->patterns->elts : NULL;
+            if (pats) {
+              for (ngx_uint_t k = 0; k < rule->patterns->nelts; k++) {
+                if (ngx_http_waf_equals_ci(&body_view, &pats[k],
+                                           rule->caseless)) {
                   matched = 1;
                   break;
                 }
@@ -280,7 +276,7 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
             }
           } else if (rule->match == WAF_MATCH_REGEX) {
             matched =
-                ngx_http_waf_regex_any_match(rule->compiled_regexes, &body);
+                ngx_http_waf_regex_any_match(rule->compiled_regexes, &body_view);
           }
           break;
         }
@@ -289,6 +285,11 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
           matched = 0;
           break;
         }
+      }
+
+      /* 应用 negate */
+      if (rule->negate) {
+        matched = matched ? 0 : 1;
       }
 
       if (!matched) {

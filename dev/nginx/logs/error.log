@@ -1,2 +1,1 @@
-2025/09/28 00:24:05 [error] 95788#0: waf: json read failed: /home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/empty_file.json
-2025/09/28 00:24:05 [error] 95788#0: waf: failed to load rules_json empty_file.json: file=/home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/empty_file.json ptr= msg=input data is empty at byte 0
+2025/10/02 23:53:30 [error] 377527#0: waf: failed to load rules_json invalid_exact_pattern_array_empty.json: file=/home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/invalid_exact_pattern_array_empty.json ptr=/rules[0]�W�� msg=pattern 数组不能为空

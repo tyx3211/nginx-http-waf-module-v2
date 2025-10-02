@@ -770,6 +770,8 @@ static ngx_int_t waf_match_validate(const char *s, size_t len)
 {
   return (ngx_strncmp(s, "CONTAINS", len) == 0 &&
           len == ngx_strlen("CONTAINS")) ||
+         (ngx_strncmp(s, "EXACT", len) == 0 &&
+          len == ngx_strlen("EXACT")) ||
          (ngx_strncmp(s, "REGEX", len) == 0 && len == ngx_strlen("REGEX")) ||
          (ngx_strncmp(s, "CIDR", len) == 0 && len == ngx_strlen("CIDR"));
 }
@@ -925,7 +927,7 @@ static ngx_int_t waf_validate_additional_properties(waf_merge_ctx_t *ctx,
 {
   static const char *allowed[] = {"id",         "tags",  "phase",   "target",
                                   "headerName", "match", "pattern", "caseless",
-                                  "action",     "score", "priority"};
+                                  "negate",     "action", "score",   "priority"};
   size_t allow_count = sizeof(allowed) / sizeof(allowed[0]);
 
   yyjson_obj_iter it = yyjson_obj_iter_with(rule);
@@ -1083,6 +1085,11 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
     return waf_json_set_error(ctx, file, base_pointer, "caseless 必须为布尔值");
   }
 
+  yyjson_val *negate_node = yyjson_obj_get(src_rule, "negate");
+  if (negate_node && !yyjson_is_bool(negate_node)) {
+    return waf_json_set_error(ctx, file, base_pointer, "negate 必须为布尔值");
+  }
+
   yyjson_val *score_node = yyjson_obj_get(src_rule, "score");
   if (score_node && !yyjson_is_num(score_node)) {
     return waf_json_set_error(ctx, file, base_pointer, "score 必须为数字");
@@ -1193,6 +1200,16 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
                             : yyjson_mut_false(ctx->out_doc);
     if (!k || !v || !yyjson_mut_obj_add(rule_mut, k, v)) {
       return waf_json_set_error(ctx, file, base_pointer, "写入 caseless 失败");
+    }
+  }
+
+  if (negate_node) {
+    yyjson_mut_val *k = yyjson_mut_str(ctx->out_doc, "negate");
+    yyjson_mut_val *v = yyjson_is_true(negate_node)
+                            ? yyjson_mut_true(ctx->out_doc)
+                            : yyjson_mut_false(ctx->out_doc);
+    if (!k || !v || !yyjson_mut_obj_add(rule_mut, k, v)) {
+      return waf_json_set_error(ctx, file, base_pointer, "写入 negate 失败");
     }
   }
 

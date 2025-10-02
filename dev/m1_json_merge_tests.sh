@@ -193,6 +193,24 @@ nginx_test_expect_fail "missing_parent_entry.json" "missing parent file"
 echo "== Case22: empty file should fail =="
 nginx_test_expect_fail "empty_file.json" "empty file"
 
+  echo "== Case23: EXACT match should pass =="
+  reset_logs
+  write_conf "exact_uri_ok.json"
+  nginx_test
+  grep_rules_count "1" "exact_uri_ok.json"
+
+  echo "== Case24: negate boolean true should pass =="
+  reset_logs
+  write_conf "negate_regex_ok.json"
+  nginx_test
+  grep_rules_count "1" "negate_regex_ok.json"
+
+  echo "== Case25: invalid negate type should fail =="
+  nginx_test_expect_fail "invalid_negate_type.json" "negate must be boolean"
+
+  echo "== Case26: EXACT with empty pattern array should fail =="
+  nginx_test_expect_fail "invalid_exact_pattern_array_empty.json" "empty pattern array"
+
 echo "All M1 cases passed."
 
 

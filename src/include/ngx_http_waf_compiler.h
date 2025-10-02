@@ -14,6 +14,7 @@
 /* 规则匹配类型 */
 typedef enum {
   WAF_MATCH_CONTAINS = 0,
+  WAF_MATCH_EXACT,
   WAF_MATCH_REGEX,
   WAF_MATCH_CIDR
 } waf_match_e;
@@ -49,6 +50,7 @@ typedef struct {
   waf_match_e match;     /* 匹配类型 */
   ngx_array_t *patterns; /* ngx_array_t(ngx_str_t)，OR 语义 */
   ngx_flag_t caseless;   /* 是否大小写不敏感 */
+  ngx_flag_t negate;     /* 是否取反（命中即不命中，未命中即命中） */
   waf_action_e action;   /* 动作 */
   waf_phase_e phase;     /* 执行段（由显式 phase 或 target+action 推断） */
   ngx_int_t score;       /* 评分（BYPASS 可忽略），默认 10 */

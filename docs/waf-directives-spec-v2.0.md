@@ -2,6 +2,24 @@
 
 说明：本规范定义运维侧可在 `nginx.conf` 中配置的指令与行为边界，覆盖全局动作策略、JSON 日志、动态封禁、共享内存与规则工件加载等。与规则 JSON v2.0 互补：数据面匹配/策略由 JSON 工件描述，控制面全局策略与运行期设施由本指令集控制。
 
+### 指令支持 Roadmap（v2.0 运维面）
+
+- [x] `waf_jsons_dir`（MAIN）
+- [x] `waf_rules_json`（HTTP/SRV/LOC，可覆盖）
+- [x] `waf_json_extends_max_depth`（HTTP/SRV/LOC，loc 覆盖）
+- [x] `waf_shm_zone <name> <size>`（MAIN）
+- [x] `waf_json_log <path>`（MAIN）
+- [x] `waf_json_log_level off|debug|info|alert`（MAIN）
+- [ ] `waf on|off`（HTTP/SRV/LOC，loc 可覆盖；off 完全旁路）
+- [ ] `waf_default_action BLOCK|LOG`（MAIN）
+- [ ] `waf_trust_xff on|off`（MAIN）
+- [ ] `waf_dynamic_block_enable on|off`（MAIN）
+- [ ] `waf_dynamic_block_score_threshold <num>`（MAIN）
+- [ ] `waf_dynamic_block_duration <time>`（MAIN）
+- [ ] `waf_dynamic_block_window_size <time>`（MAIN）
+- [ ] `waf_json_log_allow_empty on|off|sample(N)`（MAIN，v2.1 规划，目前版本不考虑）
+- [ ] `waf_debug_final_doc on|off`（MAIN，v2.1 规划，目前版本不考虑）
+
 ---
 
 ## 1. 作用域与继承规则

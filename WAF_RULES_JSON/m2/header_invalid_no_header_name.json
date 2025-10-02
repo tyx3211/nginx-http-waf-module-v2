@@ -1,0 +1,8 @@
+{
+  // 非法：target=HEADER 但缺少 headerName
+  "rules": [
+    { "id": 4102, "target": "HEADER", "match": "EXACT", "pattern": "x", "action": "DENY" }
+  ]
+}
+
+

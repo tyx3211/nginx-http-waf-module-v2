@@ -43,6 +43,10 @@ static ngx_int_t waf_parse_match(const char *s, size_t len, waf_match_e *out)
     *out = WAF_MATCH_CONTAINS;
     return NGX_OK;
   }
+  if (len == 5 && ngx_strncasecmp((u_char *)s, (u_char *)"EXACT", 5) == 0) {
+    *out = WAF_MATCH_EXACT;
+    return NGX_OK;
+  }
   if (len == 5 && ngx_strncasecmp((u_char *)s, (u_char *)"REGEX", 5) == 0) {
     *out = WAF_MATCH_REGEX;
     return NGX_OK;
@@ -550,6 +554,13 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
               (cs && yyjson_is_bool(cs)) ? (yyjson_get_bool(cs) ? 1 : 0) : 0;
         }
 
+    /* negate */
+    {
+      yyjson_val *ng = yyjson_obj_get(r, "negate");
+      tmp.negate =
+          (ng && yyjson_is_bool(ng)) ? (yyjson_get_bool(ng) ? 1 : 0) : 0;
+    }
+
         /* action */
         {
           const char *as = yyjson_get_str(action_node);
@@ -670,6 +681,13 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
         yyjson_val *cs = yyjson_obj_get(r, "caseless");
         rule.caseless =
             (cs && yyjson_is_bool(cs)) ? (yyjson_get_bool(cs) ? 1 : 0) : 0;
+      }
+
+      /* negate */
+      {
+        yyjson_val *ng = yyjson_obj_get(r, "negate");
+        rule.negate =
+            (ng && yyjson_is_bool(ng)) ? (yyjson_get_bool(ng) ? 1 : 0) : 0;
       }
 
       /* action */

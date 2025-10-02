@@ -134,7 +134,7 @@
 - 规则解析模块
   - 从行级 DSL 彻底迁移至结构化 JSON（唯一来源）。
   - 支持 `extends/includeTags/excludeTags/disableById/disableByTag/extraRules/duplicatePolicy`。
-  - `pattern` 支持 `string|string[]`；白名单规则化（`action=BYPASS`）。
+- `pattern` 支持 `string|string[]`；白名单规则化（`action=BYPASS`）。新增 `match=EXACT` 与规则级 `negate:boolean`。
 
 - 执行与阶段模型
   - 固定 5 段流水线：IP 允许 → IP 拒绝 → 信誉评分/封禁 → URI 允许 → 检测段。
@@ -184,9 +184,10 @@
   - `phase?: "ip_allow"|"ip_block"|"uri_allow"|"detect"`
   - `target: "CLIENT_IP"|"URI"|"ALL_PARAMS"|"ARGS_COMBINED"|"ARGS_NAME"|"ARGS_VALUE"|"BODY"|"HEADER"`
   - `headerName?: string`（当 `target=HEADER` 必填）
-  - `match: "CONTAINS"|"REGEX"|"CIDR"`
+  - `match: "CONTAINS"|"REGEX"|"CIDR"|"EXACT"`
   - `pattern: string|string[]`（数组为 OR 语义）
   - `caseless?: boolean`（默认 false）
+  - `negate?: boolean`（默认 false）
   - `action: "DENY"|"LOG"|"BYPASS"`
   - `score?: number`（默认 10；BYPASS 忽略）
   - `priority?: number`（检测段内部排序，默认 0）
@@ -208,7 +209,7 @@
   "rules": [
     { "id": 1001, "tags": ["whitelist:ip"],  "target": "CLIENT_IP", "match": "CIDR",  "pattern": ["10.0.0.0/8","192.168.0.0/16"], "action": "BYPASS" },
     { "id": 1101, "tags": ["blacklist:ip"],  "target": "CLIENT_IP", "match": "CIDR",  "pattern": ["1.2.3.4/32"],                             "action": "DENY"   },
-    { "id": 1201, "tags": ["whitelist:uri"], "target": "URI",       "match": "PREFIX", "pattern": ["/health","/metrics"],                 "action": "BYPASS" },
+    { "id": 1201, "tags": ["whitelist:uri"], "target": "URI",       "match": "REGEX",  "pattern": ["^/health","^/metrics"],             "action": "BYPASS" },
     { "id": 200010, "tags": ["core","sqli"], "target": "ALL_PARAMS", "match": "REGEX",  "pattern": ["(?i)union\\s+select","(?i)or\\s+1=1"], "action": "DENY", "score": 20 }
   ]
 }
@@ -273,7 +274,7 @@
 - `policies_snapshot`：如 `baseAccessScore`。
 
 实现要点：
-- 预编译 REGEX（`ngx_regex_compile`）；CONTAINS 生成轻量匹配器；CIDR 解析为网络前缀结构。
+- 预编译 REGEX（`ngx_regex_compile`）；CONTAINS 生成轻量匹配器；EXACT 采用等值比较器；CIDR 解析为网络前缀结构；规则级 `negate` 在逻辑层对“OR 聚合结果”取反。
 - `ngx_array_create` 预留容量至少为 1（即使预计为空），避免段错误。
 - detect 段内部按 `priority` 稳定排序；请求期零额外分配。
 
@@ -634,7 +635,7 @@ M8：清理与交付
         "phase": { "enum": ["ip_allow", "ip_block", "uri_allow", "detect"] },
         "target": { "enum": ["CLIENT_IP", "URI", "ALL_PARAMS", "ARGS_COMBINED", "ARGS_NAME", "ARGS_VALUE", "BODY", "HEADER"] },
         "headerName": { "type": "string" },
-        "match": { "enum": ["CONTAINS", "REGEX", "CIDR"] },
+        "match": { "enum": ["CONTAINS", "REGEX", "CIDR", "EXACT"] },
         "pattern": {
           "oneOf": [
             { "type": "string" },
@@ -642,6 +643,7 @@ M8：清理与交付
           ]
         },
         "caseless": { "type": "boolean" },
+        "negate": { "type": "boolean" },
         "action": { "enum": ["DENY", "LOG", "BYPASS"] },
         "score": { "type": "number" },
         "priority": { "type": "number" }
