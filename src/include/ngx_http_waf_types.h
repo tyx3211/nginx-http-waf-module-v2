@@ -14,11 +14,9 @@ typedef enum {
   WAF_RC_ERROR
 } waf_rc_e;
 
-typedef enum {
-  WAF_FINAL_NONE = 0,
-  WAF_FINAL_BLOCK = 1,
-  WAF_FINAL_BYPASS = 2
-} waf_final_action_e;
+typedef enum { WAF_FINAL_NONE = 0,
+               WAF_FINAL_BLOCK = 1,
+               WAF_FINAL_BYPASS = 2 } waf_final_action_e;
 
 /* 前置声明 ctx（实际定义在日志模块头中） */
 struct ngx_http_waf_ctx_s;

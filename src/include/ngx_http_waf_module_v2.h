@@ -10,6 +10,12 @@
  * - 详细实现分别在 json/utils/module 等子单元
  */
 
+/* M5运维指令：waf_default_action枚举 */
+typedef enum {
+  WAF_DEFAULT_ACTION_BLOCK = 0, /* 默认：拦截 */
+  WAF_DEFAULT_ACTION_LOG = 1,   /* 仅记录 */
+} waf_default_action_e;
+
 /* JSON 解析错误类型（MVP） */
 typedef struct {
   ngx_str_t file;         /* 源文件路径（若有） */
@@ -40,19 +46,16 @@ typedef struct yyjson_mut_doc yyjson_mut_doc;
  * - >0 表示包含根在内的最大递归层级
  */
 yyjson_doc *ngx_http_waf_json_load_and_merge(ngx_pool_t *pool, ngx_log_t *log,
-                                             const ngx_str_t *base_dir,
-                                             const ngx_str_t *entry_path,
-                                             ngx_uint_t max_depth,
-                                             ngx_http_waf_json_error_t *err);
+                                             const ngx_str_t *base_dir, const ngx_str_t *entry_path,
+                                             ngx_uint_t max_depth, ngx_http_waf_json_error_t *err);
 
 /* 常用工具（骨架） */
 /* 将相对路径按 base_dir 解析为绝对路径；结果分配在 pool */
-ngx_int_t ngx_http_waf_join_path(ngx_pool_t *pool, const ngx_str_t *base_dir,
-                                 const ngx_str_t *path, ngx_str_t *out_abs);
+ngx_int_t ngx_http_waf_join_path(ngx_pool_t *pool, const ngx_str_t *base_dir, const ngx_str_t *path,
+                                 ngx_str_t *out_abs);
 
 /* 提取路径的目录部分（不包含末尾文件名），结果分配在 pool */
-ngx_int_t ngx_http_waf_dirname(ngx_pool_t *pool, const ngx_str_t *path,
-                               ngx_str_t *out_dir);
+ngx_int_t ngx_http_waf_dirname(ngx_pool_t *pool, const ngx_str_t *path, ngx_str_t *out_dir);
 
 /* v2 main conf（Nginx 指令承载处） */
 typedef struct {
@@ -68,6 +71,13 @@ typedef struct {
   ngx_shm_zone_t *shm_zone; /* 共享内存区句柄（M2.5 初始化） */
   ngx_str_t shm_zone_name;  /* 区域名称 */
   size_t shm_zone_size;     /* 区域大小（字节） */
+  /* 动态封禁参数（M5） */
+  ngx_uint_t dyn_block_threshold; /* 评分阈值（默认100，0表示禁用） */
+  ngx_msec_t dyn_block_window;    /* 评分窗口（毫秒，默认60000=1分钟） */
+  ngx_msec_t dyn_block_duration;  /* 封禁时长（毫秒，默认300000=5分钟） */
+  /* M5全局运维指令（MAIN级，不继承） */
+  ngx_flag_t trust_xff;                /* waf_trust_xff on|off（默认off） */
+  waf_default_action_e default_action; /* waf_default_action（默认BLOCK） */
 } ngx_http_waf_main_conf_t;
 
 /* v2 loc conf（可在 http/server/location 级配置与继承） */
@@ -84,6 +94,10 @@ typedef struct {
 
   /* 编译期只读快照（M2 完成后填充）；允许为空 */
   struct waf_compiled_snapshot_s *compiled;
+
+  /* M5运维指令（HTTP/SRV/LOC，可继承） */
+  ngx_flag_t waf_enable;       /* waf on|off（默认on） */
+  ngx_flag_t dyn_block_enable; /* waf_dynamic_block_enable on|off（默认off，方案C） */
 } ngx_http_waf_loc_conf_t;
 
 #endif /* NGX_HTTP_WAF_MODULE_V2_H */

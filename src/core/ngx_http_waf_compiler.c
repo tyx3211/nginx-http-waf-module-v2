@@ -19,8 +19,7 @@
  */
 
 /* ------------------------ 工具：字符串复制 ------------------------ */
-static ngx_int_t waf_copy_str(ngx_pool_t *pool, const char *s, size_t len,
-                              ngx_str_t *out)
+static ngx_int_t waf_copy_str(ngx_pool_t *pool, const char *s, size_t len, ngx_str_t *out)
 {
   if (s == NULL || len == 0) {
     out->data = NULL;
@@ -87,8 +86,7 @@ static ngx_int_t waf_parse_target(const char *s, size_t len, waf_target_e *out)
     return NGX_OK;
   }
   /* 注意："ARGS_COMBINED" 长度为 13 */
-  if (len == 13 &&
-      ngx_strncasecmp((u_char *)s, (u_char *)"ARGS_COMBINED", 13) == 0) {
+  if (len == 13 && ngx_strncasecmp((u_char *)s, (u_char *)"ARGS_COMBINED", 13) == 0) {
     *out = WAF_T_ARGS_COMBINED;
     return NGX_OK;
   }
@@ -96,8 +94,7 @@ static ngx_int_t waf_parse_target(const char *s, size_t len, waf_target_e *out)
     *out = WAF_T_ARGS_NAME;
     return NGX_OK;
   }
-  if (len == 10 &&
-      ngx_strncasecmp((u_char *)s, (u_char *)"ARGS_VALUE", 10) == 0) {
+  if (len == 10 && ngx_strncasecmp((u_char *)s, (u_char *)"ARGS_VALUE", 10) == 0) {
     *out = WAF_T_ARGS_VALUE;
     return NGX_OK;
   }
@@ -113,8 +110,7 @@ static ngx_int_t waf_parse_target(const char *s, size_t len, waf_target_e *out)
 }
 
 /* ------------------------ 工具：tags 数组复制 ------------------------ */
-static ngx_int_t waf_copy_tags(ngx_pool_t *pool, yyjson_val *tags_node,
-                               ngx_array_t **out_tags)
+static ngx_int_t waf_copy_tags(ngx_pool_t *pool, yyjson_val *tags_node, ngx_array_t **out_tags)
 {
   if (tags_node == NULL) {
     *out_tags = NULL;
@@ -207,8 +203,7 @@ static ngx_int_t waf_infer_phase(const waf_compiled_rule_t *r, ngx_log_t *log,
   return (r->phase == 0 ? (waf_phase_e)WAF_PHASE_DETECT : r->phase);
 }
 
-static ngx_int_t waf_parse_phase_text_ci(const char *s, size_t len,
-                                         waf_phase_e *out)
+static ngx_int_t waf_parse_phase_text_ci(const char *s, size_t len, waf_phase_e *out)
 {
   if (len == 8 && ngx_strncasecmp((u_char *)s, (u_char *)"ip_allow", 8) == 0) {
     *out = WAF_PHASE_IP_ALLOW;
@@ -229,21 +224,16 @@ static ngx_int_t waf_parse_phase_text_ci(const char *s, size_t len,
   return NGX_ERROR;
 }
 
-static ngx_int_t waf_validate_phase_combo(waf_phase_e phase,
-                                          waf_target_e target,
+static ngx_int_t waf_validate_phase_combo(waf_phase_e phase, waf_target_e target,
                                           waf_action_e action)
 {
   switch (phase) {
     case WAF_PHASE_IP_ALLOW:
-      return (target == WAF_T_CLIENT_IP && action == WAF_ACT_BYPASS)
-                 ? NGX_OK
-                 : NGX_ERROR;
+      return (target == WAF_T_CLIENT_IP && action == WAF_ACT_BYPASS) ? NGX_OK : NGX_ERROR;
     case WAF_PHASE_IP_BLOCK:
-      return (target == WAF_T_CLIENT_IP && action == WAF_ACT_DENY) ? NGX_OK
-                                                                   : NGX_ERROR;
+      return (target == WAF_T_CLIENT_IP && action == WAF_ACT_DENY) ? NGX_OK : NGX_ERROR;
     case WAF_PHASE_URI_ALLOW:
-      return (target == WAF_T_URI && action == WAF_ACT_BYPASS) ? NGX_OK
-                                                               : NGX_ERROR;
+      return (target == WAF_T_URI && action == WAF_ACT_BYPASS) ? NGX_OK : NGX_ERROR;
     case WAF_PHASE_DETECT:
       return NGX_OK;
     default:
@@ -251,8 +241,7 @@ static ngx_int_t waf_validate_phase_combo(waf_phase_e phase,
   }
 }
 
-static ngx_int_t waf_bucket_append(ngx_pool_t *pool,
-                                   waf_compiled_snapshot_t *snap,
+static ngx_int_t waf_bucket_append(ngx_pool_t *pool, waf_compiled_snapshot_t *snap,
                                    waf_phase_e phase, waf_target_e target,
                                    waf_compiled_rule_t *rule)
 {
@@ -288,8 +277,7 @@ static void waf_sort_bucket_by_priority_stable(ngx_array_t *bucket)
 }
 
 /* ------------------------ 预编译：REGEX/CIDR ------------------------ */
-static ngx_int_t waf_precompile_regexes(ngx_pool_t *pool, ngx_log_t *log,
-                                        waf_compiled_rule_t *rule)
+static ngx_int_t waf_precompile_regexes(ngx_pool_t *pool, ngx_log_t *log, waf_compiled_rule_t *rule)
 {
   if (rule->match != WAF_MATCH_REGEX)
     return NGX_OK;
@@ -313,8 +301,7 @@ static ngx_int_t waf_precompile_regexes(ngx_pool_t *pool, ngx_log_t *log,
     rc.options = rule->caseless ? NGX_REGEX_CASELESS : 0;
     if (ngx_regex_compile(&rc) != NGX_OK) {
       if (log) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-                      "waf: regex compile failed: id=%ui pattern=%V err=%V",
+        ngx_log_error(NGX_LOG_ERR, log, 0, "waf: regex compile failed: id=%ui pattern=%V err=%V",
                       rule->id, &pats[i], &rc.err);
       }
       return NGX_ERROR;
@@ -336,8 +323,7 @@ static ngx_int_t waf_parse_cidr_one(ngx_str_t *s, ngx_cidr_t *out)
   return NGX_OK;
 }
 
-static ngx_int_t waf_precompile_cidrs(ngx_pool_t *pool, ngx_log_t *log,
-                                      waf_compiled_rule_t *rule)
+static ngx_int_t waf_precompile_cidrs(ngx_pool_t *pool, ngx_log_t *log, waf_compiled_rule_t *rule)
 {
   (void)log;
   if (rule->match != WAF_MATCH_CIDR)
@@ -363,10 +349,8 @@ static ngx_int_t waf_precompile_cidrs(ngx_pool_t *pool, ngx_log_t *log,
 }
 
 /* ------------------------ 主编译入口 ------------------------ */
-ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
-                                     yyjson_doc *merged_doc,
-                                     waf_compiled_snapshot_t **out,
-                                     ngx_http_waf_json_error_t *err)
+ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log, yyjson_doc *merged_doc,
+                                     waf_compiled_snapshot_t **out, ngx_http_waf_json_error_t *err)
 {
   if (out == NULL)
     return NGX_ERROR;
@@ -411,9 +395,8 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
   if (snap == NULL)
     return NGX_ERROR;
   snap->pool = pool;
-  snap->all_rules = ngx_array_create(
-      pool, yyjson_arr_size(rules) > 0 ? yyjson_arr_size(rules) : 1,
-      sizeof(waf_compiled_rule_t));
+  snap->all_rules = ngx_array_create(pool, yyjson_arr_size(rules) > 0 ? yyjson_arr_size(rules) : 1,
+                                     sizeof(waf_compiled_rule_t));
   if (snap->all_rules == NULL)
     return NGX_ERROR;
 
@@ -444,8 +427,8 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
     yyjson_val *pattern_node = yyjson_obj_get(r, "pattern");
     yyjson_val *action_node = yyjson_obj_get(r, "action");
 
-    if (!id_node || !yyjson_is_int(id_node) || !target_node || !match_node ||
-        !pattern_node || !action_node) {
+    if (!id_node || !yyjson_is_int(id_node) || !target_node || !match_node || !pattern_node ||
+        !action_node) {
       if (err) {
         err->file.len = 0;
         err->file.data = NULL;
@@ -522,8 +505,8 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
             }
             return NGX_ERROR;
           }
-          if (waf_copy_str(pool, yyjson_get_str(hn), yyjson_get_len(hn),
-                           &tmp.header_name) != NGX_OK)
+          if (waf_copy_str(pool, yyjson_get_str(hn), yyjson_get_len(hn), &tmp.header_name) !=
+              NGX_OK)
             return NGX_ERROR;
         }
 
@@ -550,16 +533,14 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
         /* caseless */
         {
           yyjson_val *cs = yyjson_obj_get(r, "caseless");
-          tmp.caseless =
-              (cs && yyjson_is_bool(cs)) ? (yyjson_get_bool(cs) ? 1 : 0) : 0;
+          tmp.caseless = (cs && yyjson_is_bool(cs)) ? (yyjson_get_bool(cs) ? 1 : 0) : 0;
         }
 
-    /* negate */
-    {
-      yyjson_val *ng = yyjson_obj_get(r, "negate");
-      tmp.negate =
-          (ng && yyjson_is_bool(ng)) ? (yyjson_get_bool(ng) ? 1 : 0) : 0;
-    }
+        /* negate */
+        {
+          yyjson_val *ng = yyjson_obj_get(r, "negate");
+          tmp.negate = (ng && yyjson_is_bool(ng)) ? (yyjson_get_bool(ng) ? 1 : 0) : 0;
+        }
 
         /* action */
         {
@@ -577,15 +558,12 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
         {
           yyjson_val *sc = yyjson_obj_get(r, "score");
           yyjson_val *pr = yyjson_obj_get(r, "priority");
-          tmp.score =
-              (sc && yyjson_is_num(sc)) ? (ngx_int_t)yyjson_get_sint(sc) : 10;
-          tmp.priority =
-              (pr && yyjson_is_num(pr)) ? (ngx_int_t)yyjson_get_sint(pr) : 0;
+          tmp.score = (sc && yyjson_is_num(sc)) ? (ngx_int_t)yyjson_get_sint(sc) : 10;
+          tmp.priority = (pr && yyjson_is_num(pr)) ? (ngx_int_t)yyjson_get_sint(pr) : 0;
         }
 
         /* tags[] */
-        if (waf_copy_tags(pool, yyjson_obj_get(r, "tags"), &tmp.tags) !=
-            NGX_OK) {
+        if (waf_copy_tags(pool, yyjson_obj_get(r, "tags"), &tmp.tags) != NGX_OK) {
           if (err) {
             ngx_str_set(&err->message, "tags 必须为字符串数组");
           }
@@ -597,8 +575,7 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
           yyjson_val *ph = yyjson_obj_get(r, "phase");
           if (ph && yyjson_is_str(ph)) {
             waf_phase_e phv;
-            if (waf_parse_phase_text_ci(yyjson_get_str(ph), yyjson_get_len(ph),
-                                        &phv) != NGX_OK) {
+            if (waf_parse_phase_text_ci(yyjson_get_str(ph), yyjson_get_len(ph), &phv) != NGX_OK) {
               if (err) {
                 ngx_str_set(&err->message, "phase 取值非法");
               }
@@ -608,8 +585,7 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
           } else {
             tmp.phase = waf_infer_phase(&tmp, log, err);
           }
-          if (waf_validate_phase_combo(tmp.phase, tmp.target, tmp.action) !=
-              NGX_OK) {
+          if (waf_validate_phase_combo(tmp.phase, tmp.target, tmp.action) != NGX_OK) {
             if (err) {
               ngx_str_set(&err->message, "phase/target/action 组合非法");
             }
@@ -624,8 +600,7 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
         *slot = tmp;
 
         /* 分桶索引：保存指针 */
-        if (waf_bucket_append(pool, snap, slot->phase, slot->target, slot) !=
-            NGX_OK)
+        if (waf_bucket_append(pool, snap, slot->phase, slot->target, slot) != NGX_OK)
           return NGX_ERROR;
 
         /* 预编译 REGEX/CIDR */
@@ -651,8 +626,7 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
           }
           return NGX_ERROR;
         }
-        if (waf_copy_str(pool, yyjson_get_str(hn), yyjson_get_len(hn),
-                         &rule.header_name) != NGX_OK)
+        if (waf_copy_str(pool, yyjson_get_str(hn), yyjson_get_len(hn), &rule.header_name) != NGX_OK)
           return NGX_ERROR;
       }
 
@@ -679,15 +653,13 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
       /* caseless */
       {
         yyjson_val *cs = yyjson_obj_get(r, "caseless");
-        rule.caseless =
-            (cs && yyjson_is_bool(cs)) ? (yyjson_get_bool(cs) ? 1 : 0) : 0;
+        rule.caseless = (cs && yyjson_is_bool(cs)) ? (yyjson_get_bool(cs) ? 1 : 0) : 0;
       }
 
       /* negate */
       {
         yyjson_val *ng = yyjson_obj_get(r, "negate");
-        rule.negate =
-            (ng && yyjson_is_bool(ng)) ? (yyjson_get_bool(ng) ? 1 : 0) : 0;
+        rule.negate = (ng && yyjson_is_bool(ng)) ? (yyjson_get_bool(ng) ? 1 : 0) : 0;
       }
 
       /* action */
@@ -706,15 +678,12 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
       {
         yyjson_val *sc = yyjson_obj_get(r, "score");
         yyjson_val *pr = yyjson_obj_get(r, "priority");
-        rule.score =
-            (sc && yyjson_is_num(sc)) ? (ngx_int_t)yyjson_get_sint(sc) : 10;
-        rule.priority =
-            (pr && yyjson_is_num(pr)) ? (ngx_int_t)yyjson_get_sint(pr) : 0;
+        rule.score = (sc && yyjson_is_num(sc)) ? (ngx_int_t)yyjson_get_sint(sc) : 10;
+        rule.priority = (pr && yyjson_is_num(pr)) ? (ngx_int_t)yyjson_get_sint(pr) : 0;
       }
 
       /* tags[] */
-      if (waf_copy_tags(pool, yyjson_obj_get(r, "tags"), &rule.tags) !=
-          NGX_OK) {
+      if (waf_copy_tags(pool, yyjson_obj_get(r, "tags"), &rule.tags) != NGX_OK) {
         if (err) {
           ngx_str_set(&err->message, "tags 必须为字符串数组");
         }
@@ -726,8 +695,7 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
         yyjson_val *ph = yyjson_obj_get(r, "phase");
         if (ph && yyjson_is_str(ph)) {
           waf_phase_e phv;
-          if (waf_parse_phase_text_ci(yyjson_get_str(ph), yyjson_get_len(ph),
-                                      &phv) != NGX_OK) {
+          if (waf_parse_phase_text_ci(yyjson_get_str(ph), yyjson_get_len(ph), &phv) != NGX_OK) {
             if (err) {
               ngx_str_set(&err->message, "phase 取值非法");
             }
@@ -737,8 +705,7 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
         } else {
           rule.phase = waf_infer_phase(&rule, log, err);
         }
-        if (waf_validate_phase_combo(rule.phase, rule.target, rule.action) !=
-            NGX_OK) {
+        if (waf_validate_phase_combo(rule.phase, rule.target, rule.action) != NGX_OK) {
           if (err) {
             ngx_str_set(&err->message, "phase/target/action 组合非法");
           }
@@ -753,8 +720,7 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
       *slot = rule;
 
       /* 分桶索引 */
-      if (waf_bucket_append(pool, snap, slot->phase, slot->target, slot) !=
-          NGX_OK)
+      if (waf_bucket_append(pool, snap, slot->phase, slot->target, slot) != NGX_OK)
         return NGX_ERROR;
 
       /* 预编译 REGEX/CIDR */
@@ -798,8 +764,7 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
 
   *out = snap;
   if (log) {
-    ngx_log_error(NGX_LOG_INFO, log, 0, "waf: compiled rules num=%ui",
-                  snap->all_rules->nelts);
+    ngx_log_error(NGX_LOG_INFO, log, 0, "waf: compiled rules num=%ui", snap->all_rules->nelts);
   }
   /* 清理 uthash 表结构（元素为 pool 分配，将随 pool 一并回收） */
   HASH_CLEAR(hh, id_map);

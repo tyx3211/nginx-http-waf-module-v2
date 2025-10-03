@@ -31,7 +31,9 @@ typedef enum {
 } waf_target_e;
 
 /* 动作 */
-typedef enum { WAF_ACT_DENY = 0, WAF_ACT_LOG, WAF_ACT_BYPASS } waf_action_e;
+typedef enum { WAF_ACT_DENY = 0,
+               WAF_ACT_LOG,
+               WAF_ACT_BYPASS } waf_action_e;
 
 /* 执行段（phase） */
 typedef enum {
@@ -69,17 +71,14 @@ typedef struct waf_compiled_snapshot_s {
   yyjson_doc *raw_policies; /* 可选：从入口 JSON 透传 */
 
   /* 分桶：简单起见，每个桶保存指向 all_rules 元素的指针数组 */
-  ngx_array_t
-      *buckets[WAF_PHASE_COUNT][8]; /* 8=目标种类上限（与 waf_target_e 对齐） */
+  ngx_array_t *buckets[WAF_PHASE_COUNT][8]; /* 8=目标种类上限（与 waf_target_e 对齐） */
 } waf_compiled_snapshot_t;
 
 /*
  * 编译入口：将 M1 产出的 yyjson_doc 编译为快照
  * 返回：成功 NGX_OK；失败 NGX_ERROR（err 若非空则填充）
  */
-ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log,
-                                     yyjson_doc *merged_doc,
-                                     waf_compiled_snapshot_t **out,
-                                     ngx_http_waf_json_error_t *err);
+ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log, yyjson_doc *merged_doc,
+                                     waf_compiled_snapshot_t **out, ngx_http_waf_json_error_t *err);
 
 #endif /* NGX_HTTP_WAF_COMPILER_H */

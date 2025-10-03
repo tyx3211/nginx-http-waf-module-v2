@@ -181,53 +181,50 @@
 
 ### 📊 指令实现状态（按waf-directives-spec-v2.0.md Roadmap）
 
-#### ✅ 已实现指令（6个，MAIN/继承级）
+#### ✅ 已实现指令（8个，MAIN/LOC级）
 | 指令 | 作用域 | 实现状态 | 文件位置 | 说明 |
 |------|--------|---------|----------|------|
-| `waf_jsons_dir` | MAIN | ✅ 完成 | ngx_http_waf_config.c:161-163 | JSON工件根目录 |
-| `waf_rules_json` | HTTP/SRV/LOC | ✅ 完成 | ngx_http_waf_config.c:164-168 | 规则JSON入口文件（可覆盖） |
-| `waf_json_extends_max_depth` | HTTP/SRV/LOC | ✅ 完成 | ngx_http_waf_config.c:156-160 | extends继承深度限制 |
-| `waf_shm_zone <name> <size>` | MAIN | ✅ 完成 | ngx_http_waf_config.c:169-170 | 共享内存区域配置 |
-| `waf_json_log <path>` | MAIN | ✅ 完成 | ngx_http_waf_config.c:171-173 | JSONL日志路径 |
-| `waf_json_log_level off\|debug\|info\|alert` | MAIN | ✅ 完成 | ngx_http_waf_config.c:174-176 | 日志级别控制 |
+| `waf_jsons_dir` | MAIN | ✅ 完成 | ngx_http_waf_config.c:175 | JSON工件根目录 |
+| `waf_rules_json` | HTTP/SRV/LOC | ✅ 完成 | ngx_http_waf_config.c:176-180 | 规则JSON入口文件（可覆盖） |
+| `waf_json_extends_max_depth` | HTTP/SRV/LOC | ✅ 完成 | ngx_http_waf_config.c:168-172 | extends继承深度限制 |
+| `waf_shm_zone <name> <size>` | MAIN | ✅ 完成 | ngx_http_waf_config.c:181-182 | 共享内存区域配置 |
+| `waf_json_log <path>` | MAIN | ✅ 完成 | ngx_http_waf_config.c:183-186 | JSONL日志路径 |
+| `waf_json_log_level off\|debug\|info\|alert` | MAIN | ✅ 完成 | ngx_http_waf_config.c:187-190 | 日志级别控制 |
+| `waf on\|off` | HTTP/SRV/LOC | ✅ 完成 | ngx_http_waf_config.c:192-196 | 模块总开关（可继承） |
+| `waf_dynamic_block_enable on\|off` | HTTP/SRV/LOC | ✅ 完成 | ngx_http_waf_config.c:197-201 | 动态封禁开关（方案C） |
 
-#### 🚧 待实现指令（7个核心运维指令）
+#### 🚧 待实现指令（5个核心运维指令）
 
-**模块总开关（高优先级）**
-- [ ] `waf on|off` - HTTP/SRV/LOC，location可覆盖；off时完全旁路WAF
-  - 默认值：`on`
-  - 影响：控制本模块是否在对应作用域启用
-  - 实现位置：`ngx_http_waf_config.c`（添加到loc_conf，支持继承）
-
-**全局动作策略（高优先级）**
+**全局动作策略（高优先级）** ⚠️ **已有字段，待实现指令注册**
 - [ ] `waf_default_action BLOCK|LOG` - MAIN级，全局裁决策略
   - 默认值：`BLOCK`
   - 影响：规则/信誉产生执法意图时的全局裁决
-  - 实现位置：`ngx_http_waf_config.c`（添加到main_conf）
+  - **注意**：`main_conf->default_action` 字段已存在，仅需在指令表中注册
+  - 实现位置：`ngx_http_waf_config.c`（指令表添加）
 
-**XFF信任配置（高优先级）**
+**XFF信任配置（高优先级）** ⚠️ **已有字段，待实现指令注册**
 - [ ] `waf_trust_xff on|off` - MAIN级，X-Forwarded-For信任配置
   - 默认值：`off`
   - 影响：客户端源IP提取逻辑（动态封禁与日志）
-  - 实现位置：`ngx_http_waf_config.c` + `ngx_http_waf_utils.c`（IP提取逻辑）
+  - **注意**：`main_conf->trust_xff` 字段已存在，仅需在指令表中注册
+  - 实现位置：`ngx_http_waf_config.c`（指令表添加）
 
-**动态封禁系统（中等优先级，4个指令）**
-- [ ] `waf_dynamic_block_enable on|off` - MAIN级，动态封禁开关
-  - 默认值：`off`
-  - 实现位置：`ngx_http_waf_config.c`（添加到main_conf）
-
+**动态封禁全局参数（中等优先级，3个MAIN级指令）** ⚠️ **已有字段，待实现指令注册**
 - [ ] `waf_dynamic_block_score_threshold <number>` - MAIN级，封禁阈值
   - 默认值：`100`
-  - 实现位置：`ngx_http_waf_config.c`（添加到main_conf）
+  - **注意**：`main_conf->dyn_block_threshold` 字段已存在，仅需在指令表中注册
+  - 实现位置：`ngx_http_waf_config.c`（指令表添加）
 
 - [ ] `waf_dynamic_block_duration <time>` - MAIN级，封禁持续时长
-  - 默认值：`30m`
+  - 默认值：`30m`（300000ms）
   - 支持单位：`ms/s/m/h`
+  - **注意**：`main_conf->dyn_block_duration` 字段已存在，仅需在指令表中注册
   - 实现位置：`ngx_http_waf_config.c`（使用ngx_conf_set_msec_slot）
 
 - [ ] `waf_dynamic_block_window_size <time>` - MAIN级，评分窗口大小
-  - 默认值：`1m`
+  - 默认值：`1m`（60000ms）
   - 支持单位：`ms/s/m/h`
+  - **注意**：`main_conf->dyn_block_window` 字段已存在，仅需在指令表中注册
   - 实现位置：`ngx_http_waf_config.c`（使用ngx_conf_set_msec_slot）
 
 **v2.1规划指令（低优先级）**

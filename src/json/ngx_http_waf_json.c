@@ -103,8 +103,7 @@ static void waf_json_reset_error(ngx_http_waf_json_error_t *err)
  * 说明: 所有字符串内存均从 ctx->pool 分配，以与 Nginx 生命周期对齐
  */
 static ngx_int_t waf_json_set_error(waf_merge_ctx_t *ctx, const ngx_str_t *file,
-                                    const char *json_pointer, const char *fmt,
-                                    ...)
+                                    const char *json_pointer, const char *fmt, ...)
 {
   if (ctx == NULL || ctx->err == NULL) {
     return NGX_ERROR;
@@ -151,8 +150,7 @@ static ngx_int_t waf_json_set_error(waf_merge_ctx_t *ctx, const ngx_str_t *file,
  * 函数: waf_str_copy
  * 作用: 将 ngx_str_t 深拷贝到新内存（来自 pool）
  */
-static ngx_int_t waf_str_copy(ngx_pool_t *pool, const ngx_str_t *src,
-                              ngx_str_t *dst)
+static ngx_int_t waf_str_copy(ngx_pool_t *pool, const ngx_str_t *src, ngx_str_t *dst)
 {
   if (pool == NULL || src == NULL || dst == NULL) {
     return NGX_ERROR;
@@ -176,8 +174,8 @@ static ngx_int_t waf_str_copy(ngx_pool_t *pool, const ngx_str_t *src,
  * 函数: waf_pointer_concat
  * 作用: 连接 JSON Pointer/路径的前后缀，返回新内存
  */
-static ngx_int_t waf_pointer_concat(ngx_pool_t *pool, const char *base,
-                                    const char *suffix, ngx_str_t *out)
+static ngx_int_t waf_pointer_concat(ngx_pool_t *pool, const char *base, const char *suffix,
+                                    ngx_str_t *out)
 {
   size_t bl = base ? ngx_strlen(base) : 0;
   size_t sl = suffix ? ngx_strlen(suffix) : 0;
@@ -218,8 +216,7 @@ static ngx_int_t ngx_http_waf_str_eq(const ngx_str_t *a, const ngx_str_t *b)
  * 函数: ngx_http_waf_push_path
  * 作用: 将路径压入栈（用于 extends 环检测）
  */
-static ngx_int_t ngx_http_waf_push_path(ngx_array_t *stack,
-                                        const ngx_str_t *path)
+static ngx_int_t ngx_http_waf_push_path(ngx_array_t *stack, const ngx_str_t *path)
 {
   ngx_str_t *slot = ngx_array_push(stack);
   if (slot == NULL) {
@@ -233,8 +230,7 @@ static ngx_int_t ngx_http_waf_push_path(ngx_array_t *stack,
  * 函数: ngx_http_waf_path_in_stack
  * 作用: 判断路径是否已在栈中（用于检测循环引用）
  */
-static ngx_uint_t ngx_http_waf_path_in_stack(ngx_array_t *stack,
-                                             const ngx_str_t *path)
+static ngx_uint_t ngx_http_waf_path_in_stack(ngx_array_t *stack, const ngx_str_t *path)
 {
   if (stack == NULL || path == NULL) {
     return 0;
@@ -306,8 +302,7 @@ static ngx_int_t ngx_http_waf_normalize_path(ngx_pool_t *pool, ngx_str_t *path)
  * 函数: ngx_http_waf_dirname
  * 作用: 取路径的上级目录（结果已规范化）
  */
-ngx_int_t ngx_http_waf_dirname(ngx_pool_t *pool, const ngx_str_t *path,
-                               ngx_str_t *out_dir)
+ngx_int_t ngx_http_waf_dirname(ngx_pool_t *pool, const ngx_str_t *path, ngx_str_t *out_dir)
 {
   if (pool == NULL || path == NULL || out_dir == NULL || path->len == 0) {
     return NGX_ERROR;
@@ -361,10 +356,8 @@ ngx_int_t ngx_http_waf_dirname(ngx_pool_t *pool, const ngx_str_t *path,
  * 函数: ngx_http_waf_join_path_internal
  * 作用: 将相对路径拼接到 base_dir，若 path 为绝对路径则直接复制
  */
-static ngx_int_t ngx_http_waf_join_path_internal(ngx_pool_t *pool,
-                                                 const ngx_str_t *base_dir,
-                                                 const ngx_str_t *path,
-                                                 ngx_str_t *out)
+static ngx_int_t ngx_http_waf_join_path_internal(ngx_pool_t *pool, const ngx_str_t *base_dir,
+                                                 const ngx_str_t *path, ngx_str_t *out)
 {
   if (pool == NULL || path == NULL || out == NULL) {
     return NGX_ERROR;
@@ -402,11 +395,10 @@ static ngx_int_t ngx_http_waf_join_path_internal(ngx_pool_t *pool,
  * 函数: ngx_http_waf_join_path
  * 作用: 拼接并规范化路径
  */
-ngx_int_t ngx_http_waf_join_path(ngx_pool_t *pool, const ngx_str_t *base_dir,
-                                 const ngx_str_t *path, ngx_str_t *out_abs)
+ngx_int_t ngx_http_waf_join_path(ngx_pool_t *pool, const ngx_str_t *base_dir, const ngx_str_t *path,
+                                 ngx_str_t *out_abs)
 {
-  if (ngx_http_waf_join_path_internal(pool, base_dir, path, out_abs) !=
-      NGX_OK) {
+  if (ngx_http_waf_join_path_internal(pool, base_dir, path, out_abs) != NGX_OK) {
     return NGX_ERROR;
   }
   if (ngx_http_waf_normalize_path(pool, out_abs) != NGX_OK) {
@@ -419,17 +411,15 @@ ngx_int_t ngx_http_waf_join_path(ngx_pool_t *pool, const ngx_str_t *base_dir,
  * 函数: ngx_http_waf_json_read_single
  * 作用: 以宽容模式读取单个 JSON 文件，失败时填充详细错误信息
  */
-static yyjson_doc *ngx_http_waf_json_read_single(ngx_pool_t *pool,
-                                                 ngx_log_t *log,
+static yyjson_doc *ngx_http_waf_json_read_single(ngx_pool_t *pool, ngx_log_t *log,
                                                  const ngx_str_t *abs_path,
                                                  ngx_http_waf_json_error_t *err)
 {
   yyjson_read_err yerr = {0};
-  yyjson_read_flag flags =
-      YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_TRAILING_COMMAS |
-      YYJSON_READ_ALLOW_INF_AND_NAN | YYJSON_READ_ALLOW_EXT_NUMBER |
-      YYJSON_READ_ALLOW_EXT_ESCAPE | YYJSON_READ_ALLOW_EXT_WHITESPACE |
-      YYJSON_READ_ALLOW_SINGLE_QUOTED_STR | YYJSON_READ_ALLOW_UNQUOTED_KEY;
+  yyjson_read_flag flags = YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_TRAILING_COMMAS |
+                           YYJSON_READ_ALLOW_INF_AND_NAN | YYJSON_READ_ALLOW_EXT_NUMBER |
+                           YYJSON_READ_ALLOW_EXT_ESCAPE | YYJSON_READ_ALLOW_EXT_WHITESPACE |
+                           YYJSON_READ_ALLOW_SINGLE_QUOTED_STR | YYJSON_READ_ALLOW_UNQUOTED_KEY;
 
   u_char *path_c = ngx_pnalloc(pool, abs_path->len + 1);
   if (path_c == NULL) {
@@ -457,8 +447,7 @@ static yyjson_doc *ngx_http_waf_json_read_single(ngx_pool_t *pool,
       u_char *buf = ngx_pnalloc(pool, buf_len);
       if (buf) {
         u_char *end = ngx_snprintf(buf, buf_len, "%s at byte %uz",
-                                   yerr.msg ? yerr.msg : "yyjson 读取失败",
-                                   (ngx_uint_t)yerr.pos);
+                                   yerr.msg ? yerr.msg : "yyjson 读取失败", (ngx_uint_t)yerr.pos);
         err->message.data = buf;
         err->message.len = end - buf;
       } else {
@@ -480,10 +469,8 @@ static yyjson_doc *ngx_http_waf_json_read_single(ngx_pool_t *pool,
  */
 static ngx_int_t ngx_http_waf_resolve_path(ngx_pool_t *pool, ngx_log_t *log,
                                            const ngx_str_t *jsons_root,
-                                           const ngx_str_t *current_dir,
-                                           const ngx_str_t *ref_path,
-                                           ngx_str_t *out_abs,
-                                           ngx_http_waf_json_error_t *err)
+                                           const ngx_str_t *current_dir, const ngx_str_t *ref_path,
+                                           ngx_str_t *out_abs, ngx_http_waf_json_error_t *err)
 {
   ngx_str_t joined;
   ngx_int_t rc;
@@ -513,8 +500,7 @@ static ngx_int_t ngx_http_waf_resolve_path(ngx_pool_t *pool, ngx_log_t *log,
       waf_json_set_error((waf_merge_ctx_t *)NULL, &dummy, NULL, "路径展开失败");
     }
     if (log) {
-      ngx_log_error(NGX_LOG_ERR, log, 0, "waf: ngx_conf_full_name failed: %V",
-                    &joined);
+      ngx_log_error(NGX_LOG_ERR, log, 0, "waf: ngx_conf_full_name failed: %V", &joined);
     }
     return NGX_ERROR;
   }
@@ -522,8 +508,7 @@ static ngx_int_t ngx_http_waf_resolve_path(ngx_pool_t *pool, ngx_log_t *log,
   /* 最终进行路径规范化 */
   if (ngx_http_waf_normalize_path(pool, &joined) != NGX_OK) {
     if (log) {
-      ngx_log_error(NGX_LOG_ERR, log, 0, "waf: normalize path failed: %V",
-                    &joined);
+      ngx_log_error(NGX_LOG_ERR, log, 0, "waf: normalize path failed: %V", &joined);
     }
     return NGX_ERROR;
   }
@@ -535,20 +520,17 @@ static ngx_int_t ngx_http_waf_resolve_path(ngx_pool_t *pool, ngx_log_t *log,
 /* ------------------------ 目标解析 ------------------------ */
 
 /* 目标字段到字符串的映射表 */
-static const char *waf_target_texts[] = {
-    "CLIENT_IP", "URI",        "ALL_PARAMS", "ARGS_COMBINED",
-    "ARGS_NAME", "ARGS_VALUE", "BODY",       "HEADER"};
+static const char *waf_target_texts[] = {"CLIENT_IP", "URI", "ALL_PARAMS", "ARGS_COMBINED",
+                                         "ARGS_NAME", "ARGS_VALUE", "BODY", "HEADER"};
 
 /*
  * 函数: waf_target_code_from_string
  * 作用: 将目标字段字符串解析为枚举编码
  */
-static ngx_int_t waf_target_code_from_string(const char *s, size_t len,
-                                             waf_target_e *out)
+static ngx_int_t waf_target_code_from_string(const char *s, size_t len, waf_target_e *out)
 {
   for (ngx_uint_t i = 0; i < WAF_TARGET_ALL_TARGETS; i++) {
-    if (ngx_strncmp(s, waf_target_texts[i], len) == 0 &&
-        waf_target_texts[i][len] == '\0') {
+    if (ngx_strncmp(s, waf_target_texts[i], len) == 0 && waf_target_texts[i][len] == '\0') {
       *out = (waf_target_e)i;
       return NGX_OK;
     }
@@ -560,8 +542,7 @@ static ngx_int_t waf_target_code_from_string(const char *s, size_t len,
  * 函数: waf_target_list_contains
  * 作用: 判断目标列表是否包含指定编码
  */
-static ngx_uint_t waf_target_list_contains(const waf_target_list_t *list,
-                                           waf_target_e code)
+static ngx_uint_t waf_target_list_contains(const waf_target_list_t *list, waf_target_e code)
 {
   for (ngx_uint_t i = 0; i < list->count; i++) {
     if (list->items[i] == code) {
@@ -597,8 +578,7 @@ static ngx_int_t waf_target_list_add(waf_target_list_t *list, waf_target_e code)
  * 函数: waf_target_list_expand_and_add
  * 作用: 若输入为 ALL_PARAMS，展开为 URI/ARGS_COMBINED/BODY
  */
-static ngx_int_t waf_target_list_expand_and_add(waf_target_list_t *list,
-                                                waf_target_e code)
+static ngx_int_t waf_target_list_expand_and_add(waf_target_list_t *list, waf_target_e code)
 {
   if (code == WAF_TARGET_ALL_PARAMS) {
     if (waf_target_list_add(list, WAF_TARGET_URI) != NGX_OK)
@@ -617,8 +597,7 @@ static ngx_int_t waf_target_list_expand_and_add(waf_target_list_t *list,
  * 作用: 解析 JSON 中的 target(字符串或字符串数组)为内部列表
  */
 static ngx_int_t waf_parse_target_value(waf_merge_ctx_t *ctx, yyjson_val *node,
-                                        const ngx_str_t *file,
-                                        const char *pointer,
+                                        const ngx_str_t *file, const char *pointer,
                                         waf_target_list_t *out)
 {
   yyjson_type type = yyjson_get_type(node);
@@ -646,15 +625,13 @@ static ngx_int_t waf_parse_target_value(waf_merge_ctx_t *ctx, yyjson_val *node,
     for (size_t i = 0; i < n; i++) {
       yyjson_val *it = yyjson_arr_get(node, i);
       if (!yyjson_is_str(it)) {
-        return waf_json_set_error(ctx, file, pointer,
-                                  "target 数组元素必须为字符串");
+        return waf_json_set_error(ctx, file, pointer, "target 数组元素必须为字符串");
       }
       const char *s = yyjson_get_str(it);
       size_t len = yyjson_get_len(it);
       waf_target_e code;
       if (waf_target_code_from_string(s, len, &code) != NGX_OK) {
-        return waf_json_set_error(ctx, file, pointer, "target 值 \"%s\" 非法",
-                                  s);
+        return waf_json_set_error(ctx, file, pointer, "target 值 \"%s\" 非法", s);
       }
       if (waf_target_list_expand_and_add(out, code) != NGX_OK) {
         return waf_json_set_error(ctx, file, pointer, "target 列表过长");
@@ -663,8 +640,7 @@ static ngx_int_t waf_parse_target_value(waf_merge_ctx_t *ctx, yyjson_val *node,
     return NGX_OK;
   }
 
-  return waf_json_set_error(ctx, file, pointer,
-                            "target 类型必须为字符串或字符串数组");
+  return waf_json_set_error(ctx, file, pointer, "target 类型必须为字符串或字符串数组");
 }
 
 /*
@@ -700,10 +676,8 @@ static yyjson_mut_val *waf_build_target_mut_value(waf_merge_ctx_t *ctx,
  * 函数: waf_assign_target_to_rule
  * 作用: 将规范化后的 targets 写回规则对象，并校验 HEADER 约束
  */
-static ngx_int_t waf_assign_target_to_rule(waf_merge_ctx_t *ctx,
-                                           yyjson_mut_val *rule,
-                                           const waf_target_list_t *list,
-                                           const ngx_str_t *file,
+static ngx_int_t waf_assign_target_to_rule(waf_merge_ctx_t *ctx, yyjson_mut_val *rule,
+                                           const waf_target_list_t *list, const ngx_str_t *file,
                                            const char *pointer)
 {
   /* 重建规范化的 target 字段 */
@@ -713,8 +687,7 @@ static ngx_int_t waf_assign_target_to_rule(waf_merge_ctx_t *ctx,
   }
 
   yyjson_mut_obj_remove_str(rule, "target");
-  if (!yyjson_mut_obj_add(rule, yyjson_mut_str(ctx->out_doc, "target"),
-                          target_val)) {
+  if (!yyjson_mut_obj_add(rule, yyjson_mut_str(ctx->out_doc, "target"), target_val)) {
     return waf_json_set_error(ctx, file, pointer, "写入 target 失败");
   }
 
@@ -722,8 +695,7 @@ static ngx_int_t waf_assign_target_to_rule(waf_merge_ctx_t *ctx,
 
   if (list->has_header) {
     if (header_name == NULL || !yyjson_is_str((yyjson_val *)header_name)) {
-      return waf_json_set_error(ctx, file, pointer,
-                                "target 包含 HEADER 时必须提供 headerName");
+      return waf_json_set_error(ctx, file, pointer, "target 包含 HEADER 时必须提供 headerName");
     }
   } else {
     if (header_name != NULL) {
@@ -732,8 +704,7 @@ static ngx_int_t waf_assign_target_to_rule(waf_merge_ctx_t *ctx,
   }
 
   if (list->has_header && list->count > 1) {
-    return waf_json_set_error(ctx, file, pointer,
-                              "target 包含 HEADER 时不允许追加其它目标");
+    return waf_json_set_error(ctx, file, pointer, "target 包含 HEADER 时不允许追加其它目标");
   }
 
   return NGX_OK;
@@ -747,8 +718,7 @@ static ngx_int_t waf_assign_target_to_rule(waf_merge_ctx_t *ctx,
  * 函数: waf_string_equals_ci
  * 作用: 等长大小写不敏感比较
  */
-static ngx_uint_t waf_string_equals_ci(const char *s, size_t len,
-                                       const char *target)
+static ngx_uint_t waf_string_equals_ci(const char *s, size_t len, const char *target)
 {
   size_t tlen = ngx_strlen(target);
   if (len != tlen) {
@@ -768,10 +738,8 @@ static ngx_uint_t waf_string_equals_ci(const char *s, size_t len,
  */
 static ngx_int_t waf_match_validate(const char *s, size_t len)
 {
-  return (ngx_strncmp(s, "CONTAINS", len) == 0 &&
-          len == ngx_strlen("CONTAINS")) ||
-         (ngx_strncmp(s, "EXACT", len) == 0 &&
-          len == ngx_strlen("EXACT")) ||
+  return (ngx_strncmp(s, "CONTAINS", len) == 0 && len == ngx_strlen("CONTAINS")) ||
+         (ngx_strncmp(s, "EXACT", len) == 0 && len == ngx_strlen("EXACT")) ||
          (ngx_strncmp(s, "REGEX", len) == 0 && len == ngx_strlen("REGEX")) ||
          (ngx_strncmp(s, "CIDR", len) == 0 && len == ngx_strlen("CIDR"));
 }
@@ -793,12 +761,9 @@ static ngx_int_t waf_action_validate(const char *s, size_t len)
  */
 static ngx_int_t waf_phase_validate(const char *s, size_t len)
 {
-  return (ngx_strncmp(s, "ip_allow", len) == 0 &&
-          len == ngx_strlen("ip_allow")) ||
-         (ngx_strncmp(s, "ip_block", len) == 0 &&
-          len == ngx_strlen("ip_block")) ||
-         (ngx_strncmp(s, "uri_allow", len) == 0 &&
-          len == ngx_strlen("uri_allow")) ||
+  return (ngx_strncmp(s, "ip_allow", len) == 0 && len == ngx_strlen("ip_allow")) ||
+         (ngx_strncmp(s, "ip_block", len) == 0 && len == ngx_strlen("ip_block")) ||
+         (ngx_strncmp(s, "uri_allow", len) == 0 && len == ngx_strlen("uri_allow")) ||
          (ngx_strncmp(s, "detect", len) == 0 && len == ngx_strlen("detect"));
 }
 
@@ -807,8 +772,8 @@ static ngx_int_t waf_phase_validate(const char *s, size_t len)
  * 作用: 复制并校验 tags 字段（必须为字符串数组）
  */
 static ngx_int_t waf_copy_tags_array(waf_merge_ctx_t *ctx, yyjson_val *src,
-                                     yyjson_mut_val *rule_mut,
-                                     const ngx_str_t *file, const char *pointer)
+                                     yyjson_mut_val *rule_mut, const ngx_str_t *file,
+                                     const char *pointer)
 {
   if (src == NULL) {
     return NGX_OK;
@@ -887,8 +852,7 @@ static ngx_uint_t waf_rule_match_disable_id(yyjson_val *disable_ids, int64_t id)
  * 函数: waf_rule_match_disable_tag
  * 作用: 判断规则的任意 tag 是否命中 disableByTag
  */
-static ngx_uint_t waf_rule_match_disable_tag(yyjson_val *disable_tags,
-                                             yyjson_mut_val *rule)
+static ngx_uint_t waf_rule_match_disable_tag(yyjson_val *disable_tags, yyjson_mut_val *rule)
 {
   if (!disable_tags || !yyjson_is_arr(disable_tags)) {
     return 0;
@@ -920,14 +884,12 @@ static ngx_uint_t waf_rule_match_disable_tag(yyjson_val *disable_tags,
  * 函数: waf_validate_additional_properties
  * 作用: 校验 rule 对象仅包含允许的字段
  */
-static ngx_int_t waf_validate_additional_properties(waf_merge_ctx_t *ctx,
-                                                    yyjson_val *rule,
-                                                    const ngx_str_t *file,
-                                                    const char *pointer)
+static ngx_int_t waf_validate_additional_properties(waf_merge_ctx_t *ctx, yyjson_val *rule,
+                                                    const ngx_str_t *file, const char *pointer)
 {
-  static const char *allowed[] = {"id",         "tags",  "phase",   "target",
+  static const char *allowed[] = {"id", "tags", "phase", "target",
                                   "headerName", "match", "pattern", "caseless",
-                                  "negate",     "action", "score",   "priority"};
+                                  "negate", "action", "score", "priority"};
   size_t allow_count = sizeof(allowed) / sizeof(allowed[0]);
 
   yyjson_obj_iter it = yyjson_obj_iter_with(rule);
@@ -952,24 +914,21 @@ static ngx_int_t waf_validate_additional_properties(waf_merge_ctx_t *ctx,
  * 函数: waf_parse_rule
  * 作用: 解析并规范化单条规则，严格校验字段并构造可变对象
  */
-static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
-                                waf_rule_entry_t *out, const ngx_str_t *file,
-                                const char *base_pointer)
+static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule, waf_rule_entry_t *out,
+                                const ngx_str_t *file, const char *base_pointer)
 {
   if (!yyjson_is_obj(src_rule)) {
     return waf_json_set_error(ctx, file, base_pointer, "rule 必须为对象");
   }
 
-  if (waf_validate_additional_properties(ctx, src_rule, file, base_pointer) !=
-      NGX_OK) {
+  if (waf_validate_additional_properties(ctx, src_rule, file, base_pointer) != NGX_OK) {
     return NGX_ERROR;
   }
 
   /* 1) 校验 id */
   yyjson_val *id_node = yyjson_obj_get(src_rule, "id");
   if (!id_node || !yyjson_is_int(id_node)) {
-    return waf_json_set_error(ctx, file, base_pointer,
-                              "缺少必填字段 id 或类型错误");
+    return waf_json_set_error(ctx, file, base_pointer, "缺少必填字段 id 或类型错误");
   }
   int64_t id = yyjson_get_sint(id_node);
   if (id <= 0) {
@@ -1006,8 +965,7 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
 
   waf_target_list_t targets;
   ngx_memzero(&targets, sizeof(targets));
-  if (waf_parse_target_value(ctx, target_node, file, base_pointer, &targets) !=
-      NGX_OK) {
+  if (waf_parse_target_value(ctx, target_node, file, base_pointer, &targets) != NGX_OK) {
     return NGX_ERROR;
   }
   if (targets.count == 0) {
@@ -1018,17 +976,14 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
   yyjson_val *header_name_node = yyjson_obj_get(src_rule, "headerName");
   if (targets.has_header) {
     if (!header_name_node || !yyjson_is_str(header_name_node)) {
-      return waf_json_set_error(ctx, file, base_pointer,
-                                "HEADER 目标必须提供 headerName");
+      return waf_json_set_error(ctx, file, base_pointer, "HEADER 目标必须提供 headerName");
     }
     if (targets.count > 1) {
-      return waf_json_set_error(ctx, file, base_pointer,
-                                "HEADER 目标不允许与其它目标混用");
+      return waf_json_set_error(ctx, file, base_pointer, "HEADER 目标不允许与其它目标混用");
     }
   } else {
     if (header_name_node) {
-      return waf_json_set_error(ctx, file, base_pointer,
-                                "非 HEADER 目标禁止出现 headerName");
+      return waf_json_set_error(ctx, file, base_pointer, "非 HEADER 目标禁止出现 headerName");
     }
   }
 
@@ -1040,8 +995,7 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
 
   yyjson_type pattern_type = yyjson_get_type(pattern_node);
   if (pattern_type != YYJSON_TYPE_STR && pattern_type != YYJSON_TYPE_ARR) {
-    return waf_json_set_error(ctx, file, base_pointer,
-                              "pattern 必须为字符串或字符串数组");
+    return waf_json_set_error(ctx, file, base_pointer, "pattern 必须为字符串或字符串数组");
   }
 
   if (yyjson_is_arr(pattern_node) && yyjson_arr_size(pattern_node) == 0) {
@@ -1053,8 +1007,7 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
     for (size_t i = 0; i < pn; i++) {
       yyjson_val *it = yyjson_arr_get(pattern_node, i);
       if (!yyjson_is_str(it)) {
-        return waf_json_set_error(ctx, file, base_pointer,
-                                  "pattern 数组元素必须为字符串");
+        return waf_json_set_error(ctx, file, base_pointer, "pattern 数组元素必须为字符串");
       }
     }
   }
@@ -1063,8 +1016,7 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
   if (waf_string_equals_ci(action_text, action_len, "bypass")) {
     yyjson_val *score_node = yyjson_obj_get(src_rule, "score");
     if (score_node && yyjson_is_num(score_node)) {
-      return waf_json_set_error(ctx, file, base_pointer,
-                                "action=BYPASS 时禁止出现 score");
+      return waf_json_set_error(ctx, file, base_pointer, "action=BYPASS 时禁止出现 score");
     }
   }
 
@@ -1112,15 +1064,14 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
     return waf_json_set_error(ctx, file, base_pointer, "写入 id 失败");
   }
 
-  if (waf_copy_tags_array(ctx, yyjson_obj_get(src_rule, "tags"), rule_mut, file,
-                          base_pointer) != NGX_OK) {
+  if (waf_copy_tags_array(ctx, yyjson_obj_get(src_rule, "tags"), rule_mut, file, base_pointer) !=
+      NGX_OK) {
     return NGX_ERROR;
   }
 
   if (phase_node) {
     yyjson_mut_val *k = yyjson_mut_str(ctx->out_doc, "phase");
-    yyjson_mut_val *v =
-        yyjson_mut_str(ctx->out_doc, yyjson_get_str(phase_node));
+    yyjson_mut_val *v = yyjson_mut_str(ctx->out_doc, yyjson_get_str(phase_node));
     if (!k || !v || !yyjson_mut_obj_add(rule_mut, k, v)) {
       return waf_json_set_error(ctx, file, base_pointer, "写入 phase 失败");
     }
@@ -1128,16 +1079,13 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
 
   if (header_name_node) {
     yyjson_mut_val *k = yyjson_mut_str(ctx->out_doc, "headerName");
-    yyjson_mut_val *v =
-        yyjson_mut_str(ctx->out_doc, yyjson_get_str(header_name_node));
+    yyjson_mut_val *v = yyjson_mut_str(ctx->out_doc, yyjson_get_str(header_name_node));
     if (!k || !v || !yyjson_mut_obj_add(rule_mut, k, v)) {
-      return waf_json_set_error(ctx, file, base_pointer,
-                                "写入 headerName 失败");
+      return waf_json_set_error(ctx, file, base_pointer, "写入 headerName 失败");
     }
   }
 
-  if (waf_assign_target_to_rule(ctx, rule_mut, &targets, file, base_pointer) !=
-      NGX_OK) {
+  if (waf_assign_target_to_rule(ctx, rule_mut, &targets, file, base_pointer) != NGX_OK) {
     return NGX_ERROR;
   }
 
@@ -1152,11 +1100,9 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
     yyjson_mut_val *k = yyjson_mut_str(ctx->out_doc, "pattern");
     size_t plen = yyjson_get_len(pattern_node);
     if (plen == 0) {
-      return waf_json_set_error(ctx, file, base_pointer,
-                                "pattern 字符串不能为空");
+      return waf_json_set_error(ctx, file, base_pointer, "pattern 字符串不能为空");
     }
-    yyjson_mut_val *v =
-        yyjson_mut_str(ctx->out_doc, yyjson_get_str(pattern_node));
+    yyjson_mut_val *v = yyjson_mut_str(ctx->out_doc, yyjson_get_str(pattern_node));
     if (!k || !v || !yyjson_mut_obj_add(rule_mut, k, v)) {
       return waf_json_set_error(ctx, file, base_pointer, "写入 pattern 失败");
     }
@@ -1170,12 +1116,10 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
     for (size_t i = 0; i < pn; i++) {
       yyjson_val *it = yyjson_arr_get(pattern_node, i);
       if (!yyjson_is_str(it)) {
-        return waf_json_set_error(ctx, file, base_pointer,
-                                  "pattern 数组元素必须为字符串");
+        return waf_json_set_error(ctx, file, base_pointer, "pattern 数组元素必须为字符串");
       }
       if (yyjson_get_len(it) == 0) {
-        return waf_json_set_error(ctx, file, base_pointer,
-                                  "pattern 数组元素不能为空字符串");
+        return waf_json_set_error(ctx, file, base_pointer, "pattern 数组元素不能为空字符串");
       }
       if (!yyjson_mut_arr_add_str(ctx->out_doc, arr, yyjson_get_str(it))) {
         return waf_json_set_error(ctx, file, base_pointer, "写入 pattern 失败");
@@ -1188,16 +1132,14 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
 
   yyjson_mut_val *k_action = yyjson_mut_str(ctx->out_doc, "action");
   yyjson_mut_val *v_action = yyjson_mut_str(ctx->out_doc, action_text);
-  if (!k_action || !v_action ||
-      !yyjson_mut_obj_add(rule_mut, k_action, v_action)) {
+  if (!k_action || !v_action || !yyjson_mut_obj_add(rule_mut, k_action, v_action)) {
     return waf_json_set_error(ctx, file, base_pointer, "写入 action 失败");
   }
 
   if (caseless_node) {
     yyjson_mut_val *k = yyjson_mut_str(ctx->out_doc, "caseless");
-    yyjson_mut_val *v = yyjson_is_true(caseless_node)
-                            ? yyjson_mut_true(ctx->out_doc)
-                            : yyjson_mut_false(ctx->out_doc);
+    yyjson_mut_val *v = yyjson_is_true(caseless_node) ? yyjson_mut_true(ctx->out_doc)
+                                                      : yyjson_mut_false(ctx->out_doc);
     if (!k || !v || !yyjson_mut_obj_add(rule_mut, k, v)) {
       return waf_json_set_error(ctx, file, base_pointer, "写入 caseless 失败");
     }
@@ -1205,9 +1147,8 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
 
   if (negate_node) {
     yyjson_mut_val *k = yyjson_mut_str(ctx->out_doc, "negate");
-    yyjson_mut_val *v = yyjson_is_true(negate_node)
-                            ? yyjson_mut_true(ctx->out_doc)
-                            : yyjson_mut_false(ctx->out_doc);
+    yyjson_mut_val *v = yyjson_is_true(negate_node) ? yyjson_mut_true(ctx->out_doc)
+                                                    : yyjson_mut_false(ctx->out_doc);
     if (!k || !v || !yyjson_mut_obj_add(rule_mut, k, v)) {
       return waf_json_set_error(ctx, file, base_pointer, "写入 negate 失败");
     }
@@ -1245,8 +1186,7 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule,
   if (waf_str_copy(ctx->pool, file, &out->file) != NGX_OK) {
     return waf_json_set_error(ctx, file, base_pointer, "内存不足");
   }
-  if (waf_pointer_concat(ctx->pool, base_pointer, "", &out->pointer) !=
-      NGX_OK) {
+  if (waf_pointer_concat(ctx->pool, base_pointer, "", &out->pointer) != NGX_OK) {
     return waf_json_set_error(ctx, file, base_pointer, "内存不足");
   }
 
@@ -1290,10 +1230,8 @@ static waf_dup_policy_e waf_parse_duplicate_policy(yyjson_val *root)
  * 函数: waf_parse_target_list_from_val
  * 作用: 从 JSON 值解析 target 列表（包装器）
  */
-static ngx_int_t waf_parse_target_list_from_val(waf_merge_ctx_t *ctx,
-                                                yyjson_val *node,
-                                                const ngx_str_t *file,
-                                                const char *pointer,
+static ngx_int_t waf_parse_target_list_from_val(waf_merge_ctx_t *ctx, yyjson_val *node,
+                                                const ngx_str_t *file, const char *pointer,
                                                 waf_target_list_t *out)
 {
   ngx_memzero(out, sizeof(*out));
@@ -1304,23 +1242,18 @@ static ngx_int_t waf_parse_target_list_from_val(waf_merge_ctx_t *ctx,
  * 函数: waf_parse_rewrite_plan
  * 作用: 解析 extends 对象中的重写计划（按 tag/ids 改写 target）
  */
-static ngx_int_t waf_parse_rewrite_plan(waf_merge_ctx_t *ctx,
-                                        yyjson_val *plan_obj,
-                                        const ngx_str_t *file,
-                                        const char *base_pointer,
+static ngx_int_t waf_parse_rewrite_plan(waf_merge_ctx_t *ctx, yyjson_val *plan_obj,
+                                        const ngx_str_t *file, const char *base_pointer,
                                         waf_rewrite_plan_t *plan)
 {
   ngx_memzero(plan, sizeof(*plan));
 
   if (!plan_obj || !yyjson_is_obj(plan_obj)) {
-    return waf_json_set_error(ctx, file, base_pointer,
-                              "extends 对象需包含 file 字段");
+    return waf_json_set_error(ctx, file, base_pointer, "extends 对象需包含 file 字段");
   }
 
-  plan->tag_rules =
-      ngx_array_create(ctx->pool, 2, sizeof(waf_rewrite_tag_rule_t));
-  plan->id_rules =
-      ngx_array_create(ctx->pool, 2, sizeof(waf_rewrite_ids_rule_t));
+  plan->tag_rules = ngx_array_create(ctx->pool, 2, sizeof(waf_rewrite_tag_rule_t));
+  plan->id_rules = ngx_array_create(ctx->pool, 2, sizeof(waf_rewrite_ids_rule_t));
   if (plan->tag_rules == NULL || plan->id_rules == NULL) {
     return waf_json_set_error(ctx, file, base_pointer, "内存不足");
   }
@@ -1328,8 +1261,7 @@ static ngx_int_t waf_parse_rewrite_plan(waf_merge_ctx_t *ctx,
   yyjson_val *tag_map = yyjson_obj_get(plan_obj, "rewriteTargetsForTag");
   if (tag_map) {
     if (!yyjson_is_obj(tag_map)) {
-      return waf_json_set_error(ctx, file, base_pointer,
-                                "rewriteTargetsForTag 必须为对象");
+      return waf_json_set_error(ctx, file, base_pointer, "rewriteTargetsForTag 必须为对象");
     }
     yyjson_obj_iter it = yyjson_obj_iter_with(tag_map);
     yyjson_val *key;
@@ -1350,12 +1282,11 @@ static ngx_int_t waf_parse_rewrite_plan(waf_merge_ctx_t *ctx,
       rule->tag.data = tag_copy;
       rule->tag.len = tag_len;
 
-      if (waf_pointer_concat(ctx->pool, base_pointer, "/rewriteTargetsForTag",
-                             &rule->pointer) != NGX_OK) {
+      if (waf_pointer_concat(ctx->pool, base_pointer, "/rewriteTargetsForTag", &rule->pointer) !=
+          NGX_OK) {
         return waf_json_set_error(ctx, file, base_pointer, "内存不足");
       }
-      if (waf_parse_target_list_from_val(ctx, val, file, base_pointer,
-                                         &rule->targets) != NGX_OK) {
+      if (waf_parse_target_list_from_val(ctx, val, file, base_pointer, &rule->targets) != NGX_OK) {
         return NGX_ERROR;
       }
     }
@@ -1364,22 +1295,19 @@ static ngx_int_t waf_parse_rewrite_plan(waf_merge_ctx_t *ctx,
   yyjson_val *id_arr = yyjson_obj_get(plan_obj, "rewriteTargetsForIds");
   if (id_arr) {
     if (!yyjson_is_arr(id_arr)) {
-      return waf_json_set_error(ctx, file, base_pointer,
-                                "rewriteTargetsForIds 必须为数组");
+      return waf_json_set_error(ctx, file, base_pointer, "rewriteTargetsForIds 必须为数组");
     }
     size_t n = yyjson_arr_size(id_arr);
     for (size_t i = 0; i < n; i++) {
       yyjson_val *obj = yyjson_arr_get(id_arr, i);
       if (!yyjson_is_obj(obj)) {
-        return waf_json_set_error(ctx, file, base_pointer,
-                                  "rewriteTargetsForIds 元素必须为对象");
+        return waf_json_set_error(ctx, file, base_pointer, "rewriteTargetsForIds 元素必须为对象");
       }
       yyjson_val *ids = yyjson_obj_get(obj, "ids");
       yyjson_val *target = yyjson_obj_get(obj, "target");
       if (!ids || !yyjson_is_arr(ids) || !target) {
-        return waf_json_set_error(
-            ctx, file, base_pointer,
-            "rewriteTargetsForIds 对象需包含 ids 数组与 target");
+        return waf_json_set_error(ctx, file, base_pointer,
+                                  "rewriteTargetsForIds 对象需包含 ids 数组与 target");
       }
       waf_rewrite_ids_rule_t *rule = ngx_array_push(plan->id_rules);
       if (!rule) {
@@ -1392,8 +1320,7 @@ static ngx_int_t waf_parse_rewrite_plan(waf_merge_ctx_t *ctx,
       }
       size_t m = yyjson_arr_size(ids);
       if (m == 0) {
-        return waf_json_set_error(ctx, file, base_pointer,
-                                  "rewriteTargetsForIds.ids 不能为空");
+        return waf_json_set_error(ctx, file, base_pointer, "rewriteTargetsForIds.ids 不能为空");
       }
       for (size_t j = 0; j < m; j++) {
         yyjson_val *it = yyjson_arr_get(ids, j);
@@ -1407,12 +1334,12 @@ static ngx_int_t waf_parse_rewrite_plan(waf_merge_ctx_t *ctx,
         }
         *slot = yyjson_get_sint(it);
       }
-      if (waf_parse_target_list_from_val(ctx, target, file, base_pointer,
-                                         &rule->targets) != NGX_OK) {
+      if (waf_parse_target_list_from_val(ctx, target, file, base_pointer, &rule->targets) !=
+          NGX_OK) {
         return NGX_ERROR;
       }
-      if (waf_pointer_concat(ctx->pool, base_pointer, "/rewriteTargetsForIds",
-                             &rule->pointer) != NGX_OK) {
+      if (waf_pointer_concat(ctx->pool, base_pointer, "/rewriteTargetsForIds", &rule->pointer) !=
+          NGX_OK) {
         return waf_json_set_error(ctx, file, base_pointer, "内存不足");
       }
     }
@@ -1421,8 +1348,7 @@ static ngx_int_t waf_parse_rewrite_plan(waf_merge_ctx_t *ctx,
   return NGX_OK;
 }
 
-static ngx_int_t waf_apply_rewrite_plan(waf_merge_ctx_t *ctx,
-                                        waf_rewrite_plan_t *plan,
+static ngx_int_t waf_apply_rewrite_plan(waf_merge_ctx_t *ctx, waf_rewrite_plan_t *plan,
                                         ngx_array_t *rules)
 {
   if (!plan || (!plan->tag_rules && !plan->id_rules)) {
@@ -1440,9 +1366,8 @@ static ngx_int_t waf_apply_rewrite_plan(waf_merge_ctx_t *ctx,
       for (ngx_uint_t j = 0; j < rule_count; j++) {
         yyjson_mut_val *rule = entries[j].rule;
         if (waf_rule_has_tag(rule, (const char *)r->tag.data)) {
-          if (waf_assign_target_to_rule(
-                  ctx, rule, &r->targets, &entries[j].file,
-                  (const char *)r->pointer.data) != NGX_OK) {
+          if (waf_assign_target_to_rule(ctx, rule, &r->targets, &entries[j].file,
+                                        (const char *)r->pointer.data) != NGX_OK) {
             return NGX_ERROR;
           }
         }
@@ -1460,9 +1385,8 @@ static ngx_int_t waf_apply_rewrite_plan(waf_merge_ctx_t *ctx,
       for (ngx_uint_t j = 0; j < rule_count; j++) {
         for (ngx_uint_t k = 0; k < idn; k++) {
           if (entries[j].id == id_list[k]) {
-            if (waf_assign_target_to_rule(
-                    ctx, entries[j].rule, &r->targets, &entries[j].file,
-                    (const char *)r->pointer.data) != NGX_OK) {
+            if (waf_assign_target_to_rule(ctx, entries[j].rule, &r->targets, &entries[j].file,
+                                          (const char *)r->pointer.data) != NGX_OK) {
               return NGX_ERROR;
             }
             break;
@@ -1487,9 +1411,10 @@ typedef struct {
 } waf_id_idx_entry_t;
 
 /* 依据 duplicatePolicy 写入规则（O(1) 查重），保持既有语义/日志不变 */
-static ngx_int_t waf_append_rule_with_policy_hashed(
-    waf_merge_ctx_t *ctx, ngx_array_t *result, waf_id_idx_entry_t **id_map,
-    const waf_rule_entry_t *entry, waf_dup_policy_e policy)
+static ngx_int_t waf_append_rule_with_policy_hashed(waf_merge_ctx_t *ctx, ngx_array_t *result,
+                                                    waf_id_idx_entry_t **id_map,
+                                                    const waf_rule_entry_t *entry,
+                                                    waf_dup_policy_e policy)
 {
   waf_id_idx_entry_t *found = NULL;
   HASH_FIND(hh, *id_map, &entry->id, sizeof(entry->id), found);
@@ -1497,24 +1422,20 @@ static ngx_int_t waf_append_rule_with_policy_hashed(
   if (found) {
     switch (policy) {
       case WAF_DUP_POLICY_ERROR:
-        return waf_json_set_error(
-            ctx, &entry->file, (const char *)entry->pointer.data,
-            "重复规则 id=%L (duplicatePolicy=error)", entry->id);
+        return waf_json_set_error(ctx, &entry->file, (const char *)entry->pointer.data,
+                                  "重复规则 id=%L (duplicatePolicy=error)", entry->id);
       case WAF_DUP_POLICY_WARN_SKIP:
         if (ctx->log) {
           ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
-                        "waf: duplicate rule id=%L, skip (policy=warn_skip)",
-                        entry->id);
+                        "waf: duplicate rule id=%L, skip (policy=warn_skip)", entry->id);
         }
         return NGX_OK;
       case WAF_DUP_POLICY_WARN_KEEP_LAST: {
         /* 就地覆盖首个位置，保持保序语义与原日志格式 */
         waf_rule_entry_t *items = result->elts;
         if (ctx->log) {
-          ngx_log_error(
-              NGX_LOG_WARN, ctx->log, 0,
-              "waf: duplicate rule id=%L, keep last (policy=warn_keep_last)",
-              entry->id);
+          ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+                        "waf: duplicate rule id=%L, keep last (policy=warn_keep_last)", entry->id);
         }
         items[found->idx] = *entry;
         /* 更新来源，便于后续再次冲突时参考（不影响现有日志格式） */
@@ -1528,15 +1449,13 @@ static ngx_int_t waf_append_rule_with_policy_hashed(
   /* 首次出现：追加并登记索引 */
   waf_rule_entry_t *slot = ngx_array_push(result);
   if (slot == NULL) {
-    return waf_json_set_error(ctx, &entry->file,
-                              (const char *)entry->pointer.data, "内存不足");
+    return waf_json_set_error(ctx, &entry->file, (const char *)entry->pointer.data, "内存不足");
   }
   *slot = *entry;
 
   waf_id_idx_entry_t *e = ngx_pcalloc(ctx->pool, sizeof(*e));
   if (e == NULL) {
-    return waf_json_set_error(ctx, &entry->file,
-                              (const char *)entry->pointer.data, "内存不足");
+    return waf_json_set_error(ctx, &entry->file, (const char *)entry->pointer.data, "内存不足");
   }
   e->id = entry->id;
   e->idx = result->nelts - 1;
@@ -1614,17 +1533,15 @@ static ngx_int_t waf_merge_append_array(ngx_array_t *dest, ngx_array_t *src)
 
 /* ------------------------ 主递归 ------------------------ */
 
-static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
-                                   const ngx_str_t *abs_path, ngx_uint_t depth,
-                                   ngx_array_t **out_rules);
+static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx, const ngx_str_t *abs_path,
+                                   ngx_uint_t depth, ngx_array_t **out_rules);
 
 /*
  * 函数: waf_collect_rules
  * 作用: 递归收集并合并规则：处理 extends/重写/禁用/去重/本地 rules
  */
-static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
-                                   const ngx_str_t *abs_path, ngx_uint_t depth,
-                                   ngx_array_t **out_rules)
+static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx, const ngx_str_t *abs_path,
+                                   ngx_uint_t depth, ngx_array_t **out_rules)
 {
   /* 深度上限保护 */
   if (ctx->max_depth != 0 && depth > ctx->max_depth) {
@@ -1634,9 +1551,8 @@ static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
   /* 环检测：路径重复即视为循环 */
   if (ngx_http_waf_path_in_stack(ctx->stack, abs_path)) {
     /* 与测试脚本关键字对齐（同时保留中文语义） */
-    return waf_json_set_error(
-        ctx, abs_path, NULL,
-        "extends cycle detected | 检测到 extends 循环引用");
+    return waf_json_set_error(ctx, abs_path, NULL,
+                              "extends cycle detected | 检测到 extends 循环引用");
   }
 
   /* 入栈，函数尾部出栈 */
@@ -1646,12 +1562,10 @@ static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
 
   ngx_http_waf_json_error_t reader_err;
   waf_json_reset_error(&reader_err);
-  yyjson_doc *doc =
-      ngx_http_waf_json_read_single(ctx->pool, ctx->log, abs_path, &reader_err);
+  yyjson_doc *doc = ngx_http_waf_json_read_single(ctx->pool, ctx->log, abs_path, &reader_err);
   if (doc == NULL) {
     ctx->stack->nelts--;
-    return waf_json_set_error(ctx, abs_path,
-                              (const char *)reader_err.json_pointer.data, "%V",
+    return waf_json_set_error(ctx, abs_path, (const char *)reader_err.json_pointer.data, "%V",
                               &reader_err.message);
   }
 
@@ -1665,16 +1579,14 @@ static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
   /* 读取重复策略 */
   waf_dup_policy_e policy = waf_parse_duplicate_policy(root);
 
-  ngx_array_t *result =
-      ngx_array_create(ctx->pool, 8, sizeof(waf_rule_entry_t));
+  ngx_array_t *result = ngx_array_create(ctx->pool, 8, sizeof(waf_rule_entry_t));
   if (!result) {
     yyjson_doc_free(doc);
     ctx->stack->nelts--;
     return waf_json_set_error(ctx, abs_path, NULL, "内存不足");
   }
 
-  ngx_array_t *imported =
-      ngx_array_create(ctx->pool, 4, sizeof(waf_rule_entry_t));
+  ngx_array_t *imported = ngx_array_create(ctx->pool, 4, sizeof(waf_rule_entry_t));
   if (!imported) {
     yyjson_doc_free(doc);
     ctx->stack->nelts--;
@@ -1692,8 +1604,7 @@ static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
       yyjson_doc_free(doc);
       ctx->stack->nelts--;
       HASH_CLEAR(hh, id_map);
-      return waf_json_set_error(ctx, abs_path, "/meta/extends",
-                                "meta.extends 必须为数组");
+      return waf_json_set_error(ctx, abs_path, "/meta/extends", "meta.extends 必须为数组");
     }
   }
 
@@ -1711,8 +1622,7 @@ static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
       yyjson_val *item = yyjson_arr_get(extends, i);
       ngx_str_t pointer;
       u_char tmp[64];
-      u_char *end =
-          ngx_snprintf(tmp, sizeof(tmp), "/meta/extends[%uz]", (ngx_uint_t)i);
+      u_char *end = ngx_snprintf(tmp, sizeof(tmp), "/meta/extends[%uz]", (ngx_uint_t)i);
       size_t plen = end - tmp;
       u_char *p_ptr = ngx_pnalloc(ctx->pool, plen + 1);
       if (p_ptr == NULL) {
@@ -1765,9 +1675,8 @@ static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
         ngx_memcpy(p, s, sl);
         child_ref.data = p;
         child_ref.len = sl;
-        if (waf_parse_rewrite_plan(ctx, item, abs_path,
-                                   (const char *)pointer.data,
-                                   &plan) != NGX_OK) {
+        if (waf_parse_rewrite_plan(ctx, item, abs_path, (const char *)pointer.data, &plan) !=
+            NGX_OK) {
           yyjson_doc_free(doc);
           ctx->stack->nelts--;
           HASH_CLEAR(hh, id_map);
@@ -1782,9 +1691,8 @@ static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
       }
 
       ngx_str_t child_abs;
-      if (ngx_http_waf_resolve_path(ctx->pool, ctx->log, &ctx->jsons_root,
-                                    &current_dir, &child_ref, &child_abs,
-                                    ctx->err) != NGX_OK) {
+      if (ngx_http_waf_resolve_path(ctx->pool, ctx->log, &ctx->jsons_root, &current_dir, &child_ref,
+                                    &child_abs, ctx->err) != NGX_OK) {
         yyjson_doc_free(doc);
         ctx->stack->nelts--;
         HASH_CLEAR(hh, id_map);
@@ -1794,8 +1702,7 @@ static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
 
       /* 递归收集子规则 */
       ngx_array_t *child_rules = NULL;
-      if (waf_collect_rules(ctx, &child_abs, depth + 1, &child_rules) !=
-          NGX_OK) {
+      if (waf_collect_rules(ctx, &child_abs, depth + 1, &child_rules) != NGX_OK) {
         yyjson_doc_free(doc);
         ctx->stack->nelts--;
         HASH_CLEAR(hh, id_map);
@@ -1827,22 +1734,19 @@ static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
     yyjson_doc_free(doc);
     ctx->stack->nelts--;
     HASH_CLEAR(hh, id_map);
-    return waf_json_set_error(ctx, abs_path, "/disableById",
-                              "disableById 必须为数组");
+    return waf_json_set_error(ctx, abs_path, "/disableById", "disableById 必须为数组");
   }
   yyjson_val *disable_by_tag = yyjson_obj_get(root, "disableByTag");
   if (disable_by_tag && !yyjson_is_arr(disable_by_tag)) {
     yyjson_doc_free(doc);
     ctx->stack->nelts--;
     HASH_CLEAR(hh, id_map);
-    return waf_json_set_error(ctx, abs_path, "/disableByTag",
-                              "disableByTag 必须为数组");
+    return waf_json_set_error(ctx, abs_path, "/disableByTag", "disableByTag 必须为数组");
   }
 
   if (imported->nelts > 0) {
     waf_rule_entry_t *entries = imported->elts;
-    ngx_array_t *filtered =
-        ngx_array_create(ctx->pool, imported->nelts, sizeof(waf_rule_entry_t));
+    ngx_array_t *filtered = ngx_array_create(ctx->pool, imported->nelts, sizeof(waf_rule_entry_t));
     if (!filtered) {
       yyjson_doc_free(doc);
       ctx->stack->nelts--;
@@ -1870,8 +1774,8 @@ static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
 
     waf_rule_entry_t *filtered_entries = filtered->elts;
     for (ngx_uint_t i = 0; i < filtered->nelts; i++) {
-      if (waf_append_rule_with_policy_hashed(
-              ctx, result, &id_map, &filtered_entries[i], policy) != NGX_OK) {
+      if (waf_append_rule_with_policy_hashed(ctx, result, &id_map, &filtered_entries[i], policy) !=
+          NGX_OK) {
         yyjson_doc_free(doc);
         ctx->stack->nelts--;
         HASH_CLEAR(hh, id_map);
@@ -1885,8 +1789,7 @@ static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
     yyjson_doc_free(doc);
     ctx->stack->nelts--;
     HASH_CLEAR(hh, id_map);
-    return waf_json_set_error(ctx, abs_path, "/rules",
-                              "缺少必填字段 rules 或类型错误");
+    return waf_json_set_error(ctx, abs_path, "/rules", "缺少必填字段 rules 或类型错误");
   }
 
   /* 处理当前文件的本地 rules */
@@ -1894,18 +1797,15 @@ static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
   for (size_t i = 0; i < rn; i++) {
     yyjson_val *rule_node = yyjson_arr_get(rules_arr, i);
     char pointer_buf[32];
-    ngx_snprintf((u_char *)pointer_buf, sizeof(pointer_buf), "/rules[%uz]",
-                 (ngx_uint_t)i);
+    ngx_snprintf((u_char *)pointer_buf, sizeof(pointer_buf), "/rules[%uz]", (ngx_uint_t)i);
     waf_rule_entry_t entry;
-    if (waf_parse_rule(ctx, rule_node, &entry, abs_path, pointer_buf) !=
-        NGX_OK) {
+    if (waf_parse_rule(ctx, rule_node, &entry, abs_path, pointer_buf) != NGX_OK) {
       yyjson_doc_free(doc);
       ctx->stack->nelts--;
       HASH_CLEAR(hh, id_map);
       return NGX_ERROR;
     }
-    if (waf_append_rule_with_policy_hashed(ctx, result, &id_map, &entry,
-                                           policy) != NGX_OK) {
+    if (waf_append_rule_with_policy_hashed(ctx, result, &id_map, &entry, policy) != NGX_OK) {
       yyjson_doc_free(doc);
       ctx->stack->nelts--;
       HASH_CLEAR(hh, id_map);
@@ -1928,10 +1828,8 @@ static ngx_int_t waf_collect_rules(waf_merge_ctx_t *ctx,
  * 作用: 加载并合并入口规则文件（含 extends 链），输出最终不可变 yyjson 文档
  */
 yyjson_doc *ngx_http_waf_json_load_and_merge(ngx_pool_t *pool, ngx_log_t *log,
-                                             const ngx_str_t *base_dir,
-                                             const ngx_str_t *entry_path,
-                                             ngx_uint_t max_depth,
-                                             ngx_http_waf_json_error_t *err)
+                                             const ngx_str_t *base_dir, const ngx_str_t *entry_path,
+                                             ngx_uint_t max_depth, ngx_http_waf_json_error_t *err)
 {
   if (pool == NULL || entry_path == NULL) {
     return NULL;
@@ -1965,8 +1863,8 @@ yyjson_doc *ngx_http_waf_json_load_and_merge(ngx_pool_t *pool, ngx_log_t *log,
   waf_json_reset_error(err);
 
   ngx_str_t abs;
-  if (ngx_http_waf_resolve_path(pool, log, &ctx.jsons_root, base_dir,
-                                entry_path, &abs, err) != NGX_OK) {
+  if (ngx_http_waf_resolve_path(pool, log, &ctx.jsons_root, base_dir, entry_path, &abs, err) !=
+      NGX_OK) {
     yyjson_mut_doc_free(ctx.out_doc);
     return NULL;
   }
@@ -1990,8 +1888,7 @@ yyjson_doc *ngx_http_waf_json_load_and_merge(ngx_pool_t *pool, ngx_log_t *log,
     return NULL;
   }
 
-  if (!yyjson_mut_obj_add(root, yyjson_mut_str(ctx.out_doc, "rules"),
-                          rules_arr)) {
+  if (!yyjson_mut_obj_add(root, yyjson_mut_str(ctx.out_doc, "rules"), rules_arr)) {
     yyjson_mut_doc_free(ctx.out_doc);
     return NULL;
   }
@@ -2007,8 +1904,7 @@ yyjson_doc *ngx_http_waf_json_load_and_merge(ngx_pool_t *pool, ngx_log_t *log,
   /* 透传 version/meta/policies */
   ngx_http_waf_json_error_t tmp_err;
   waf_json_reset_error(&tmp_err);
-  yyjson_doc *entry_doc =
-      ngx_http_waf_json_read_single(pool, log, &abs, &tmp_err);
+  yyjson_doc *entry_doc = ngx_http_waf_json_read_single(pool, log, &abs, &tmp_err);
   if (entry_doc) {
     yyjson_val *entry_root = yyjson_doc_get_root(entry_doc);
     if (entry_root && yyjson_is_obj(entry_root)) {

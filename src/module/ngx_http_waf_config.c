@@ -15,19 +15,16 @@
 extern ngx_module_t ngx_http_waf_module; /* 用于 merge 时获取 main_conf */
 
 /* 前置声明：自定义指令处理函数（M2.5 共享内存创建） */
-static char *ngx_http_waf_set_shm_zone(ngx_conf_t *cf, ngx_command_t *cmd,
-                                       void *conf);
+static char *ngx_http_waf_set_shm_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 /* 主配置 */
 void *ngx_http_waf_create_main_conf(ngx_conf_t *cf)
 {
-  ngx_http_waf_main_conf_t *mcf =
-      ngx_pcalloc(cf->pool, sizeof(ngx_http_waf_main_conf_t));
+  ngx_http_waf_main_conf_t *mcf = ngx_pcalloc(cf->pool, sizeof(ngx_http_waf_main_conf_t));
   if (mcf == NULL) {
     return NULL;
   }
-  mcf->json_extends_max_depth =
-      WAF_JSON_MAX_EXTENDS_DEPTH; /* 默认 5；0 表示不限 */
+  mcf->json_extends_max_depth = WAF_JSON_MAX_EXTENDS_DEPTH; /* 默认 5；0 表示不限 */
   mcf->jsons_dir.len = 0;
   mcf->jsons_dir.data = NULL;
   mcf->json_log_path.len = 0;
@@ -39,6 +36,13 @@ void *ngx_http_waf_create_main_conf(ngx_conf_t *cf)
   mcf->shm_zone_name.len = 0;
   mcf->shm_zone_name.data = NULL;
   mcf->shm_zone_size = 0;
+  /* 动态封禁默认值（M5） */
+  mcf->dyn_block_threshold = 100;   /* 评分阈值：100 */
+  mcf->dyn_block_window = 60000;    /* 窗口：60秒 */
+  mcf->dyn_block_duration = 300000; /* 封禁时长：5分钟 */
+  /* M5全局运维指令（MAIN级） */
+  mcf->trust_xff = 0;                             /* 默认不信任XFF */
+  mcf->default_action = WAF_DEFAULT_ACTION_BLOCK; /* 默认拦截 */
   return mcf;
 }
 
@@ -53,8 +57,7 @@ char *ngx_http_waf_init_main_conf(ngx_conf_t *cf, void *conf)
 /* loc 配置 */
 void *ngx_http_waf_create_loc_conf(ngx_conf_t *cf)
 {
-  ngx_http_waf_loc_conf_t *lcf =
-      ngx_pcalloc(cf->pool, sizeof(ngx_http_waf_loc_conf_t));
+  ngx_http_waf_loc_conf_t *lcf = ngx_pcalloc(cf->pool, sizeof(ngx_http_waf_loc_conf_t));
   if (lcf == NULL) {
     return NULL;
   }
@@ -62,6 +65,9 @@ void *ngx_http_waf_create_loc_conf(ngx_conf_t *cf)
   lcf->rules_json_path.len = 0;
   lcf->rules_json_path.data = NULL;
   lcf->rules_doc = NULL;
+  /* M5运维指令默认值（仅LOC级可继承的） */
+  lcf->waf_enable = NGX_CONF_UNSET;
+  lcf->dyn_block_enable = NGX_CONF_UNSET; /* 方案C：动态封禁开关（LOC级） */
   return lcf;
 }
 
@@ -70,16 +76,18 @@ char *ngx_http_waf_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
   ngx_http_waf_loc_conf_t *prev = parent;
   ngx_http_waf_loc_conf_t *conf = child;
 
-  ngx_http_waf_main_conf_t *mcf =
-      ngx_http_conf_get_module_main_conf(cf, ngx_http_waf_module);
+  ngx_http_waf_main_conf_t *mcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_waf_module);
 
-  ngx_conf_merge_uint_value(
-      conf->json_extends_max_depth, prev->json_extends_max_depth,
-      mcf ? mcf->json_extends_max_depth : WAF_JSON_MAX_EXTENDS_DEPTH);
+  ngx_conf_merge_uint_value(conf->json_extends_max_depth, prev->json_extends_max_depth,
+                            mcf ? mcf->json_extends_max_depth : WAF_JSON_MAX_EXTENDS_DEPTH);
 
   if (conf->rules_json_path.len == 0 && prev->rules_json_path.len != 0) {
     conf->rules_json_path = prev->rules_json_path;
   }
+
+  /* M5运维指令合并（仅LOC级可继承的） */
+  ngx_conf_merge_value(conf->waf_enable, prev->waf_enable, 1);             /* 默认启用 */
+  ngx_conf_merge_value(conf->dyn_block_enable, prev->dyn_block_enable, 0); /* 默认关闭（方案C） */
 
   /* 合并完成后按最终 max_depth 尝试解析规则（存根：仅调用接口并记录错误） */
   if (conf->rules_json_path.len != 0) {
@@ -92,36 +100,30 @@ char *ngx_http_waf_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     err.message.data = NULL;
 
     conf->rules_doc = ngx_http_waf_json_load_and_merge(
-        cf->pool, cf->log,
-        (mcf && mcf->jsons_dir.len != 0) ? &mcf->jsons_dir : NULL,
+        cf->pool, cf->log, (mcf && mcf->jsons_dir.len != 0) ? &mcf->jsons_dir : NULL,
         &conf->rules_json_path, conf->json_extends_max_depth, &err);
     if (conf->rules_doc == NULL) {
       ngx_log_error(NGX_LOG_ERR, cf->log, 0,
                     "waf: failed to load rules_json %V: file=%V ptr=%V msg=%V",
-                    &conf->rules_json_path, &err.file, &err.json_pointer,
-                    &err.message);
+                    &conf->rules_json_path, &err.file, &err.json_pointer, &err.message);
       return NGX_CONF_ERROR;
     } else {
       yyjson_val *root = yyjson_doc_get_root(conf->rules_doc);
       yyjson_val *rules = root ? yyjson_obj_get(root, "rules") : NULL;
       size_t cnt = (rules && yyjson_is_arr(rules)) ? yyjson_arr_size(rules) : 0;
-      ngx_log_error(NGX_LOG_INFO, cf->log, 0,
-                    "waf: merged rules %uz from %V (depth=%ui)",
-                    (ngx_uint_t)cnt, &conf->rules_json_path,
-                    conf->json_extends_max_depth);
+      ngx_log_error(NGX_LOG_INFO, cf->log, 0, "waf: merged rules %uz from %V (depth=%ui)",
+                    (ngx_uint_t)cnt, &conf->rules_json_path, conf->json_extends_max_depth);
 
 #if defined(WAF_DEBUG_FINAL_DOC)
       /* 输出 final_doc（单行 JSON，调试专用；生产默认关闭） */
       size_t out_len = 0;
       yyjson_write_err werr;
-      char *json = yyjson_write_opts(conf->rules_doc, /*flags=*/0, /*alc=*/NULL,
-                                     &out_len, &werr);
+      char *json = yyjson_write_opts(conf->rules_doc, /*flags=*/0, /*alc=*/NULL, &out_len, &werr);
       if (json) {
         ngx_log_error(NGX_LOG_INFO, cf->log, 0, "waf: final_doc: %s", json);
         free(json);
       } else {
-        ngx_log_error(NGX_LOG_WARN, cf->log, 0,
-                      "waf: final_doc dump failed: code=%ui",
+        ngx_log_error(NGX_LOG_WARN, cf->log, 0, "waf: final_doc dump failed: code=%ui",
                       (ngx_uint_t)werr.code);
       }
 #endif
@@ -136,10 +138,9 @@ char *ngx_http_waf_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
         c_err.json_pointer.data = NULL;
         c_err.message.len = 0;
         c_err.message.data = NULL;
-        if (ngx_http_waf_compile_rules(cf->pool, cf->log, conf->rules_doc,
-                                       &snap, &c_err) != NGX_OK) {
-          ngx_log_error(NGX_LOG_ERR, cf->log, 0,
-                        "waf: compile failed: file=%V ptr=%V msg=%V",
+        if (ngx_http_waf_compile_rules(cf->pool, cf->log, conf->rules_doc, &snap, &c_err) !=
+            NGX_OK) {
+          ngx_log_error(NGX_LOG_ERR, cf->log, 0, "waf: compile failed: file=%V ptr=%V msg=%V",
                         &c_err.file, &c_err.json_pointer, &c_err.message);
           return NGX_CONF_ERROR;
         }
@@ -152,33 +153,81 @@ char *ngx_http_waf_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 }
 
 /* 指令表（http/srv/loc 级） */
+/* clang-format off */
 ngx_command_t ngx_http_waf_commands[] = {
-    {ngx_string("waf_json_extends_max_depth"),
-     NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF |
-         NGX_CONF_TAKE1,
-     ngx_conf_set_num_slot, NGX_HTTP_LOC_CONF_OFFSET,
-     offsetof(ngx_http_waf_loc_conf_t, json_extends_max_depth), NULL},
-    {ngx_string("waf_jsons_dir"), NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
-     ngx_conf_set_str_slot, NGX_HTTP_MAIN_CONF_OFFSET,
-     offsetof(ngx_http_waf_main_conf_t, jsons_dir), NULL},
-    {ngx_string("waf_rules_json"),
-     NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF |
-         NGX_CONF_TAKE1,
-     ngx_conf_set_str_slot, NGX_HTTP_LOC_CONF_OFFSET,
-     offsetof(ngx_http_waf_loc_conf_t, rules_json_path), NULL},
-    {ngx_string("waf_shm_zone"), NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE12,
-     ngx_http_waf_set_shm_zone, NGX_HTTP_MAIN_CONF_OFFSET, 0, NULL},
-    {ngx_string("waf_json_log"), NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
-     ngx_conf_set_str_slot, NGX_HTTP_MAIN_CONF_OFFSET,
-     offsetof(ngx_http_waf_main_conf_t, json_log_path), NULL},
-    {ngx_string("waf_json_log_level"), NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
-     ngx_conf_set_num_slot, NGX_HTTP_MAIN_CONF_OFFSET,
-     offsetof(ngx_http_waf_main_conf_t, json_log_level), NULL},
-    ngx_null_command};
+    {
+      ngx_string("waf_json_extends_max_depth"),
+      NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_waf_loc_conf_t, json_extends_max_depth),
+      NULL
+    },
+    {
+      ngx_string("waf_jsons_dir"),
+      NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_http_waf_main_conf_t, jsons_dir),
+      NULL
+    },
+    {
+      ngx_string("waf_rules_json"),
+      NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_waf_loc_conf_t, rules_json_path),
+      NULL
+    },
+    {
+      ngx_string("waf_shm_zone"),
+      NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE12,
+      ngx_http_waf_set_shm_zone,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      0,
+      NULL
+    },
+    {
+      ngx_string("waf_json_log"),
+      NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_http_waf_main_conf_t, json_log_path),
+      NULL
+    },
+    {
+      ngx_string("waf_json_log_level"),
+      NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_http_waf_main_conf_t, json_log_level),
+      NULL
+    },
+
+    /* M5运维指令（LOC级，可继承） */
+    {
+      ngx_string("waf"),
+      NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_waf_loc_conf_t, waf_enable),
+      NULL
+    },
+    {
+      ngx_string("waf_dynamic_block_enable"),
+      NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_waf_loc_conf_t, dyn_block_enable),
+      NULL
+    },
+
+    ngx_null_command
+};
+/* clang-format on */
 
 /* 解析并创建共享内存区域：waf_shm_zone <name> <size> */
-static char *ngx_http_waf_set_shm_zone(ngx_conf_t *cf, ngx_command_t *cmd,
-                                       void *conf)
+static char *ngx_http_waf_set_shm_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
   ngx_http_waf_main_conf_t *mcf = conf;
   ngx_str_t *value;
@@ -186,9 +235,8 @@ static char *ngx_http_waf_set_shm_zone(ngx_conf_t *cf, ngx_command_t *cmd,
   ngx_shm_zone_t *zone;
 
   if (cf->args->nelts < 3) {
-    ngx_conf_log_error(
-        NGX_LOG_EMERG, cf, 0,
-        "waf: invalid args for waf_shm_zone, expect: <name> <size>");
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                       "waf: invalid args for waf_shm_zone, expect: <name> <size>");
     return NGX_CONF_ERROR;
   }
 
@@ -206,13 +254,11 @@ static char *ngx_http_waf_set_shm_zone(ngx_conf_t *cf, ngx_command_t *cmd,
 
   size = ngx_parse_size(&value[2]);
   if (size == NGX_ERROR || size <= 0) {
-    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "waf: invalid shm size %V",
-                       &value[2]);
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "waf: invalid shm size %V", &value[2]);
     return NGX_CONF_ERROR;
   }
 
-  zone =
-      ngx_shared_memory_add(cf, &value[1], (size_t)size, &ngx_http_waf_module);
+  zone = ngx_shared_memory_add(cf, &value[1], (size_t)size, &ngx_http_waf_module);
   if (zone == NULL) {
     return NGX_CONF_ERROR;
   }
@@ -223,8 +269,7 @@ static char *ngx_http_waf_set_shm_zone(ngx_conf_t *cf, ngx_command_t *cmd,
   mcf->shm_zone_name = value[1];
   mcf->shm_zone_size = (size_t)size;
 
-  ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0,
-                     "waf: shm zone configured name=%V size=%uz", &value[1],
+  ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0, "waf: shm zone configured name=%V size=%uz", &value[1],
                      (size_t)size);
 
   (void)cmd;

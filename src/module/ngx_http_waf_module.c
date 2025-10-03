@@ -9,11 +9,9 @@
 extern void *ngx_http_waf_create_main_conf(ngx_conf_t *cf);
 extern char *ngx_http_waf_init_main_conf(ngx_conf_t *cf, void *conf);
 extern void *ngx_http_waf_create_loc_conf(ngx_conf_t *cf);
-extern char *ngx_http_waf_merge_loc_conf(ngx_conf_t *cf, void *parent,
-                                         void *child);
+extern char *ngx_http_waf_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
 extern ngx_command_t ngx_http_waf_commands[];
-extern ngx_module_t
-    ngx_http_waf_module; /* 前置声明，供 ngx_http_get_module_*_conf 使用 */
+extern ngx_module_t ngx_http_waf_module; /* 前置声明，供 ngx_http_get_module_*_conf 使用 */
 
 /* 异步请求体读取回调前置声明 */
 static void ngx_http_waf_post_read_body_handler(ngx_http_request_t *r);
@@ -28,59 +26,207 @@ static void ngx_http_waf_post_read_body_handler(ngx_http_request_t *r);
 
 /* 工具函数改为从 utils 复用：ngx_http_waf_collect_request_body 等 */
 
-static waf_rc_e waf_stage_ip_allow(ngx_http_request_t *r,
-                                   ngx_http_waf_main_conf_t *mcf,
-                                   ngx_http_waf_loc_conf_t *lcf,
-                                   ngx_http_waf_ctx_t *ctx)
+static waf_rc_e waf_stage_ip_allow(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
+                                   ngx_http_waf_loc_conf_t *lcf, ngx_http_waf_ctx_t *ctx)
 {
-  (void)mcf;
-  (void)lcf;
-  (void)ctx;
-  ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                "waf-stub: ip_allow stage not implemented; continue");
+  if (mcf == NULL || lcf == NULL || ctx == NULL || lcf->compiled == NULL) {
+    return WAF_RC_CONTINUE;
+  }
+
+  /* 获取ip_allow阶段的规则桶（CLIENT_IP是target[0]） */
+  ngx_array_t *rules = lcf->compiled->buckets[WAF_PHASE_IP_ALLOW][0];
+  if (rules == NULL || rules->nelts == 0) {
+    return WAF_RC_CONTINUE;
+  }
+
+  /* 使用ctx中已提取的客户端IP（尊重trust_xff配置） */
+  in_addr_t client_addr = ctx->client_ip;
+  if (client_addr == 0) {
+    /* 无效IP（如IPv6或解析失败），跳过检测 */
+    return WAF_RC_CONTINUE;
+  }
+
+  /* 遍历规则匹配CIDR */
+  waf_compiled_rule_t **rule_ptrs = rules->elts;
+  for (ngx_uint_t i = 0; i < rules->nelts; i++) {
+    waf_compiled_rule_t *rule = rule_ptrs[i];
+    if (rule == NULL || rule->compiled_cidrs == NULL) {
+      continue;
+    }
+
+    ngx_cidr_t *cidrs = rule->compiled_cidrs->elts;
+    ngx_uint_t matched = 0;
+
+    for (ngx_uint_t j = 0; j < rule->compiled_cidrs->nelts; j++) {
+      if (cidrs[j].family == AF_INET) {
+        if ((client_addr & cidrs[j].u.in.mask) == cidrs[j].u.in.addr) {
+          matched = 1;
+          break;
+        }
+      }
+    }
+
+    /* 应用negate */
+    if (rule->negate) {
+      matched = matched ? 0 : 1;
+    }
+
+    if (!matched) {
+      continue;
+    }
+
+    /* 命中ip_allow规则：BYPASS */
+    if (rule->action == WAF_ACT_BYPASS) {
+      return waf_enforce_bypass(r, mcf, lcf, ctx, rule->id);
+    }
+  }
+
   return WAF_RC_CONTINUE;
 }
 
-static waf_rc_e waf_stage_ip_deny(ngx_http_request_t *r,
-                                  ngx_http_waf_main_conf_t *mcf,
-                                  ngx_http_waf_loc_conf_t *lcf,
-                                  ngx_http_waf_ctx_t *ctx)
+static waf_rc_e waf_stage_ip_deny(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
+                                  ngx_http_waf_loc_conf_t *lcf, ngx_http_waf_ctx_t *ctx)
 {
-  (void)mcf;
-  (void)lcf;
-  (void)ctx;
-  ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                "waf-stub: ip_deny stage not implemented; continue");
+  if (mcf == NULL || lcf == NULL || ctx == NULL || lcf->compiled == NULL) {
+    return WAF_RC_CONTINUE;
+  }
+
+  /* 获取ip_block阶段的规则桶（CLIENT_IP是target[0]） */
+  ngx_array_t *rules = lcf->compiled->buckets[WAF_PHASE_IP_BLOCK][0];
+  if (rules == NULL || rules->nelts == 0) {
+    return WAF_RC_CONTINUE;
+  }
+
+  /* 使用ctx中已提取的客户端IP（尊重trust_xff配置） */
+  in_addr_t client_addr = ctx->client_ip;
+  if (client_addr == 0) {
+    /* 无效IP（如IPv6或解析失败），跳过检测 */
+    return WAF_RC_CONTINUE;
+  }
+
+  /* 遍历规则匹配CIDR */
+  waf_compiled_rule_t **rule_ptrs = rules->elts;
+  for (ngx_uint_t i = 0; i < rules->nelts; i++) {
+    waf_compiled_rule_t *rule = rule_ptrs[i];
+    if (rule == NULL || rule->compiled_cidrs == NULL) {
+      continue;
+    }
+
+    ngx_cidr_t *cidrs = rule->compiled_cidrs->elts;
+    ngx_uint_t matched = 0;
+
+    for (ngx_uint_t j = 0; j < rule->compiled_cidrs->nelts; j++) {
+      if (cidrs[j].family == AF_INET) {
+        if ((client_addr & cidrs[j].u.in.mask) == cidrs[j].u.in.addr) {
+          matched = 1;
+          break;
+        }
+      }
+    }
+
+    /* 应用negate */
+    if (rule->negate) {
+      matched = matched ? 0 : 1;
+    }
+
+    if (!matched) {
+      continue;
+    }
+
+    /* 命中ip_deny规则：BLOCK */
+    if (rule->action == WAF_ACT_DENY) {
+      return waf_enforce_block(r, mcf, lcf, ctx, NGX_HTTP_FORBIDDEN, rule->id,
+                               (ngx_uint_t)(rule->score > 0 ? rule->score : 0));
+    }
+  }
+
   return WAF_RC_CONTINUE;
 }
 
-static waf_rc_e waf_stage_reputation_base_add(ngx_http_request_t *r,
-                                              ngx_http_waf_main_conf_t *mcf,
-                                              ngx_http_waf_loc_conf_t *lcf,
-                                              ngx_http_waf_ctx_t *ctx)
+static waf_rc_e waf_stage_reputation_base_add(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
+                                              ngx_http_waf_loc_conf_t *lcf, ngx_http_waf_ctx_t *ctx)
 {
   ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                 "waf-stub: reputation base add uses score_delta=0; continue");
   return waf_enforce_base_add(r, mcf, lcf, ctx, 0);
 }
 
-static waf_rc_e waf_stage_uri_allow(ngx_http_request_t *r,
-                                    ngx_http_waf_main_conf_t *mcf,
-                                    ngx_http_waf_loc_conf_t *lcf,
-                                    ngx_http_waf_ctx_t *ctx)
+static waf_rc_e waf_stage_uri_allow(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
+                                    ngx_http_waf_loc_conf_t *lcf, ngx_http_waf_ctx_t *ctx)
 {
-  (void)mcf;
-  (void)lcf;
-  (void)ctx;
-  ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                "waf-stub: uri_allow stage not implemented; continue");
+  if (mcf == NULL || lcf == NULL || ctx == NULL || lcf->compiled == NULL) {
+    return WAF_RC_CONTINUE;
+  }
+
+  /* 获取uri_allow阶段的规则桶（URI是target[1]） */
+  ngx_array_t *rules = lcf->compiled->buckets[WAF_PHASE_URI_ALLOW][1];
+  if (rules == NULL || rules->nelts == 0) {
+    return WAF_RC_CONTINUE;
+  }
+
+  /* 获取请求URI */
+  ngx_str_t *uri = &r->uri;
+
+  /* 遍历规则匹配 */
+  waf_compiled_rule_t **rule_ptrs = rules->elts;
+  for (ngx_uint_t i = 0; i < rules->nelts; i++) {
+    waf_compiled_rule_t *rule = rule_ptrs[i];
+    if (rule == NULL) {
+      continue;
+    }
+
+    ngx_uint_t matched = 0;
+
+    /* 根据match类型进行匹配 */
+    if (rule->match == WAF_MATCH_CONTAINS) {
+      /* CONTAINS模式：子串匹配 */
+      if (rule->patterns && rule->patterns->nelts > 0) {
+        ngx_str_t *pats = rule->patterns->elts;
+        for (ngx_uint_t j = 0; j < rule->patterns->nelts; j++) {
+          if (ngx_http_waf_contains_ci(uri, &pats[j], rule->caseless)) {
+            matched = 1;
+            break;
+          }
+        }
+      }
+    } else if (rule->match == WAF_MATCH_EXACT) {
+      /* EXACT模式：精确匹配 */
+      if (rule->patterns && rule->patterns->nelts > 0) {
+        ngx_str_t *pats = rule->patterns->elts;
+        for (ngx_uint_t j = 0; j < rule->patterns->nelts; j++) {
+          if (ngx_http_waf_equals_ci(uri, &pats[j], rule->caseless)) {
+            matched = 1;
+            break;
+          }
+        }
+      }
+    } else if (rule->match == WAF_MATCH_REGEX) {
+      /* REGEX模式：正则匹配 */
+      if (rule->compiled_regexes && rule->compiled_regexes->nelts > 0) {
+        matched = ngx_http_waf_regex_any_match(rule->compiled_regexes, uri);
+      }
+    }
+
+    /* 应用negate */
+    if (rule->negate) {
+      matched = matched ? 0 : 1;
+    }
+
+    if (!matched) {
+      continue;
+    }
+
+    /* 命中uri_allow规则：BYPASS */
+    if (rule->action == WAF_ACT_BYPASS) {
+      return waf_enforce_bypass(r, mcf, lcf, ctx, rule->id);
+    }
+  }
+
   return WAF_RC_CONTINUE;
 }
 
-static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
-                                        ngx_http_waf_main_conf_t *mcf,
-                                        ngx_http_waf_loc_conf_t *lcf,
-                                        ngx_http_waf_ctx_t *ctx)
+static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
+                                        ngx_http_waf_loc_conf_t *lcf, ngx_http_waf_ctx_t *ctx)
 {
   /* 最小实现：遍历 detect 段 buckets，支持
    * URI/ARGS_COMBINED/ARGS_NAME/ARGS_VALUE/HEADER 的 CONTAINS/REGEX 匹配 */
@@ -130,16 +276,14 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
               }
             }
           } else if (rule->match == WAF_MATCH_REGEX) {
-            matched =
-                ngx_http_waf_regex_any_match(rule->compiled_regexes, &subj);
+            matched = ngx_http_waf_regex_any_match(rule->compiled_regexes, &subj);
           }
           break;
         }
 
         case WAF_T_ARGS_COMBINED: {
           ngx_str_t subj;
-          if (ngx_http_waf_get_decoded_args_combined(r, &subj) != NGX_OK ||
-              subj.len == 0) {
+          if (ngx_http_waf_get_decoded_args_combined(r, &subj) != NGX_OK || subj.len == 0) {
             matched = 0;
             break;
           }
@@ -164,8 +308,7 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
               }
             }
           } else if (rule->match == WAF_MATCH_REGEX) {
-            matched =
-                ngx_http_waf_regex_any_match(rule->compiled_regexes, &subj);
+            matched = ngx_http_waf_regex_any_match(rule->compiled_regexes, &subj);
           }
           break;
         }
@@ -173,13 +316,12 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
         case WAF_T_ARGS_NAME: {
           ngx_str_t subj = r->args;
           if (rule->match == WAF_MATCH_EXACT) {
-            matched = ngx_http_waf_args_iter_exact(&subj, /*match_name=*/1,
-                                                   rule->caseless,
+            matched = ngx_http_waf_args_iter_exact(&subj, /*match_name=*/1, rule->caseless,
                                                    rule->patterns);
           } else {
-            matched = ngx_http_waf_args_iter_match(
-                &subj, /*match_name=*/1, rule->caseless, rule->patterns,
-                rule->compiled_regexes, (rule->match == WAF_MATCH_REGEX));
+            matched = ngx_http_waf_args_iter_match(&subj, /*match_name=*/1, rule->caseless,
+                                                   rule->patterns, rule->compiled_regexes,
+                                                   (rule->match == WAF_MATCH_REGEX));
           }
           break;
         }
@@ -187,13 +329,12 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
         case WAF_T_ARGS_VALUE: {
           ngx_str_t subj = r->args;
           if (rule->match == WAF_MATCH_EXACT) {
-            matched = ngx_http_waf_args_iter_exact(&subj, /*match_name=*/0,
-                                                   rule->caseless,
+            matched = ngx_http_waf_args_iter_exact(&subj, /*match_name=*/0, rule->caseless,
                                                    rule->patterns);
           } else {
-            matched = ngx_http_waf_args_iter_match(
-                &subj, /*match_name=*/0, rule->caseless, rule->patterns,
-                rule->compiled_regexes, (rule->match == WAF_MATCH_REGEX));
+            matched = ngx_http_waf_args_iter_match(&subj, /*match_name=*/0, rule->caseless,
+                                                   rule->patterns, rule->compiled_regexes,
+                                                   (rule->match == WAF_MATCH_REGEX));
           }
           break;
         }
@@ -212,8 +353,7 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
                 }
               }
             } else if (rule->match == WAF_MATCH_REGEX) {
-              matched =
-                  ngx_http_waf_regex_any_match(rule->compiled_regexes, &hv);
+              matched = ngx_http_waf_regex_any_match(rule->compiled_regexes, &hv);
             }
           }
           break;
@@ -232,9 +372,8 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
             break;
           }
           if (ngx_http_waf_collect_request_body(r, &body) != NGX_OK) {
-            ngx_log_error(
-                NGX_LOG_WARN, r->connection->log, 0,
-                "waf-stub: collect_request_body failed; treat as empty BODY");
+            ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                          "waf-stub: collect_request_body failed; treat as empty BODY");
             matched = 0;
             break;
           }
@@ -244,11 +383,9 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
                   sizeof("application/x-www-form-urlencoded") - 1 &&
               ngx_strncasecmp(r->headers_in.content_type->value.data,
                               (u_char *)"application/x-www-form-urlencoded",
-                              sizeof("application/x-www-form-urlencoded") - 1) ==
-                  0) {
+                              sizeof("application/x-www-form-urlencoded") - 1) == 0) {
             ngx_str_t decoded_body;
-            if (ngx_http_waf_decode_form_urlencoded(r->pool, &body,
-                                                    &decoded_body) == NGX_OK) {
+            if (ngx_http_waf_decode_form_urlencoded(r->pool, &body, &decoded_body) == NGX_OK) {
               body_view = decoded_body;
             }
           }
@@ -256,8 +393,7 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
             ngx_str_t *pats = rule->patterns ? rule->patterns->elts : NULL;
             if (pats) {
               for (ngx_uint_t k = 0; k < rule->patterns->nelts; k++) {
-                if (ngx_http_waf_contains_ci(&body_view, &pats[k],
-                                             rule->caseless)) {
+                if (ngx_http_waf_contains_ci(&body_view, &pats[k], rule->caseless)) {
                   matched = 1;
                   break;
                 }
@@ -267,16 +403,14 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
             ngx_str_t *pats = rule->patterns ? rule->patterns->elts : NULL;
             if (pats) {
               for (ngx_uint_t k = 0; k < rule->patterns->nelts; k++) {
-                if (ngx_http_waf_equals_ci(&body_view, &pats[k],
-                                           rule->caseless)) {
+                if (ngx_http_waf_equals_ci(&body_view, &pats[k], rule->caseless)) {
                   matched = 1;
                   break;
                 }
               }
             }
           } else if (rule->match == WAF_MATCH_REGEX) {
-            matched =
-                ngx_http_waf_regex_any_match(rule->compiled_regexes, &body_view);
+            matched = ngx_http_waf_regex_any_match(rule->compiled_regexes, &body_view);
           }
           break;
         }
@@ -299,9 +433,8 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
       /* 命中后执法：DENY/BYPASS/LOG */
       switch (rule->action) {
         case WAF_ACT_DENY: {
-          waf_rc_e rc = waf_enforce_block(
-              r, mcf, lcf, ctx, NGX_HTTP_FORBIDDEN, rule->id,
-              (ngx_uint_t)(rule->score > 0 ? rule->score : 0));
+          waf_rc_e rc = waf_enforce_block(r, mcf, lcf, ctx, NGX_HTTP_FORBIDDEN, rule->id,
+                                          (ngx_uint_t)(rule->score > 0 ? rule->score : 0));
           if (rc == WAF_RC_BLOCK || rc == WAF_RC_BYPASS || rc == WAF_RC_ERROR) {
             return rc;
           }
@@ -332,6 +465,10 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r,
 
 static ngx_int_t ngx_http_waf_access_handler(ngx_http_request_t *r)
 {
+  /* 过滤内部请求和子请求（性能优化 + 避免重复检测） */
+  WAF_FILTER_INTERNAL_REQUESTS(r);
+  WAF_FILTER_SUBREQUESTS(r);
+
   /* 初始化请求态 ctx */
   ngx_http_waf_ctx_t *ctx = ngx_http_get_module_ctx(r, ngx_http_waf_module);
   if (ctx == NULL) {
@@ -339,15 +476,13 @@ static ngx_int_t ngx_http_waf_access_handler(ngx_http_request_t *r)
     if (ctx == NULL) {
       return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
-    waf_log_init_ctx(r, ctx);
+    waf_log_init_ctx(r, ctx); // 初始化ctx，顺便提取客户端IP（尊重trust_xff配置））
     ngx_http_set_ctx(r, ctx, ngx_http_waf_module);
   }
 
   /* 获取配置句柄 */
-  ngx_http_waf_main_conf_t *mcf =
-      ngx_http_get_module_main_conf(r, ngx_http_waf_module);
-  ngx_http_waf_loc_conf_t *lcf =
-      ngx_http_get_module_loc_conf(r, ngx_http_waf_module);
+  ngx_http_waf_main_conf_t *mcf = ngx_http_get_module_main_conf(r, ngx_http_waf_module);
+  ngx_http_waf_loc_conf_t *lcf = ngx_http_get_module_loc_conf(r, ngx_http_waf_module);
 
   /* 五段流水线（前四段与请求体无关，先执行） */
   WAF_STAGE(ctx, waf_stage_ip_allow(r, mcf, lcf, ctx));
@@ -357,8 +492,7 @@ static ngx_int_t ngx_http_waf_access_handler(ngx_http_request_t *r)
 
   /* 是否需要读取请求体？GET/HEAD 或 content-length==0 则跳过读体，BODY 视为空串
    */
-  if ((r->method & (NGX_HTTP_GET | NGX_HTTP_HEAD)) ||
-      r->headers_in.content_length_n == 0) {
+  if ((r->method & (NGX_HTTP_GET | NGX_HTTP_HEAD)) || r->headers_in.content_length_n == 0) {
     WAF_STAGE(ctx, waf_stage_detect_bundle(r, mcf, lcf, ctx));
     waf_action_finalize_allow(r, mcf, lcf, ctx);
     return NGX_DECLINED;
@@ -405,29 +539,31 @@ static ngx_http_module_t ngx_http_waf_module_ctx = {
     ngx_http_waf_merge_loc_conf     /* merge loc conf */
 };
 
-ngx_module_t ngx_http_waf_module = {
-    NGX_MODULE_V1,
-    &ngx_http_waf_module_ctx, /* module context */
-    ngx_http_waf_commands,    /* module directives */
-    NGX_HTTP_MODULE,          /* module type */
-    NULL,                     /* init master */
-    NULL,                     /* init module */
-    NULL,                     /* init process */
-    NULL,                     /* init thread */
-    NULL,                     /* exit thread */
-    NULL,                     /* exit process */
-    NULL,                     /* exit master */
-    NGX_MODULE_V1_PADDING};
+/* clang-format off */
+ngx_module_t ngx_http_waf_module = 
+{
+  NGX_MODULE_V1,
+  &ngx_http_waf_module_ctx, /* module context */
+  ngx_http_waf_commands,    /* module directives */
+  NGX_HTTP_MODULE,          /* module type */
+  NULL,                     /* init master */
+  NULL,                     /* init module */
+  NULL,                     /* init process */
+  NULL,                     /* init thread */
+  NULL,                     /* exit thread */
+  NULL,                     /* exit process */
+  NULL,                     /* exit master */
+  NGX_MODULE_V1_PADDING
+};
+/* clang-format on */
 
 /* 请求体读取完成后的回调：完成检测段与尾部 FINAL；若未早退，则推进到下一个相位
  */
 static void ngx_http_waf_post_read_body_handler(ngx_http_request_t *r)
 {
   ngx_http_waf_ctx_t *ctx = ngx_http_get_module_ctx(r, ngx_http_waf_module);
-  ngx_http_waf_main_conf_t *mcf =
-      ngx_http_get_module_main_conf(r, ngx_http_waf_module);
-  ngx_http_waf_loc_conf_t *lcf =
-      ngx_http_get_module_loc_conf(r, ngx_http_waf_module);
+  ngx_http_waf_main_conf_t *mcf = ngx_http_get_module_main_conf(r, ngx_http_waf_module);
+  ngx_http_waf_loc_conf_t *lcf = ngx_http_get_module_loc_conf(r, ngx_http_waf_module);
 
   if (ctx == NULL) {
     ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
@@ -436,8 +572,7 @@ static void ngx_http_waf_post_read_body_handler(ngx_http_request_t *r)
 
   waf_rc_e rc_stage = waf_stage_detect_bundle(r, mcf, lcf, ctx);
   if (rc_stage == WAF_RC_BLOCK) {
-    ngx_int_t http_status =
-        ctx->final_status > 0 ? ctx->final_status : NGX_HTTP_FORBIDDEN;
+    ngx_int_t http_status = ctx->final_status > 0 ? ctx->final_status : NGX_HTTP_FORBIDDEN;
     ngx_http_finalize_request(r, http_status);
     return;
   }

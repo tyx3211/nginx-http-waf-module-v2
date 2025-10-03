@@ -1,4 +1,9 @@
 #include "ngx_http_waf_log.h"
+#include "ngx_http_waf_module_v2.h"
+#include "ngx_http_waf_utils.h"
+
+/* 外部声明模块（用于获取配置） */
+extern ngx_module_t ngx_http_waf_module;
 
 /*
  * ================================================================
@@ -26,7 +31,7 @@ static const char *waf_log_level_str(waf_log_level_e lv)
 
 void waf_log_init_ctx(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx)
 {
-  if (ctx == NULL)
+  if (ctx == NULL || r == NULL)
     return;
   ctx->log_doc = NULL;
   ctx->events = NULL;
@@ -36,10 +41,14 @@ void waf_log_init_ctx(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx)
   ctx->final_action = WAF_FINAL_NONE;
   ctx->has_complete_events = 0;
   ctx->log_flushed = 0;
+
+  /* M5增强：获取客户端IP（主机字节序） */
+  ngx_http_waf_main_conf_t *mcf = ngx_http_get_module_main_conf(r, ngx_http_waf_module);
+  ngx_flag_t trust_xff = (mcf != NULL) ? mcf->trust_xff : 0;
+  ctx->client_ip = waf_utils_get_client_ip(r, trust_xff);
 }
 
-static void waf_log_raise_effective_level(ngx_http_waf_ctx_t *ctx,
-                                          waf_log_level_e lv)
+static void waf_log_raise_effective_level(ngx_http_waf_ctx_t *ctx, waf_log_level_e lv)
 {
   if (ctx == NULL)
     return;
@@ -48,8 +57,7 @@ static void waf_log_raise_effective_level(ngx_http_waf_ctx_t *ctx,
   }
 }
 
-void waf_log_append_event_complete(ngx_http_request_t *r,
-                                   ngx_http_waf_ctx_t *ctx,
+void waf_log_append_event_complete(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx,
                                    waf_log_level_e level)
 {
   if (ctx == NULL)
@@ -58,8 +66,7 @@ void waf_log_append_event_complete(ngx_http_request_t *r,
   ctx->has_complete_events = 1;
 }
 
-void waf_log_append_event(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx,
-                          waf_log_level_e level)
+void waf_log_append_event(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx, waf_log_level_e level)
 {
   if (ctx == NULL)
     return;
@@ -76,9 +83,8 @@ void waf_log_flush(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
   ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                 "waf-stub-log: final_status=%ui final_action=%ui level=%s "
                 "total_score=%ui uri=\"%V\"",
-                ctx->final_status, ctx->final_action,
-                waf_log_level_str(ctx->effective_level), ctx->total_score,
-                &r->uri);
+                ctx->final_status, ctx->final_action, waf_log_level_str(ctx->effective_level),
+                ctx->total_score, &r->uri);
 }
 
 void waf_log_flush_final(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
@@ -94,9 +100,8 @@ void waf_log_flush_final(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
   ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                 "waf-stub-final: hint=%s final_status=%ui final_action=%ui "
                 "level=%s total_score=%ui uri=\"%V\"",
-                (final_action_hint ? final_action_hint : ""), ctx->final_status,
-                ctx->final_action, waf_log_level_str(ctx->effective_level),
-                ctx->total_score, &r->uri);
+                (final_action_hint ? final_action_hint : ""), ctx->final_status, ctx->final_action,
+                waf_log_level_str(ctx->effective_level), ctx->total_score, &r->uri);
   ctx->log_flushed = 1;
   (void)mcf;
   (void)lcf;
