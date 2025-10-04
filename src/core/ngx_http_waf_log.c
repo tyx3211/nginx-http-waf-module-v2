@@ -1,15 +1,17 @@
 #include "ngx_http_waf_log.h"
 #include "ngx_http_waf_module_v2.h"
 #include "ngx_http_waf_utils.h"
+#include <time.h>
 
 /* 外部声明模块（用于获取配置） */
 extern ngx_module_t ngx_http_waf_module;
 
 /*
  * ================================================================
- *  STUB IMPLEMENTATION (M2.5)
- *  日志模块存根：仅维护请求态级别与在 error_log 输出摘要。
- *  - M6 将实现 JSONL 文件落盘与完整事件结构
+ *  完整实现：JSONL 日志系统（M6）
+ *  - 使用 yyjson_mut 构建完整 JSON 事件结构
+ *  - 输出 JSONL 格式到文件
+ *  - 支持 decisive 事件标记与 finalActionType
  * ================================================================
  */
 
@@ -29,18 +31,61 @@ static const char *waf_log_level_str(waf_log_level_e lv)
   }
 }
 
+static const char *waf_final_action_type_str(waf_final_action_type_e type)
+{
+  switch (type) {
+    case WAF_FINAL_ACTION_TYPE_ALLOW:
+      return "ALLOW";
+    case WAF_FINAL_ACTION_TYPE_BYPASS_BY_IP_WHITELIST:
+      return "BYPASS_BY_IP_WHITELIST";
+    case WAF_FINAL_ACTION_TYPE_BYPASS_BY_URI_WHITELIST:
+      return "BYPASS_BY_URI_WHITELIST";
+    case WAF_FINAL_ACTION_TYPE_BLOCK_BY_RULE:
+      return "BLOCK_BY_RULE";
+    case WAF_FINAL_ACTION_TYPE_BLOCK_BY_REPUTATION:
+      return "BLOCK_BY_REPUTATION";
+    case WAF_FINAL_ACTION_TYPE_BLOCK_BY_IP_BLACKLIST:
+      return "BLOCK_BY_IP_BLACKLIST";
+    default:
+      return "ALLOW";
+  }
+}
+
+static const char *waf_final_action_str(waf_final_action_e action)
+{
+  switch (action) {
+    case WAF_FINAL_BLOCK:
+      return "BLOCK";
+    case WAF_FINAL_BYPASS:
+      return "BYPASS";
+    case WAF_FINAL_NONE:
+    default:
+      return "ALLOW";
+  }
+}
+
 void waf_log_init_ctx(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx)
 {
   if (ctx == NULL || r == NULL)
     return;
-  ctx->log_doc = NULL;
-  ctx->events = NULL;
+
+  /* 创建 yyjson 文档 */
+  ctx->log_doc = yyjson_mut_doc_new(NULL);
+  yyjson_mut_val *root = yyjson_mut_obj(ctx->log_doc);
+  yyjson_mut_doc_set_root(ctx->log_doc, root);
+
+  /* 创建 events 数组 */
+  ctx->events = yyjson_mut_arr(ctx->log_doc);
+
   ctx->effective_level = WAF_LOG_NONE;
   ctx->total_score = 0;
   ctx->final_status = 0;
   ctx->final_action = WAF_FINAL_NONE;
+  ctx->final_action_type = WAF_FINAL_ACTION_TYPE_ALLOW;
+  ctx->block_rule_id = 0;
   ctx->has_complete_events = 0;
   ctx->log_flushed = 0;
+  ctx->decisive_set = 0;
 
   /* M5增强：获取客户端IP（主机字节序） */
   ngx_http_waf_main_conf_t *mcf = ngx_http_get_module_main_conf(r, ngx_http_waf_module);
@@ -55,6 +100,89 @@ static void waf_log_raise_effective_level(ngx_http_waf_ctx_t *ctx, waf_log_level
   if ((int)lv > (int)ctx->effective_level) {
     ctx->effective_level = lv;
   }
+}
+
+void waf_log_append_rule_event(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx, ngx_uint_t rule_id,
+                               const char *target_tag, const char *intent_str,
+                               ngx_uint_t score_delta, const ngx_str_t *matched_pattern,
+                               ngx_uint_t pattern_index, ngx_flag_t negate, ngx_flag_t decisive)
+{
+  if (ctx == NULL || ctx->log_doc == NULL || ctx->events == NULL)
+    return;
+
+  yyjson_mut_doc *doc = ctx->log_doc;
+  yyjson_mut_val *event = yyjson_mut_obj(doc);
+
+  yyjson_mut_obj_add_str(doc, event, "type", "rule");
+  yyjson_mut_obj_add_uint(doc, event, "ruleId", rule_id);
+  if (intent_str) {
+    yyjson_mut_obj_add_str(doc, event, "intent", intent_str);
+  }
+  if (score_delta > 0) {
+    yyjson_mut_obj_add_uint(doc, event, "scoreDelta", score_delta);
+  }
+  yyjson_mut_obj_add_uint(doc, event, "totalScore", ctx->total_score);
+
+  if (matched_pattern && matched_pattern->len > 0) {
+    yyjson_mut_obj_add_strn(doc, event, "matchedPattern", (const char *)matched_pattern->data,
+                            matched_pattern->len);
+    yyjson_mut_obj_add_uint(doc, event, "patternIndex", pattern_index);
+  }
+
+  if (target_tag) {
+    yyjson_mut_obj_add_str(doc, event, "target", target_tag);
+  }
+
+  if (negate) {
+    yyjson_mut_obj_add_bool(doc, event, "negate", true);
+  }
+
+  if (decisive && !ctx->decisive_set) {
+    yyjson_mut_obj_add_bool(doc, event, "decisive", true);
+    ctx->decisive_set = 1;
+  }
+
+  yyjson_mut_arr_append(ctx->events, event);
+}
+
+void waf_log_append_reputation_event(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx,
+                                     ngx_uint_t score_delta, const char *reason)
+{
+  if (ctx == NULL || ctx->log_doc == NULL || ctx->events == NULL)
+    return;
+
+  yyjson_mut_doc *doc = ctx->log_doc;
+  yyjson_mut_val *event = yyjson_mut_obj(doc);
+
+  yyjson_mut_obj_add_str(doc, event, "type", "reputation");
+  if (score_delta > 0) {
+    yyjson_mut_obj_add_uint(doc, event, "scoreDelta", score_delta);
+  }
+  yyjson_mut_obj_add_uint(doc, event, "totalScore", ctx->total_score);
+  if (reason) {
+    yyjson_mut_obj_add_str(doc, event, "reason", reason);
+  }
+
+  yyjson_mut_arr_append(ctx->events, event);
+}
+
+void waf_log_append_ban_event(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx, ngx_msec_t window)
+{
+  if (ctx == NULL || ctx->log_doc == NULL || ctx->events == NULL)
+    return;
+
+  yyjson_mut_doc *doc = ctx->log_doc;
+  yyjson_mut_val *event = yyjson_mut_obj(doc);
+
+  yyjson_mut_obj_add_str(doc, event, "type", "ban");
+  yyjson_mut_obj_add_uint(doc, event, "window", (ngx_uint_t)window);
+
+  if (!ctx->decisive_set) {
+    yyjson_mut_obj_add_bool(doc, event, "decisive", true);
+    ctx->decisive_set = 1;
+  }
+
+  yyjson_mut_arr_append(ctx->events, event);
 }
 
 void waf_log_append_event_complete(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx,
@@ -79,12 +207,50 @@ void waf_log_flush(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
   if (r == NULL || ctx == NULL)
     return;
 
-  /* 存根阶段：统一输出一行 error_log 日志，包含最终状态/动作/级别/score */
-  ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                "waf-stub-log: final_status=%ui final_action=%ui level=%s "
+  /* 仅输出 error_log 摘要（可选） */
+  ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                "waf-log: final_status=%ui final_action=%ui level=%s "
                 "total_score=%ui uri=\"%V\"",
                 ctx->final_status, ctx->final_action, waf_log_level_str(ctx->effective_level),
                 ctx->total_score, &r->uri);
+}
+
+static void waf_log_write_jsonl(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
+                                 ngx_http_waf_ctx_t *ctx, const char *jsonl)
+{
+  if (mcf == NULL || jsonl == NULL)
+    return;
+
+  /* 检查是否配置了日志路径 */
+  if (mcf->json_log_path.len == 0) {
+    return; /* 未配置日志文件 */
+  }
+
+  /* 打开文件（追加模式） */
+  ngx_fd_t fd =
+      ngx_open_file(mcf->json_log_path.data, NGX_FILE_APPEND, NGX_FILE_CREATE_OR_OPEN, 0644);
+  if (fd == NGX_INVALID_FILE) {
+    ngx_log_error(NGX_LOG_ERR, r->connection->log, ngx_errno,
+                  "waf: failed to open json_log file \"%V\"", &mcf->json_log_path);
+    return;
+  }
+
+  /* 写入 JSONL（一行JSON + 换行符） */
+  size_t len = ngx_strlen(jsonl);
+  ssize_t n = ngx_write_fd(fd, (void *)jsonl, len);
+  if (n != (ssize_t)len) {
+    ngx_log_error(NGX_LOG_ERR, r->connection->log, ngx_errno,
+                  "waf: failed to write json_log, expected %uz bytes, wrote %z", len, n);
+  }
+
+  /* 写入换行符 */
+  ngx_write_fd(fd, (void *)"\n", 1);
+
+  /* 关闭文件 */
+  if (ngx_close_file(fd) == NGX_FILE_ERROR) {
+    ngx_log_error(NGX_LOG_ERR, r->connection->log, ngx_errno,
+                  "waf: failed to close json_log file \"%V\"", &mcf->json_log_path);
+  }
 }
 
 void waf_log_flush_final(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
@@ -96,13 +262,100 @@ void waf_log_flush_final(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
   if (ctx->log_flushed)
     return;
 
-  /* 存根：复用 waf_log_flush 行为，附带 hint 输出 */
-  ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                "waf-stub-final: hint=%s final_status=%ui final_action=%ui "
-                "level=%s total_score=%ui uri=\"%V\"",
-                (final_action_hint ? final_action_hint : ""), ctx->final_status, ctx->final_action,
+  if (ctx->log_doc == NULL) {
+    /* 未初始化，仅输出error_log */
+    ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                  "waf-final: hint=%s final_status=%ui final_action=%ui "
+                  "level=%s total_score=%ui uri=\"%V\"",
+                  (final_action_hint ? final_action_hint : ""), ctx->final_status,
+                  ctx->final_action, waf_log_level_str(ctx->effective_level), ctx->total_score,
+                  &r->uri);
+    ctx->log_flushed = 1;
+    return;
+  }
+
+  yyjson_mut_doc *doc = ctx->log_doc;
+  yyjson_mut_val *root = yyjson_mut_doc_get_root(doc);
+
+  /* 1. 时间戳（ISO 8601格式） */
+  time_t now = time(NULL);
+  struct tm tm;
+  gmtime_r(&now, &tm);
+  char time_buf[64];
+  strftime(time_buf, sizeof(time_buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
+  yyjson_mut_obj_add_str(doc, root, "time", time_buf);
+
+  /* 2. 客户端IP */
+  u_char ip_buf[16];
+  ngx_uint_t ip = ctx->client_ip;
+  ngx_snprintf(ip_buf, sizeof(ip_buf), "%ui.%ui.%ui.%ui", (ip >> 24) & 0xff, (ip >> 16) & 0xff,
+               (ip >> 8) & 0xff, ip & 0xff);
+  yyjson_mut_obj_add_str(doc, root, "clientIp", (const char *)ip_buf);
+
+  /* 3. 请求方法 */
+  yyjson_mut_obj_add_strn(doc, root, "method", (const char *)r->method_name.data,
+                          r->method_name.len);
+
+  /* 4. URI */
+  yyjson_mut_obj_add_strn(doc, root, "uri", (const char *)r->uri.data, r->uri.len);
+
+  /* 5. events 数组 */
+  if (ctx->events) {
+    yyjson_mut_obj_add_val(doc, root, "events", ctx->events);
+  }
+
+  /* 6. finalAction */
+  yyjson_mut_obj_add_str(doc, root, "finalAction", waf_final_action_str(ctx->final_action));
+
+  /* 7. finalActionType */
+  yyjson_mut_obj_add_str(doc, root, "finalActionType",
+                         waf_final_action_type_str(ctx->final_action_type));
+
+  /* 8. blockRuleId（仅BLOCK_BY_RULE时） */
+  if (ctx->final_action_type == WAF_FINAL_ACTION_TYPE_BLOCK_BY_RULE && ctx->block_rule_id > 0) {
+    yyjson_mut_obj_add_uint(doc, root, "blockRuleId", ctx->block_rule_id);
+  }
+
+  /* 9. status */
+  if (ctx->final_status > 0) {
+    yyjson_mut_obj_add_uint(doc, root, "status", ctx->final_status);
+  }
+
+  /* 输出 JSONL */
+  yyjson_write_err werr;
+  char *json = yyjson_mut_write_opts(doc, YYJSON_WRITE_NOFLAG, NULL, NULL, &werr);
+  if (json) {
+    /* 检查日志级别是否需要输出 */
+    ngx_flag_t should_log = 0;
+    if (ctx->final_action == WAF_FINAL_BLOCK) {
+      /* BLOCK 强制输出 */
+      should_log = 1;
+    } else if (mcf && mcf->json_log_level != (ngx_uint_t)WAF_LOG_NONE) {
+      /* 根据配置级别判断 */
+      if ((ngx_int_t)ctx->effective_level >= (ngx_int_t)mcf->json_log_level) {
+        should_log = 1;
+      }
+    }
+
+    if (should_log) {
+      waf_log_write_jsonl(r, mcf, ctx, json);
+    }
+
+    free(json);
+  } else {
+    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "waf: failed to serialize JSON: code=%ui",
+                  (ngx_uint_t)werr.code);
+  }
+
+  /* 输出 error_log 摘要（可选） */
+  ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                "waf-final: hint=%s final_status=%ui final_action=%s "
+                "final_action_type=%s level=%s total_score=%ui uri=\"%V\"",
+                (final_action_hint ? final_action_hint : ""), ctx->final_status,
+                waf_final_action_str(ctx->final_action),
+                waf_final_action_type_str(ctx->final_action_type),
                 waf_log_level_str(ctx->effective_level), ctx->total_score, &r->uri);
+
   ctx->log_flushed = 1;
-  (void)mcf;
   (void)lcf;
 }

@@ -9,11 +9,10 @@
 
 /*
  * ================================================================
- *  STUB IMPLEMENTATION (M2.5)
- *  本文件为“日志模块”的存根实现接口声明：
- *  - 仅提供稳定接口与最小请求态聚合字段
- *  - 行为在 M6 中完善（JSONL 文件落盘、级别/完整性策略等）
- *  - 目前的实现只会在 flush 时输出一行 error_log 摘要
+ *  完整实现：JSONL 日志系统（M6）
+ *  - 记录完整事件结构（rule/reputation/ban/bypass）
+ *  - 输出 JSONL 格式日志到文件
+ *  - 支持 decisive 事件标记与 finalActionType
  * ================================================================
  */
 
@@ -29,26 +28,52 @@ typedef enum {
   WAF_LOG_ERROR = 4
 } waf_log_level_e;
 
+/* 最终动作类型（用于JSONL输出） */
+typedef enum {
+  WAF_FINAL_ACTION_TYPE_ALLOW = 0,
+  WAF_FINAL_ACTION_TYPE_BYPASS_BY_IP_WHITELIST,
+  WAF_FINAL_ACTION_TYPE_BYPASS_BY_URI_WHITELIST,
+  WAF_FINAL_ACTION_TYPE_BLOCK_BY_RULE,
+  WAF_FINAL_ACTION_TYPE_BLOCK_BY_REPUTATION,
+  WAF_FINAL_ACTION_TYPE_BLOCK_BY_IP_BLACKLIST
+} waf_final_action_type_e;
+
 typedef struct ngx_http_waf_ctx_s {
-  yyjson_mut_doc *log_doc;          /* 存根阶段可为空：不真正构建 JSON 文档 */
-  yyjson_mut_val *events;           /* 存根阶段可为空 */
+  yyjson_mut_doc *log_doc;          /* JSONL文档（请求创建，flush时写入） */
+  yyjson_mut_val *events;           /* events数组 */
   waf_log_level_e effective_level;  /* 本次请求的整体日志级别 */
-  ngx_uint_t total_score;           /* 动态信誉累计分（存根阶段仅内存字段） */
+  ngx_uint_t total_score;           /* 动态信誉累计分 */
   ngx_uint_t final_status;          /* 最终 HTTP 状态（若有） */
-  waf_final_action_e final_action;  /* 最终动作：NONE/BLOCK/BYPASS（LOG 不作为最终动作） */
+  waf_final_action_e final_action;  /* 最终动作：NONE/BLOCK/BYPASS */
+  waf_final_action_type_e final_action_type; /* 最终动作类型（用于JSONL） */
+  ngx_uint_t block_rule_id;         /* 导致阻断的规则ID（仅BLOCK_BY_RULE时有效） */
   unsigned has_complete_events : 1; /* 是否写入过完整性事件 */
   unsigned log_flushed : 1;         /* 是否已最终落盘（去重保护） */
+  unsigned decisive_set : 1;        /* 是否已设置decisive事件（同一请求最多一个） */
   /* 客户端IP（用于动态封禁、日志记录，主机字节序uint32_t） */
   ngx_uint_t client_ip;
 } ngx_http_waf_ctx_t;
 
 void waf_log_init_ctx(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx);
 
-/* 完整性接口：一定附加事件并提升 effective_level（存根不真正构建 JSON） */
+/* 记录规则事件 */
+void waf_log_append_rule_event(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx,
+                               ngx_uint_t rule_id, const char *target_tag, const char *intent_str,
+                               ngx_uint_t score_delta, const ngx_str_t *matched_pattern,
+                               ngx_uint_t pattern_index, ngx_flag_t negate, ngx_flag_t decisive);
+
+/* 记录reputation事件 */
+void waf_log_append_reputation_event(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx,
+                                     ngx_uint_t score_delta, const char *reason);
+
+/* 记录ban事件 */
+void waf_log_append_ban_event(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx, ngx_msec_t window);
+
+/* 完整性接口：一定附加事件并提升 effective_level */
 void waf_log_append_event_complete(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx,
                                    waf_log_level_e level);
 
-/* 常规接口：级别不足可跳过；存根阶段默认同 append_event_complete 行为 */
+/* 常规接口：级别不足可跳过 */
 void waf_log_append_event(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx, waf_log_level_e level);
 
 /* 最终落盘（存根阶段仅 error_log 一行摘要；BLOCK/BYPASS 强制输出） */

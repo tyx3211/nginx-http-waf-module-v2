@@ -146,6 +146,11 @@ static waf_rc_e waf_stage_ip_deny(ngx_http_request_t *r, ngx_http_waf_main_conf_
 static waf_rc_e waf_stage_reputation_base_add(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
                                               ngx_http_waf_loc_conf_t *lcf, ngx_http_waf_ctx_t *ctx)
 {
+  /* 检查动态封禁开关（方案C：LOC级控制） */
+  if (lcf && !lcf->dyn_block_enable) {
+    return WAF_RC_CONTINUE;
+  }
+
   ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                 "waf-stub: reputation base add uses score_delta=0; continue");
   return waf_enforce_base_add(r, mcf, lcf, ctx, 0);
@@ -483,6 +488,11 @@ static ngx_int_t ngx_http_waf_access_handler(ngx_http_request_t *r)
   /* 获取配置句柄 */
   ngx_http_waf_main_conf_t *mcf = ngx_http_get_module_main_conf(r, ngx_http_waf_module);
   ngx_http_waf_loc_conf_t *lcf = ngx_http_get_module_loc_conf(r, ngx_http_waf_module);
+
+  /* 检查waf on|off开关 */
+  if (lcf && !lcf->waf_enable) {
+    return NGX_DECLINED;
+  }
 
   /* 五段流水线（前四段与请求体无关，先执行） */
   WAF_STAGE(ctx, waf_stage_ip_allow(r, mcf, lcf, ctx));

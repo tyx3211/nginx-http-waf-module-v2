@@ -11,7 +11,7 @@
 - [x] `waf_json_log <path>`（MAIN）
 - [x] `waf_json_log_level off|debug|info|alert`（MAIN）
 - [x] `waf on|off`（HTTP/SRV/LOC，loc 可覆盖；off 完全旁路）✅ 已实现
-- [ ] `waf_default_action BLOCK|LOG`（MAIN）⚠️ 字段已存在，待注册指令
+- [x] `waf_default_action BLOCK|LOG`（HTTP/SRV/LOC，loc 可覆盖）✅ 已实现
 - [ ] `waf_trust_xff on|off`（MAIN）⚠️ 字段已存在，待注册指令
 - [x] `waf_dynamic_block_enable on|off`（HTTP/SRV/LOC，推荐仅在 http 设置，方案C）✅ 已实现
 - [ ] `waf_dynamic_block_score_threshold <num>`（MAIN）⚠️ 字段已存在，待注册指令
@@ -39,7 +39,6 @@
 
 | 指令 | 默认值 | 作用 |
 |------|--------|------|
-| `waf_default_action` | `BLOCK` | 全局执法策略（BLOCK/LOG） |
 | `waf_trust_xff` | `off` | 是否信任 X-Forwarded-For |
 | `waf_jsons_dir` | 空 | JSON 工件根目录 |
 | `waf_json_log` | 空 | JSONL 日志路径 |
@@ -62,6 +61,7 @@
 | 指令 | 默认值 | 继承语义 |
 |------|--------|----------|
 | `waf on\|off` | `on` | 模块总开关；`location` 可覆盖上层（用于静态路径白名单） |
+| `waf_default_action` | `BLOCK` | 执法策略（BLOCK/LOG）；`location` 可覆盖上层（用于敏感路径强制拦截或放宽策略） |
 | `waf_dynamic_block_enable` | `off` | 动态封禁开关；**推荐仅在 `http {}` 设置一次**，让所有路径统一继承 |
 | `waf_rules_json` | 空 | 规则入口 JSON 路径；子级覆盖父级 |
 | `waf_json_extends_max_depth` | `5` | JSON 合并最大深度；子级覆盖父级 |
@@ -79,15 +79,34 @@
 
 ## 2. 指令一览（v2.0）
 
-### 2.1 全局动作策略（MAIN）
+### 2.1 执法动作策略（HTTP/SRV/LOC）
 
 - 名称：`waf_default_action BLOCK | LOG`
-- 作用域：`http`（MAIN）
+- 作用域：`http/server/location`
 - 默认值：`BLOCK`
-- 说明：当规则/信誉产生“执法意图”时的全局裁决。`BLOCK` 表示直接阻断并返回 `403`（或规则指定状态）；`LOG` 表示仅记录事件，放行请求。
+- 说明：当规则/信誉产生"执法意图"时的裁决策略。`BLOCK` 表示直接阻断并返回 `403`（或规则指定状态）；`LOG` 表示仅记录事件，放行请求。遵循 Nginx 标准继承语义，`location` 可覆盖上层。
+- **典型场景**：
+  - 在 `http {}` 设置为 `BLOCK` 作为默认策略
+  - 在测试环境的 `server {}` 中覆盖为 `LOG` 以观察告警
+  - 在敏感路径（如 `/admin/`）强制为 `BLOCK` 确保安全
+  - 在开发/灰度环境的特定 `location` 中设置为 `LOG` 降低误杀风险
 - 示例：
   ```nginx
-  waf_default_action BLOCK;
+  http {
+      waf_default_action BLOCK;  # 默认拦截
+      
+      server {
+          listen 8080;
+          
+          location /admin/ {
+              waf_default_action BLOCK;  # 敏感路径强制拦截
+          }
+          
+          location /api/v2/ {
+              waf_default_action LOG;  # 新版API仅记录，不拦截
+          }
+      }
+  }
   ```
 
 ### 2.2 JSON 请求日志（MAIN）
@@ -241,8 +260,9 @@
 
 ## 3. 冲突与优先级
 
-- 全局动作优先级：`BLOCK` 行为由 action 层即时落盘并终止；当全局设置为 `LOG` 时，规则触发仅记录事件，不中断请求，但动态封禁到达阈值仍可导致后续请求被阻断。
-- JSON 与指令边界：运维面参数以指令为准（MAIN），数据面策略以 JSON 为准。两者不重复配置相同含义的字段（例如仅 JSON 定义 `baseAccessScore`）。
+- 动作优先级：`BLOCK` 行为由 action 层即时落盘并终止；当设置为 `LOG` 时，规则触发仅记录事件，不中断请求，但动态封禁到达阈值仍可导致后续请求被阻断。
+- 继承覆盖：`waf_default_action` 遵循 Nginx 标准继承语义，子级（location）可完全覆盖父级（http/server）设置。
+- JSON 与指令边界：运维面参数以指令为准，数据面策略以 JSON 为准。两者不重复配置相同含义的字段（例如仅 JSON 定义 `baseAccessScore`）。
 
 ---
 
@@ -260,6 +280,7 @@ http {
     # 模块总开关（推荐在 http 级设置，location 可覆盖）
     waf on;
 
+    # 执法策略（LOC 级，推荐在 http 设置默认值，location 可覆盖）
     waf_default_action BLOCK;
 
     # JSON 请求日志
@@ -297,6 +318,11 @@ http {
         location /health {
             # 健康检查：仅关闭动态封禁，但仍执行 WAF 规则检查
             waf_dynamic_block_enable off;
+        }
+        
+        location /api/beta/ {
+            # Beta API：仅记录，不拦截（用于灰度观察）
+            waf_default_action LOG;
         }
     }
 }

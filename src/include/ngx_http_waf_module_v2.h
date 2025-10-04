@@ -77,7 +77,6 @@ typedef struct {
   ngx_msec_t dyn_block_duration;  /* 封禁时长（毫秒，默认300000=5分钟） */
   /* M5全局运维指令（MAIN级，不继承） */
   ngx_flag_t trust_xff;                /* waf_trust_xff on|off（默认off） */
-  waf_default_action_e default_action; /* waf_default_action（默认BLOCK） */
 } ngx_http_waf_main_conf_t;
 
 /* v2 loc conf（可在 http/server/location 级配置与继承） */
@@ -98,6 +97,7 @@ typedef struct {
   /* M5运维指令（HTTP/SRV/LOC，可继承） */
   ngx_flag_t waf_enable;       /* waf on|off（默认on） */
   ngx_flag_t dyn_block_enable; /* waf_dynamic_block_enable on|off（默认off，方案C） */
+  waf_default_action_e default_action; /* waf_default_action BLOCK|LOG（默认BLOCK） */
 } ngx_http_waf_loc_conf_t;
 
 #endif /* NGX_HTTP_WAF_MODULE_V2_H */

@@ -42,7 +42,6 @@ void *ngx_http_waf_create_main_conf(ngx_conf_t *cf)
   mcf->dyn_block_duration = 300000; /* 封禁时长：5分钟 */
   /* M5全局运维指令（MAIN级） */
   mcf->trust_xff = 0;                             /* 默认不信任XFF */
-  mcf->default_action = WAF_DEFAULT_ACTION_BLOCK; /* 默认拦截 */
   return mcf;
 }
 
@@ -68,6 +67,7 @@ void *ngx_http_waf_create_loc_conf(ngx_conf_t *cf)
   /* M5运维指令默认值（仅LOC级可继承的） */
   lcf->waf_enable = NGX_CONF_UNSET;
   lcf->dyn_block_enable = NGX_CONF_UNSET; /* 方案C：动态封禁开关（LOC级） */
+  lcf->default_action = (waf_default_action_e)NGX_CONF_UNSET; /* waf_default_action（LOC级） */
   return lcf;
 }
 
@@ -88,6 +88,11 @@ char *ngx_http_waf_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
   /* M5运维指令合并（仅LOC级可继承的） */
   ngx_conf_merge_value(conf->waf_enable, prev->waf_enable, 1);             /* 默认启用 */
   ngx_conf_merge_value(conf->dyn_block_enable, prev->dyn_block_enable, 0); /* 默认关闭（方案C） */
+  if (conf->default_action == (waf_default_action_e)NGX_CONF_UNSET) {
+    conf->default_action = (prev->default_action != (waf_default_action_e)NGX_CONF_UNSET)
+                               ? prev->default_action
+                               : WAF_DEFAULT_ACTION_BLOCK;
+  }
 
   /* 合并完成后按最终 max_depth 尝试解析规则（存根：仅调用接口并记录错误） */
   if (conf->rules_json_path.len != 0) {
@@ -219,6 +224,52 @@ ngx_command_t ngx_http_waf_commands[] = {
       ngx_conf_set_flag_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_waf_loc_conf_t, dyn_block_enable),
+      NULL
+    },
+
+    /* M5全局运维指令（MAIN级，不可继承） */
+    {
+      ngx_string("waf_trust_xff"),
+      NGX_HTTP_MAIN_CONF | NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_http_waf_main_conf_t, trust_xff),
+      NULL
+    },
+    {
+      ngx_string("waf_default_action"),
+      NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+      ngx_conf_set_enum_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_waf_loc_conf_t, default_action),
+      &(ngx_conf_enum_t[]){
+        {ngx_string("block"), WAF_DEFAULT_ACTION_BLOCK},
+        {ngx_string("log"), WAF_DEFAULT_ACTION_LOG},
+        {ngx_null_string, 0}
+      }
+    },
+    {
+      ngx_string("waf_dynamic_block_score_threshold"),
+      NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_http_waf_main_conf_t, dyn_block_threshold),
+      NULL
+    },
+    {
+      ngx_string("waf_dynamic_block_duration"),
+      NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_http_waf_main_conf_t, dyn_block_duration),
+      NULL
+    },
+    {
+      ngx_string("waf_dynamic_block_window_size"),
+      NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_http_waf_main_conf_t, dyn_block_window),
       NULL
     },
 
