@@ -1,5 +1,6 @@
 #include "ngx_http_waf_compiler.h"
 #include "ngx_http_waf_dynamic_block.h"
+#include "ngx_http_waf_log.h"
 #include "ngx_http_waf_module_v2.h"
 #include <ngx_config.h>
 #include <ngx_core.h>
@@ -17,6 +18,9 @@ extern ngx_module_t ngx_http_waf_module; /* 用于 merge 时获取 main_conf */
 /* 前置声明：自定义指令处理函数（M2.5 共享内存创建） */
 static char *ngx_http_waf_set_shm_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
+/* 自定义 setter：解析 waf_json_log_level off|error|info|debug */
+static char *ngx_http_waf_set_json_log_level(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+
 /* 主配置 */
 void *ngx_http_waf_create_main_conf(ngx_conf_t *cf)
 {
@@ -29,7 +33,7 @@ void *ngx_http_waf_create_main_conf(ngx_conf_t *cf)
   mcf->jsons_dir.data = NULL;
   mcf->json_log_path.len = 0;
   mcf->json_log_path.data = NULL;
-  mcf->json_log_level = 0; /* off */
+  mcf->json_log_level = NGX_CONF_UNSET_UINT; /* 改为未设置哨兵 */
   mcf->shm_zone_raw.len = 0;
   mcf->shm_zone_raw.data = NULL;
   mcf->shm_zone = NULL;
@@ -37,19 +41,38 @@ void *ngx_http_waf_create_main_conf(ngx_conf_t *cf)
   mcf->shm_zone_name.data = NULL;
   mcf->shm_zone_size = 0;
   /* 动态封禁默认值（M5） */
-  mcf->dyn_block_threshold = 100;   /* 评分阈值：100 */
-  mcf->dyn_block_window = 60000;    /* 窗口：60秒 */
-  mcf->dyn_block_duration = 300000; /* 封禁时长：5分钟 */
+  mcf->dyn_block_threshold = NGX_CONF_UNSET_UINT;   /* 改为未设置哨兵 */
+  mcf->dyn_block_window = NGX_CONF_UNSET_MSEC;      /* 改为未设置哨兵 */
+  mcf->dyn_block_duration = NGX_CONF_UNSET_MSEC;    /* 改为未设置哨兵 */
   /* M5全局运维指令（MAIN级） */
-  mcf->trust_xff = 0;                             /* 默认不信任XFF */
+  mcf->trust_xff = NGX_CONF_UNSET;                  /* 改为未设置哨兵 */
   return mcf;
 }
 
 char *ngx_http_waf_init_main_conf(ngx_conf_t *cf, void *conf)
 {
+  ngx_http_waf_main_conf_t *mcf = conf;
   (void)cf;
-  (void)conf;
-  /* 允许 0（不限）；>0 原样保留 */
+
+  /* 回填默认值 */
+  if (mcf->json_log_level == NGX_CONF_UNSET_UINT) {
+    mcf->json_log_level = (ngx_uint_t)WAF_LOG_OFF; /* 默认 off */
+  }
+  if (mcf->dyn_block_threshold == NGX_CONF_UNSET_UINT) {
+    mcf->dyn_block_threshold = 100;
+  }
+  if (mcf->dyn_block_window == NGX_CONF_UNSET_MSEC) {
+    mcf->dyn_block_window = 60000;
+  }
+  if (mcf->dyn_block_duration == NGX_CONF_UNSET_MSEC) {
+    /* 默认改为 30 分钟（1800000ms） */
+    mcf->dyn_block_duration = 1800000;
+  }
+  if (mcf->trust_xff == NGX_CONF_UNSET) {
+    mcf->trust_xff = 0; /* off */
+  }
+
+  /* 允许 json_extends_max_depth=0（不限）；>0 原样保留 */
   return NGX_CONF_OK;
 }
 
@@ -203,9 +226,9 @@ ngx_command_t ngx_http_waf_commands[] = {
     {
       ngx_string("waf_json_log_level"),
       NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
-      ngx_conf_set_num_slot,
+      ngx_http_waf_set_json_log_level,
       NGX_HTTP_MAIN_CONF_OFFSET,
-      offsetof(ngx_http_waf_main_conf_t, json_log_level),
+      0,
       NULL
     },
 
@@ -322,6 +345,40 @@ static char *ngx_http_waf_set_shm_zone(ngx_conf_t *cf, ngx_command_t *cmd, void 
 
   ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0, "waf: shm zone configured name=%V size=%uz", &value[1],
                      (size_t)size);
+
+  (void)cmd;
+  return NGX_CONF_OK;
+}
+
+/* 解析 waf_json_log_level off|debug|info|alert|error */
+static char *ngx_http_waf_set_json_log_level(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+  ngx_http_waf_main_conf_t *mcf = conf;
+  ngx_str_t *value;
+
+  if (cf->args->nelts != 2) {
+    return "invalid number of arguments";
+  }
+
+  value = cf->args->elts;
+  ngx_str_t level_str = value[1];
+
+  if (level_str.len == 3 && ngx_strncmp(level_str.data, "off", 3) == 0) {
+    mcf->json_log_level = (ngx_uint_t)WAF_LOG_OFF;
+  } else if (level_str.len == 5 && ngx_strncmp(level_str.data, "debug", 5) == 0) {
+    mcf->json_log_level = (ngx_uint_t)WAF_LOG_DEBUG;
+  } else if (level_str.len == 4 && ngx_strncmp(level_str.data, "info", 4) == 0) {
+    mcf->json_log_level = (ngx_uint_t)WAF_LOG_INFO;
+  } else if (level_str.len == 5 && ngx_strncmp(level_str.data, "alert", 5) == 0) {
+    mcf->json_log_level = (ngx_uint_t)WAF_LOG_ALERT;
+  } else if (level_str.len == 5 && ngx_strncmp(level_str.data, "error", 5) == 0) {
+    mcf->json_log_level = (ngx_uint_t)WAF_LOG_ERROR;
+  } else {
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                       "waf: invalid waf_json_log_level \"%V\", must be: off|debug|info|alert|error",
+                       &level_str);
+    return NGX_CONF_ERROR;
+  }
 
   (void)cmd;
   return NGX_CONF_OK;

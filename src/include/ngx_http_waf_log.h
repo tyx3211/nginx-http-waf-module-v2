@@ -21,11 +21,12 @@ extern "C" {
 #endif
 
 typedef enum {
-  WAF_LOG_NONE = 0,
-  WAF_LOG_DEBUG = 1,
-  WAF_LOG_INFO = 2,
-  WAF_LOG_ALERT = 3,
-  WAF_LOG_ERROR = 4
+  WAF_LOG_NONE  =  0,   /* 特殊占位符：表示"未记录"状态，不可配置 */
+  WAF_LOG_DEBUG =  1,
+  WAF_LOG_INFO  =  2,
+  WAF_LOG_ALERT =  3,
+  WAF_LOG_ERROR =  4,
+  WAF_LOG_OFF   =  5     /* 配置级别：关闭日志输出 */
 } waf_log_level_e;
 
 /* 最终动作类型（用于JSONL输出） */
@@ -35,7 +36,8 @@ typedef enum {
   WAF_FINAL_ACTION_TYPE_BYPASS_BY_URI_WHITELIST,
   WAF_FINAL_ACTION_TYPE_BLOCK_BY_RULE,
   WAF_FINAL_ACTION_TYPE_BLOCK_BY_REPUTATION,
-  WAF_FINAL_ACTION_TYPE_BLOCK_BY_IP_BLACKLIST
+  WAF_FINAL_ACTION_TYPE_BLOCK_BY_IP_BLACKLIST,
+  WAF_FINAL_ACTION_TYPE_BLOCK_BY_DYNAMIC_BLOCK
 } waf_final_action_type_e;
 
 typedef struct ngx_http_waf_ctx_s {
@@ -50,24 +52,59 @@ typedef struct ngx_http_waf_ctx_s {
   unsigned has_complete_events : 1; /* 是否写入过完整性事件 */
   unsigned log_flushed : 1;         /* 是否已最终落盘（去重保护） */
   unsigned decisive_set : 1;        /* 是否已设置decisive事件（同一请求最多一个） */
-  /* 客户端IP（用于动态封禁、日志记录，主机字节序uint32_t） */
+  /* 客户端IP（用于动态封禁、日志记录，网络字节序uint32_t） */
   ngx_uint_t client_ip;
+  /* 请求级时间快照（毫秒），用于统一本请求内的计时语义 */
+  ngx_msec_t request_now_msec;
+
 } ngx_http_waf_ctx_t;
 
-void waf_log_init_ctx(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx);
+/* 事件收集模式（是否受等级阈值门控）：
+ * - COLLECT_ALWAYS：总是收集并提升 effective_level（不受阈值门控）；
+ *                   最终是否落盘仍受整体阈值控制
+ * - COLLECT_LEVEL_GATED：仅当事件等级达到阈值时才收集并提升
+ */
+typedef enum {
+  WAF_LOG_COLLECT_ALWAYS = 1,
+  WAF_LOG_COLLECT_LEVEL_GATED = 2
+} waf_log_collect_mode_e;
 
-/* 记录规则事件 */
-void waf_log_append_rule_event(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx,
-                               ngx_uint_t rule_id, const char *target_tag, const char *intent_str,
-                               ngx_uint_t score_delta, const ngx_str_t *matched_pattern,
-                               ngx_uint_t pattern_index, ngx_flag_t negate, ngx_flag_t decisive);
+/* 初始化请求上下文：将保留命名为 waf_init_ctx，并迁移至 utils 实现 */
+void waf_log_init_ctx(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx);
+void waf_init_ctx(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx);
+
+/* 规则事件细节（作为参数聚合结构传入） */
+typedef struct {
+  const char *target_tag;           /* 如 "uri"、"args"、或 "header:Host" */
+  ngx_str_t matched_pattern;        /* 可为空表示未知 */
+  ngx_uint_t pattern_index;         /* 未知为 0 */
+  ngx_flag_t negate;                /* 规则是否取反 */
+  ngx_flag_t decisive;              /* 是否标记为 decisive */
+} waf_event_details_t;
+
+/* 记录规则事件（使用聚合结构） */
+void waf_log_append_rule_event(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
+                               ngx_http_waf_ctx_t *ctx, ngx_uint_t rule_id,
+                               const char *intent_str, ngx_uint_t score_delta,
+                               const waf_event_details_t *details,
+                               waf_log_collect_mode_e collect_mode, waf_log_level_e level);
 
 /* 记录reputation事件 */
-void waf_log_append_reputation_event(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx,
-                                     ngx_uint_t score_delta, const char *reason);
+void waf_log_append_reputation_event(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
+                                     ngx_http_waf_ctx_t *ctx, ngx_uint_t score_delta,
+                                     const char *reason, waf_log_collect_mode_e collect_mode,
+                                     waf_log_level_e level);
+
+/* 记录reputation窗口重置事件（debug级别使用） */
+void waf_log_append_window_reset_event(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
+                                       ngx_http_waf_ctx_t *ctx, ngx_uint_t prev_score,
+                                       ngx_msec_t window_start_ms, ngx_msec_t window_end_ms,
+                                       waf_log_collect_mode_e collect_mode, waf_log_level_e level);
 
 /* 记录ban事件 */
-void waf_log_append_ban_event(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx, ngx_msec_t window);
+void waf_log_append_ban_event(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
+                              ngx_http_waf_ctx_t *ctx, ngx_msec_t window,
+                              waf_log_collect_mode_e collect_mode, waf_log_level_e level);
 
 /* 完整性接口：一定附加事件并提升 effective_level */
 void waf_log_append_event_complete(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx,

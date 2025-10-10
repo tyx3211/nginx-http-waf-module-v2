@@ -1,4 +1,16 @@
 #include "ngx_http_waf_utils.h"
+#include "ngx_http_waf_log.h"
+/*
+ * 初始化请求上下文（原 waf_log_init_ctx 的扩展版）
+ */
+void waf_init_ctx(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx)
+{
+  if (ctx == NULL || r == NULL)
+    return;
+
+  /* 兼容现有日志初始化逻辑 */
+  waf_log_init_ctx(r, ctx);
+}
 #include <arpa/inet.h> /* ntohl(), htonl() */
 #include <ngx_config.h>
 #include <ngx_core.h>
@@ -77,7 +89,7 @@ ngx_uint_t waf_utils_get_client_ip(ngx_http_request_t *r, ngx_flag_t trust_xff)
         first_ip.len--;
       }
 
-      /* 解析为IP */
+      /* 解析为IP（返回网络字节序） */
       ip = waf_utils_parse_ip_str(&first_ip);
       if (ip != 0) {
         return ip; /* XFF解析成功 */
@@ -89,8 +101,8 @@ ngx_uint_t waf_utils_get_client_ip(ngx_http_request_t *r, ngx_flag_t trust_xff)
   struct sockaddr *sa = r->connection->sockaddr;
   if (sa->sa_family == AF_INET) {
     struct sockaddr_in *sin = (struct sockaddr_in *)sa;
-    /* 网络字节序 → 主机字节序 */
-    ip = ntohl(sin->sin_addr.s_addr);
+    /* 直接取网络字节序 */
+    ip = sin->sin_addr.s_addr;
   }
   /* IPv6暂不支持 */
 
@@ -103,7 +115,7 @@ ngx_uint_t waf_utils_get_client_ip(ngx_http_request_t *r, ngx_flag_t trust_xff)
  * ================================================================
  */
 
-/* uint32_t → 点分十进制字符串 */
+/* uint32_t(网络序) → 点分十进制字符串 */
 ngx_str_t waf_utils_ip_to_str(ngx_uint_t ip, ngx_pool_t *pool)
 {
   ngx_str_t result = {0, NULL};
@@ -119,24 +131,26 @@ ngx_str_t waf_utils_ip_to_str(ngx_uint_t ip, ngx_pool_t *pool)
     return result;
   }
 
-  /* 分配缓冲区（最大15字节："255.255.255.255"） */
-  u_char *buf = ngx_pnalloc(pool, NGX_INET_ADDRSTRLEN);
+  /* 分配缓冲区：为结尾'\0'预留 1 字节 */
+  u_char *buf = ngx_pnalloc(pool, NGX_INET_ADDRSTRLEN + 1);
   if (buf == NULL) {
     return result;
   }
+  ngx_memzero(buf, NGX_INET_ADDRSTRLEN + 1);
 
-  /* 手动位移生成点分十进制（主机字节序） */
-  ngx_memzero(buf, NGX_INET_ADDRSTRLEN);
-  u_char *p =
-      ngx_snprintf(buf, NGX_INET_ADDRSTRLEN, "%ui.%ui.%ui.%ui", (ip >> 24) & 0xff, /* 最高字节 */
-                   (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff);                /* 最低字节 */
+  /* 使用 inet_ntop 将网络序 IP 转文本 */
+  struct in_addr a;
+  a.s_addr = (in_addr_t)ip; /* 保持网络字节序 */
+  if (inet_ntop(AF_INET, &a, (char *)buf, NGX_INET_ADDRSTRLEN) == NULL) {
+    return result;
+  }
 
   result.data = buf;
-  result.len = p - buf;
+  result.len = ngx_strlen(buf);
   return result;
 }
 
-/* 点分十进制字符串 → uint32_t（主机字节序） */
+/* 点分十进制字符串 → uint32_t（网络字节序） */
 ngx_uint_t waf_utils_parse_ip_str(ngx_str_t *ip_str)
 {
   if (ip_str == NULL || ip_str->len == 0) {
@@ -149,8 +163,8 @@ ngx_uint_t waf_utils_parse_ip_str(ngx_str_t *ip_str)
     return 0; /* 解析失败 */
   }
 
-  /* 网络字节序 → 主机字节序 */
-  return ntohl(net_ip);
+  /* 直接返回网络字节序 */
+  return (ngx_uint_t)net_ip;
 }
 
 /*
@@ -338,10 +352,13 @@ static ngx_int_t ngx_http_waf_plus_to_space_and_unescape(ngx_pool_t *pool, const
 
 /* 遍历 query args，按 name/value 精确匹配（大小写可选） */
 ngx_uint_t ngx_http_waf_args_iter_exact(const ngx_str_t *args, ngx_flag_t match_name,
-                                        ngx_flag_t caseless, ngx_array_t *patterns)
+                                        ngx_flag_t caseless, ngx_array_t *patterns,
+                                        ngx_pool_t *pool)
 {
   if (args == NULL || args->data == NULL || args->len == 0 || patterns == NULL)
     return 0;
+  if (pool == NULL)
+    return 0; /* 禁止回退到全局池，要求调用方传入请求池 */
   const u_char *p = args->data;
   const u_char *end = args->data + args->len;
   while (p < end) {
@@ -371,7 +388,7 @@ ngx_uint_t ngx_http_waf_args_iter_exact(const ngx_str_t *args, ngx_flag_t match_
       continue;
 
     ngx_str_t decoded;
-    if (ngx_http_waf_plus_to_space_and_unescape(ngx_cycle->pool, &raw, &decoded) != NGX_OK) {
+    if (ngx_http_waf_plus_to_space_and_unescape(pool, &raw, &decoded) != NGX_OK) {
       continue;
     }
 
@@ -429,10 +446,13 @@ ngx_uint_t ngx_http_waf_get_header(ngx_http_request_t *r, const ngx_str_t *name,
 /* 遍历 query args 进行匹配 */
 ngx_uint_t ngx_http_waf_args_iter_match(const ngx_str_t *args, ngx_flag_t match_name,
                                         ngx_flag_t caseless, ngx_array_t *patterns,
-                                        ngx_array_t *regexes, ngx_flag_t is_regex)
+                                        ngx_array_t *regexes, ngx_flag_t is_regex,
+                                        ngx_pool_t *pool)
 {
   if (args == NULL || args->data == NULL || args->len == 0)
     return 0;
+  if (pool == NULL)
+    return 0; /* 禁止回退到全局池，要求调用方传入请求池 */
   const u_char *p = args->data;
   const u_char *end = args->data + args->len;
   while (p < end) {
@@ -462,7 +482,7 @@ ngx_uint_t ngx_http_waf_args_iter_match(const ngx_str_t *args, ngx_flag_t match_
     if (raw.data == NULL)
       continue;
     ngx_str_t decoded;
-    if (ngx_http_waf_plus_to_space_and_unescape(ngx_cycle->pool, &raw, &decoded) != NGX_OK) {
+    if (ngx_http_waf_plus_to_space_and_unescape(pool, &raw, &decoded) != NGX_OK) {
       continue;
     }
 

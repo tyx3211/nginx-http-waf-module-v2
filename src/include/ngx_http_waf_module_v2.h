@@ -74,7 +74,7 @@ typedef struct {
   /* 动态封禁参数（M5） */
   ngx_uint_t dyn_block_threshold; /* 评分阈值（默认100，0表示禁用） */
   ngx_msec_t dyn_block_window;    /* 评分窗口（毫秒，默认60000=1分钟） */
-  ngx_msec_t dyn_block_duration;  /* 封禁时长（毫秒，默认300000=5分钟） */
+  ngx_msec_t dyn_block_duration;  /* 封禁时长（毫秒，默认1800000=30分钟） */
   /* M5全局运维指令（MAIN级，不继承） */
   ngx_flag_t trust_xff;                /* waf_trust_xff on|off（默认off） */
 } ngx_http_waf_main_conf_t;

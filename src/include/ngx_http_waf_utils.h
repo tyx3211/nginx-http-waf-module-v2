@@ -2,7 +2,7 @@
  * ================================================================
  *  WAF工具函数库（M5增强）
  *  - 客户端IP获取（支持X-Forwarded-For）
- *  - IP地址格式转换（主机字节序、点分十进制）
+ *  - IP地址格式转换（网络字节序、点分十进制）
  * ================================================================
  */
 
@@ -14,7 +14,7 @@
 #include <ngx_http.h>
 
 /*
- * 获取客户端IP地址（主机字节序的uint32_t）
+ * 获取客户端IP地址（网络字节序的uint32_t）
  *
  * 行为：
  *  - 若waf_trust_xff=on且存在X-Forwarded-For头，解析最左侧IP
@@ -22,16 +22,16 @@
  *  - 仅支持IPv4，IPv6返回0
  *
  * 返回：
- *  - 成功：主机字节序的32位IP（如192.168.1.1 → 0xC0A80101）
+ *  - 成功：网络字节序的32位IP（in_addr_t，与 sockaddr/in_addr 保持一致）
  *  - 失败：0（无效IP或IPv6）
  */
 ngx_uint_t waf_utils_get_client_ip(ngx_http_request_t *r, ngx_flag_t trust_xff);
 
 /*
- * 将uint32_t IP（主机字节序）转换为点分十进制字符串
+ * 将uint32_t IP（网络字节序）转换为点分十进制字符串
  *
  * 参数：
- *  - ip: 主机字节序的IP（0xC0A80101）
+ *  - ip: 网络字节序的IP（in_addr_t 值）
  *  - pool: 内存池（用于分配ngx_str_t.data）
  *
  * 返回：
@@ -45,18 +45,18 @@ ngx_uint_t waf_utils_get_client_ip(ngx_http_request_t *r, ngx_flag_t trust_xff);
 ngx_str_t waf_utils_ip_to_str(ngx_uint_t ip, ngx_pool_t *pool);
 
 /*
- * 解析点分十进制字符串为uint32_t IP（主机字节序）
+ * 解析点分十进制字符串为uint32_t IP（网络字节序）
  *
  * 参数：
  *  - ip_str: IP字符串（如"192.168.1.1"）
  *
  * 返回：
- *  - 成功：主机字节序IP
+ *  - 成功：网络字节序IP
  *  - 失败：0
  *
  * 注意：
  *  - 用于解析X-Forwarded-For中的IP
- *  - 使用nginx的ngx_inet_addr()函数（返回网络字节序，需ntohl转换）
+ *  - 使用nginx的ngx_inet_addr()函数（返回网络字节序）
  */
 ngx_uint_t waf_utils_parse_ip_str(ngx_str_t *ip_str);
 
@@ -101,14 +101,16 @@ ngx_uint_t ngx_http_waf_get_header(ngx_http_request_t *r, const ngx_str_t *name,
  * ================================================================
  */
 
-/* 遍历 query args，按 name/value 精确匹配（大小写可选） */
+/* 遍历 query args，按 name/value 精确匹配（大小写可选）；使用请求级内存池 */
 ngx_uint_t ngx_http_waf_args_iter_exact(const ngx_str_t *args, ngx_flag_t match_name,
-                                        ngx_flag_t caseless, ngx_array_t *patterns);
+                                        ngx_flag_t caseless, ngx_array_t *patterns,
+                                        ngx_pool_t *pool);
 
-/* 遍历 query args 进行模式匹配（contains/regex） */
+/* 遍历 query args 进行模式匹配（contains/regex）；使用请求级内存池 */
 ngx_uint_t ngx_http_waf_args_iter_match(const ngx_str_t *args, ngx_flag_t match_name,
                                         ngx_flag_t caseless, ngx_array_t *patterns,
-                                        ngx_array_t *regexes, ngx_flag_t is_regex);
+                                        ngx_array_t *regexes, ngx_flag_t is_regex,
+                                        ngx_pool_t *pool);
 
 /*
  * ================================================================

@@ -9,7 +9,7 @@
 - [x] `waf_json_extends_max_depth`（HTTP/SRV/LOC，loc 覆盖）
 - [x] `waf_shm_zone <name> <size>`（MAIN）
 - [x] `waf_json_log <path>`（MAIN）
-- [x] `waf_json_log_level off|debug|info|alert`（MAIN）
+- [x] `waf_json_log_level debug|info|alert|error|off`（MAIN）
 - [x] `waf on|off`（HTTP/SRV/LOC，loc 可覆盖；off 完全旁路）✅ 已实现
 - [x] `waf_default_action BLOCK|LOG`（HTTP/SRV/LOC，loc 可覆盖）✅ 已实现
 - [ ] `waf_trust_xff on|off`（MAIN）⚠️ 字段已存在，待注册指令
@@ -120,10 +120,16 @@
   waf_json_log  logs/waf_json.log;
   ```
 
-- 名称：`waf_json_log_level off | debug | info | alert`
+- 名称：`waf_json_log_level debug|info|alert|error|off`
 - 作用域：`http`（MAIN）
 - 默认值：`off`
 - 说明：控制 BYPASS/ALLOW 的落盘阈值；`BLOCK` 至少提升到 `alert` 并必落盘。
+- 级别顺序与语义：
+  - **可配置级别**：`off | debug | info | alert | error`
+  - **内部枚举**：还包含 `none`（特殊占位符，不可配置）
+  - **顺序**：`none < debug < info < alert < error < off`
+  - **none 语义**：表示"未记录"状态，用作 `ctx->effective_level` 初始值；只有当请求产生事件或被提升级别时才会落盘，避免正常无事件请求产生日志噪音
+  - **off 语义**：配置级别，表示关闭日志输出；当设为 `off` 时，除 BLOCK 外的请求均不落盘
 
 - 名称（规划中）：`waf_json_log_allow_empty on | off | sample(<N>)`
 - 作用域：`http`（MAIN）

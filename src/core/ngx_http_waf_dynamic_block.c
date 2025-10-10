@@ -1,5 +1,5 @@
 #include "ngx_http_waf_dynamic_block.h"
-#include "ngx_http_waf_log.h"
+#include "ngx_http_waf_action.h"
 #include "ngx_http_waf_module_v2.h"
 #include <ngx_config.h>
 #include <ngx_core.h>
@@ -54,11 +54,12 @@ void waf_dyn_score_add(ngx_http_request_t *r, ngx_uint_t delta)
   }
 
   shm_ctx = (waf_dyn_shm_ctx_t *)mcf->shm_zone->data;
-  ip_addr = ctx->client_ip; /* ctx中的client_ip（主机字节序uint32_t） */
+  ip_addr = ctx->client_ip; /* ctx中的client_ip（网络字节序uint32_t） */
   if (ip_addr == 0) {
     return; /* 无效IP */
   }
-  now = ngx_current_msec;
+  /* 使用请求级时间快照，避免单请求内时间割裂 */
+  now = (ctx && ctx->request_now_msec > 0) ? ctx->request_now_msec : ngx_current_msec;
 
   ngx_shmtx_lock(&shm_ctx->shpool->mutex);
 
@@ -102,9 +103,17 @@ void waf_dyn_score_add(ngx_http_request_t *r, ngx_uint_t delta)
 
     /* 检查窗口是否过期（window_size单位：毫秒） */
     if (mcf->dyn_block_window > 0 && (now - ip_node->window_start_time >= mcf->dyn_block_window)) {
-      ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                     "waf_dyn: window expired for ip=%uD, old_score=%uA", ip_addr,
-                     (ngx_uint_t)ip_node->score);
+      ngx_uint_t prev = (ngx_uint_t)ip_node->score;
+      /* 运维日志：信息级 */
+      ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                    "waf_dyn: window expired for ip=%uD, reset score from %uA", ip_addr, prev);
+
+      /* 请求JSONL：通过动作层包装，使用“条件写入 + DEBUG 级” */
+      if (prev > 0) {
+        waf_action_log_window_reset(r, mcf, ctx, prev, ip_node->window_start_time, now,
+                                    WAF_LOG_COLLECT_LEVEL_GATED, WAF_LOG_DEBUG);
+      }
+
       ip_node->score = 0;
       ip_node->window_start_time = now;
     }
@@ -150,11 +159,11 @@ ngx_flag_t waf_dyn_is_banned(ngx_http_request_t *r)
   }
 
   shm_ctx = (waf_dyn_shm_ctx_t *)mcf->shm_zone->data;
-  ip_addr = ctx->client_ip; /* 主机字节序 */
+  ip_addr = ctx->client_ip; /* 网络字节序 */
   if (ip_addr == 0) {
     return 0; /* 无效IP，不封禁 */
   }
-  now = ngx_current_msec;
+  now = (ctx && ctx->request_now_msec > 0) ? ctx->request_now_msec : ngx_current_msec;
 
   ngx_shmtx_lock(&shm_ctx->shpool->mutex);
 

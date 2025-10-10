@@ -77,7 +77,11 @@ static waf_rc_e waf_stage_ip_allow(ngx_http_request_t *r, ngx_http_waf_main_conf
 
     /* 命中ip_allow规则：BYPASS */
     if (rule->action == WAF_ACT_BYPASS) {
-      return waf_enforce_bypass(r, mcf, lcf, ctx, rule->id);
+      waf_event_details_t det = {0};
+      det.target_tag = "clientIp";
+      det.negate = rule->negate;
+      waf_final_action_type_e hint = WAF_FINAL_ACTION_TYPE_BYPASS_BY_IP_WHITELIST;
+      return waf_enforce_bypass(r, mcf, lcf, ctx, rule->id, &det, &hint);
     }
   }
 
@@ -135,8 +139,14 @@ static waf_rc_e waf_stage_ip_deny(ngx_http_request_t *r, ngx_http_waf_main_conf_
 
     /* 命中ip_deny规则：BLOCK */
     if (rule->action == WAF_ACT_DENY) {
-      return waf_enforce_block(r, mcf, lcf, ctx, NGX_HTTP_FORBIDDEN, rule->id,
-                               (ngx_uint_t)(rule->score > 0 ? rule->score : 0));
+      waf_event_details_t det = (waf_event_details_t){0};
+      det.target_tag = "clientIp";
+      det.negate = rule->negate;
+      /* 通过 hint 明确最终动作类型为 IP 黑名单阻断 */
+      waf_final_action_type_e hint = WAF_FINAL_ACTION_TYPE_BLOCK_BY_IP_BLACKLIST;
+      waf_rc_e rc = waf_enforce_block_hint(r, mcf, lcf, ctx, NGX_HTTP_FORBIDDEN, rule->id,
+                               (ngx_uint_t)(rule->score > 0 ? rule->score : 0), &det, &hint);
+      return rc;
     }
   }
 
@@ -151,9 +161,23 @@ static waf_rc_e waf_stage_reputation_base_add(ngx_http_request_t *r, ngx_http_wa
     return WAF_RC_CONTINUE;
   }
 
-  ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                "waf-stub: reputation base add uses score_delta=0; continue");
-  return waf_enforce_base_add(r, mcf, lcf, ctx, 0);
+  /* 从编译产物透传的 policies 中解析 baseAccessScore（若不存在则为 0） */
+  ngx_uint_t base_score = 0;
+  if (lcf && lcf->compiled && lcf->compiled->raw_policies) {
+    yyjson_doc *pol = lcf->compiled->raw_policies;
+    yyjson_val *root = yyjson_doc_get_root(pol);
+    if (root && yyjson_is_obj(root)) {
+      yyjson_val *dyn = yyjson_obj_get(root, "dynamicBlock");
+      if (dyn && yyjson_is_obj(dyn)) {
+        yyjson_val *bs = yyjson_obj_get(dyn, "baseAccessScore");
+        if (bs && yyjson_is_num(bs)) {
+          base_score = (ngx_uint_t)yyjson_get_sint(bs);
+        }
+      }
+    }
+  }
+
+  return waf_enforce_base_add(r, mcf, lcf, ctx, base_score);
 }
 
 static waf_rc_e waf_stage_uri_allow(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
@@ -223,7 +247,11 @@ static waf_rc_e waf_stage_uri_allow(ngx_http_request_t *r, ngx_http_waf_main_con
 
     /* 命中uri_allow规则：BYPASS */
     if (rule->action == WAF_ACT_BYPASS) {
-      return waf_enforce_bypass(r, mcf, lcf, ctx, rule->id);
+      waf_event_details_t det = {0};
+      det.target_tag = "uri";
+      det.negate = rule->negate;
+      waf_final_action_type_e hint = WAF_FINAL_ACTION_TYPE_BYPASS_BY_URI_WHITELIST;
+      return waf_enforce_bypass(r, mcf, lcf, ctx, rule->id, &det, &hint);
     }
   }
 
@@ -322,11 +350,11 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
           ngx_str_t subj = r->args;
           if (rule->match == WAF_MATCH_EXACT) {
             matched = ngx_http_waf_args_iter_exact(&subj, /*match_name=*/1, rule->caseless,
-                                                   rule->patterns);
+                                                   rule->patterns, r->pool);
           } else {
             matched = ngx_http_waf_args_iter_match(&subj, /*match_name=*/1, rule->caseless,
                                                    rule->patterns, rule->compiled_regexes,
-                                                   (rule->match == WAF_MATCH_REGEX));
+                                                   (rule->match == WAF_MATCH_REGEX), r->pool);
           }
           break;
         }
@@ -335,11 +363,11 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
           ngx_str_t subj = r->args;
           if (rule->match == WAF_MATCH_EXACT) {
             matched = ngx_http_waf_args_iter_exact(&subj, /*match_name=*/0, rule->caseless,
-                                                   rule->patterns);
+                                                   rule->patterns, r->pool);
           } else {
             matched = ngx_http_waf_args_iter_match(&subj, /*match_name=*/0, rule->caseless,
                                                    rule->patterns, rule->compiled_regexes,
-                                                   (rule->match == WAF_MATCH_REGEX));
+                                                   (rule->match == WAF_MATCH_REGEX), r->pool);
           }
           break;
         }
@@ -438,8 +466,22 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
       /* 命中后执法：DENY/BYPASS/LOG */
       switch (rule->action) {
         case WAF_ACT_DENY: {
+          waf_event_details_t det = {0};
+          det.target_tag = (rule->target == WAF_T_URI)
+                                ? "uri"
+                                : (rule->target == WAF_T_ARGS_COMBINED)
+                                      ? "args"
+                                      : (rule->target == WAF_T_ARGS_NAME)
+                                            ? "argsName"
+                                            : (rule->target == WAF_T_ARGS_VALUE)
+                                                  ? "argsValue"
+                                                  : (rule->target == WAF_T_HEADER)
+                                                        ? (const char *)"header"
+                                                        : NULL;
+          det.negate = rule->negate;
+
           waf_rc_e rc = waf_enforce_block(r, mcf, lcf, ctx, NGX_HTTP_FORBIDDEN, rule->id,
-                                          (ngx_uint_t)(rule->score > 0 ? rule->score : 0));
+                                          (ngx_uint_t)(rule->score > 0 ? rule->score : 0), &det);
           if (rc == WAF_RC_BLOCK || rc == WAF_RC_BYPASS || rc == WAF_RC_ERROR) {
             return rc;
           }
@@ -447,7 +489,22 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
           break;
         }
         case WAF_ACT_BYPASS: {
-          waf_rc_e rc = waf_enforce_bypass(r, mcf, lcf, ctx, rule->id);
+          waf_event_details_t det2 = {0};
+          det2.target_tag = (rule->target == WAF_T_URI)
+                                ? "uri"
+                                : (rule->target == WAF_T_ARGS_COMBINED)
+                                      ? "args"
+                                      : (rule->target == WAF_T_ARGS_NAME)
+                                            ? "argsName"
+                                            : (rule->target == WAF_T_ARGS_VALUE)
+                                                  ? "argsValue"
+                                                  : (rule->target == WAF_T_HEADER)
+                                                        ? (const char *)"header"
+                                                        : NULL;
+          det2.negate = rule->negate;
+          waf_final_action_type_e bypass_hint = WAF_FINAL_ACTION_TYPE_BYPASS_BY_URI_WHITELIST;
+
+          waf_rc_e rc = waf_enforce_bypass(r, mcf, lcf, ctx, rule->id, &det2, &bypass_hint);
           if (rc == WAF_RC_BLOCK || rc == WAF_RC_BYPASS || rc == WAF_RC_ERROR) {
             return rc;
           }
@@ -456,8 +513,22 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
         }
         case WAF_ACT_LOG:
         default: {
+          waf_event_details_t det3 = {0};
+          det3.target_tag = (rule->target == WAF_T_URI)
+                                ? "uri"
+                                : (rule->target == WAF_T_ARGS_COMBINED)
+                                      ? "args"
+                                      : (rule->target == WAF_T_ARGS_NAME)
+                                            ? "argsName"
+                                            : (rule->target == WAF_T_ARGS_VALUE)
+                                                  ? "argsValue"
+                                                  : (rule->target == WAF_T_HEADER)
+                                                        ? (const char *)"header"
+                                                        : NULL;
+          det3.negate = rule->negate;
+
           waf_enforce_log(r, mcf, lcf, ctx, rule->id,
-                          (ngx_uint_t)(rule->score > 0 ? rule->score : 0));
+                          (ngx_uint_t)(rule->score > 0 ? rule->score : 0), &det3);
           /* 继续遍历后续规则 */
           break;
         }
@@ -481,7 +552,7 @@ static ngx_int_t ngx_http_waf_access_handler(ngx_http_request_t *r)
     if (ctx == NULL) {
       return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
-    waf_log_init_ctx(r, ctx); // 初始化ctx，顺便提取客户端IP（尊重trust_xff配置））
+    waf_init_ctx(r, ctx); // 初始化ctx（包含日志结构、IP、请求级时间快照）
     ngx_http_set_ctx(r, ctx, ngx_http_waf_module);
   }
 
