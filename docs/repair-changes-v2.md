@@ -20,6 +20,22 @@
 
 ---
 
+- 2025-10-12 / <commit> / <author>
+  - 摘要：补齐请求 JSONL 顶层 `level` 字段；统一规则/信誉事件的收集与等级；窗口重置事件保持门控；对齐最终落盘策略与五段流水。
+  - 影响：
+    - `src/core/ngx_http_waf_log.c`（`waf_log_flush_final` 顶层新增 `level`；写出门槛基于 `effective_level` 与 `waf_json_log_level`；`decisive` 与 `blockRuleId` 条件输出保持）
+    - `src/core/ngx_http_waf_action.c`（规则事件一律 `COLLECT_ALWAYS`；`BLOCK→ALERT`、`LOG/BYPASS→INFO`；`base_access` reputation 事件改为 `COLLECT_ALWAYS+INFO`；BYPASS/BLOCK 内部立即 final 落盘；ALLOW 由尾部统一落盘）
+    - `src/core/ngx_http_waf_dynamic_block.c`（窗口过期重置事件通过动作层包装按 `LEVEL_GATED+DEBUG` 记录；动态封禁窗口/阈值语义保持；默认封禁 30m 已生效）
+    - `src/module/ngx_http_waf_module.c`（五段流水采用 `WAF_STAGE` 宏；跳过内部请求/子请求；尾部 `waf_action_finalize_allow`）
+    - `src/module/ngx_http_waf_config.c`（`waf_trust_xff`/`waf_json_log_level`/动态封禁相关指令完备；默认值回填）
+    - `src/include/ngx_http_waf_log.h`（等级与最终动作类型枚举；事件接口保持）
+  - 行为变更：
+    - JSONL 结构：新增顶层 `level`（文本：DEBUG/INFO/ALERT/ERROR/NONE），反映 `effective_level`；`BLOCK` 仍强制落盘，`BYPASS/ALLOW` 受 `waf_json_log_level` 阈值控制。
+    - 规则事件：统一改为 `COLLECT_ALWAYS`；等级映射为 `BLOCK→ALERT`、`LOG/BYPASS→INFO`，便于按请求提升 `effective_level` 并决定是否落盘。
+    - 信誉事件：`base_access` 改为 `COLLECT_ALWAYS+INFO`；窗口重置 `reputation_window_reset` 仅在 `prev_score>0` 且 `LEVEL_GATED+DEBUG` 下记录，避免噪声。
+    - 最终动作：`finalActionType` 覆盖 `BLOCK_BY_RULE/BLOCK_BY_IP_BLACKLIST/BLOCK_BY_DYNAMIC_BLOCK/BYPASS_*`，并在规则导致阻断时联动 `blockRuleId`。
+  - 测试：建议补充 JSONL 顶层 `level`、规则事件等级映射与窗口重置事件门控的用例（未新增自动化用例）。
+
 - 2025-10-04 / <commit> / <author>
   - 摘要：动态封禁窗口过期时在“请求 JSONL”追加 debug 事件 `reputation_window_reset`；统一使用请求级时间快照避免单请求时间割裂；运维日志保留 INFO 级窗口重置信息。
   - 影响：`src/core/ngx_http_waf_dynamic_block.c`（窗口过期路径）、`src/core/ngx_http_waf_log.c`（新增 JSONL 事件构建）、`src/include/ngx_http_waf_log.h`（接口声明）。
