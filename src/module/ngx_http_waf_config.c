@@ -18,8 +18,11 @@ extern ngx_module_t ngx_http_waf_module; /* 用于 merge 时获取 main_conf */
 /* 前置声明：自定义指令处理函数（M2.5 共享内存创建） */
 static char *ngx_http_waf_set_shm_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
-/* 自定义 setter：解析 waf_json_log_level off|error|info|debug */
+/* 自定义 setter：解析 waf_json_log_level debug|info|alert|error|off */
 static char *ngx_http_waf_set_json_log_level(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+
+/* 自定义 setter：解析 waf_default_action block|log，允许同级后者覆盖前者 */
+static char *ngx_http_waf_set_default_action(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 /* 主配置 */
 void *ngx_http_waf_create_main_conf(ngx_conf_t *cf)
@@ -262,14 +265,10 @@ ngx_command_t ngx_http_waf_commands[] = {
     {
       ngx_string("waf_default_action"),
       NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
-      ngx_conf_set_enum_slot,
+      ngx_http_waf_set_default_action,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_waf_loc_conf_t, default_action),
-      &(ngx_conf_enum_t[]){
-        {ngx_string("block"), WAF_DEFAULT_ACTION_BLOCK},
-        {ngx_string("log"), WAF_DEFAULT_ACTION_LOG},
-        {ngx_null_string, 0}
-      }
+      NULL
     },
     {
       ngx_string("waf_dynamic_block_score_threshold"),
@@ -377,6 +376,33 @@ static char *ngx_http_waf_set_json_log_level(ngx_conf_t *cf, ngx_command_t *cmd,
     ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                        "waf: invalid waf_json_log_level \"%V\", must be: off|debug|info|alert|error",
                        &level_str);
+    return NGX_CONF_ERROR;
+  }
+
+  (void)cmd;
+  return NGX_CONF_OK;
+}
+
+/* 自定义解析：waf_default_action block|log，允许同级覆盖（后定义生效） */
+static char *ngx_http_waf_set_default_action(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+  ngx_http_waf_loc_conf_t *lcf = conf;
+  ngx_str_t *value;
+
+  if (cf->args->nelts != 2) {
+    return "invalid number of arguments";
+  }
+
+  value = cf->args->elts; /* [0]=directive, [1]=value */
+
+  if (value[1].len == 5 && ngx_strncasecmp(value[1].data, (u_char *)"block", 5) == 0) {
+    lcf->default_action = WAF_DEFAULT_ACTION_BLOCK;
+  } else if (value[1].len == 3 && ngx_strncasecmp(value[1].data, (u_char *)"log", 3) == 0) {
+    lcf->default_action = WAF_DEFAULT_ACTION_LOG;
+  } else {
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                       "waf: invalid waf_default_action \"%V\", must be: block|log",
+                       &value[1]);
     return NGX_CONF_ERROR;
   }
 

@@ -16,6 +16,11 @@ if [ ! -x ./configure ]; then
   exit 1
 fi
 
+# 可选清理：设置 CLEAN=1 时执行 make clean
+if [ "${CLEAN:-0}" = "1" ]; then
+  make clean | cat || true
+fi
+
 # 统一使用 with-compat，便于动态模块装载
 ./configure --with-compat --add-dynamic-module="$MODULE_DIR" | cat
 make -j"$(nproc)" | cat
@@ -40,7 +45,7 @@ run_case() {
   local name="$1"; shift
   local conf="$1"; shift
   local expect_rc="$1"; shift
-  echo "\n[M2][CASE] $name -> $conf (expect rc=$expect_rc)" | cat
+  printf '\n[M2][CASE] %s -> %s (expect rc=%s)\n' "$name" "$conf" "$expect_rc" | cat
   if "$NGINX_BIN" -t -p "$PREFIX_DIR" -c "$conf" 2>&1 | cat; then
     rc=0
   else
@@ -65,8 +70,10 @@ run_case "empty_rules"             "$CONF_DIR/test_empty.conf"            0
 run_case "header_ok"               "$CONF_DIR/test_header_ok.conf"        0
 run_case "header_missing_name"     "$CONF_DIR/test_header_invalid_no_header_name.conf" 1
 run_case "header_mixed_targets"    "$CONF_DIR/test_header_invalid_mixed_targets.conf"   1
+run_case "all_params_expand"       "$CONF_DIR/test_all_params_expand.conf" 0
+run_case "policies_passthrough"    "$CONF_DIR/test_policies_passthrough.conf" 0
 
-echo "\n[M2] 测试完成：PASS=$pass_cnt FAIL=$fail_cnt" | cat
+printf '\n[M2] 测试完成：PASS=%s FAIL=%s\n' "$pass_cnt" "$fail_cnt" | cat
 if [ "$fail_cnt" -ne 0 ]; then
   exit 1
 fi

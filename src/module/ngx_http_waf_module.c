@@ -406,7 +406,7 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
           }
           if (ngx_http_waf_collect_request_body(r, &body) != NGX_OK) {
             ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                          "waf-stub: collect_request_body failed; treat as empty BODY");
+                          "waf: collect_request_body failed; treat as empty BODY");
             matched = 0;
             break;
           }

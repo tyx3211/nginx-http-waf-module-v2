@@ -514,7 +514,13 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log, yyjson_do
         {
           const char *ms = yyjson_get_str(match_node);
           size_t ml = yyjson_get_len(match_node);
-          if (waf_parse_match(ms, ml, &tmp.match) != NGX_OK) {
+        if (waf_parse_match(ms, ml, &tmp.match) != NGX_OK) {
+            if (log) {
+              ngx_str_t ms_str;
+              ms_str.len = ml;
+              ms_str.data = (u_char *) ms;
+              ngx_log_error(NGX_LOG_ERR, log, 0, "waf: illegal match '%V' len=%uz", &ms_str, ml);
+            }
             if (err) {
               ngx_str_set(&err->message, "非法 match 值");
             }
@@ -635,6 +641,12 @@ ngx_int_t ngx_http_waf_compile_rules(ngx_pool_t *pool, ngx_log_t *log, yyjson_do
         const char *ms = yyjson_get_str(match_node);
         size_t ml = yyjson_get_len(match_node);
         if (waf_parse_match(ms, ml, &rule.match) != NGX_OK) {
+          if (log) {
+            ngx_str_t ms_str;
+            ms_str.len = ml;
+            ms_str.data = (u_char *) ms;
+            ngx_log_error(NGX_LOG_ERR, log, 0, "waf: illegal match '%V' len=%uz", &ms_str, ml);
+          }
           if (err) {
             ngx_str_set(&err->message, "非法 match 值");
           }

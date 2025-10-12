@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "meta": {"name": "basic_rules", "tags": ["functional-tests"]},
+  "rules": [
+    {
+      "id": 200010,
+      "tags": ["sqli"],
+      "target": "ARGS_COMBINED",
+      "match": "CONTAINS",
+      "pattern": "select",
+      "action": "DENY",
+      "score": 20
+    },
+    {
+      "id": 100001,
+      "tags": ["whitelist"],
+      "target": "CLIENT_IP",
+      "match": "EXACT",
+      "pattern": ["127.0.0.1", "::1"],
+      "action": "BYPASS"
+    }
+  ]
+}
+
+

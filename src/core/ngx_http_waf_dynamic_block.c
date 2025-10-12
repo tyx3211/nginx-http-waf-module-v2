@@ -126,7 +126,7 @@ void waf_dyn_score_add(ngx_http_request_t *r, ngx_uint_t delta)
   ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "waf_dyn: ip=%uD, score: %ui -> %ui",
                  ip_addr, old_score, new_score);
 
-  /* 检查是否超过阈值且当前未封禁 */
+  /* 检查是否超过阈值（严格大于）且当前未封禁 */
   if (new_score > mcf->dyn_block_threshold &&
       (ip_node->block_expiry == 0 || ip_node->block_expiry <= now)) {
     ip_node->block_expiry = now + mcf->dyn_block_duration;

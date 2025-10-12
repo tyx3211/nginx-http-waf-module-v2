@@ -93,6 +93,18 @@
   - 动态封禁积分窗口测试：以固定请求速率触发封禁并在 `duration` 到期后解除。
   - `finalActionType` 来源区分测试。
   - 事件细节完整性测试（校验日志 JSON 字段）。
+  - decisive 后向扫描测试：
+    - BYPASS：多条 `intent=BYPASS` 规则事件时，标记最后一条为 `decisive`；
+    - BLOCK_BY_DYNAMIC_BLOCK：多条 `ban` 事件时，标记最后一条为 `decisive`；
+    - BLOCK_BY_RULE：
+      - 存在 `blockRuleId` 的多个 `intent=BLOCK` 命中，标记最后一条匹配 `blockRuleId` 的事件为 `decisive`；
+      - 无匹配 `blockRuleId` 时，回退标记最后一条 `intent=BLOCK` 的规则事件为 `decisive`。
+
+#### 9) decisive 自判从后向扫描改造
+- 进度：已完成
+- 影响范围：`src/core/ngx_http_waf_log.c`（`waf_log_mark_decisive_on_flush` 逻辑调整为从后向前扫描）。
+- 设计：BYPASS/ban/BLOCK(rule) 的 decisive 统一选“最后一条”。
+- 验收标准：在上述“decisive 后向扫描测试”全部通过；与 `repair-changes-v2.md` 变更记录保持一致。
 
 ### 迁移与兼容性
 - v1 到 v2：规则与配置不变；内部实现改为网络序，不影响用户写法。
@@ -105,7 +117,7 @@
 4. 事件细节补齐
 5. 参数解码使用请求池
 6. 默认 30m 生效
-7. 新增集成测试并全量跑通
+7. 新增集成测试并全量跑通（含 decisive 后向扫描）
 
 ### 风险与回滚
 - 风险：

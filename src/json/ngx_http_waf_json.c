@@ -493,8 +493,8 @@ static ngx_int_t ngx_http_waf_resolve_path(ngx_pool_t *pool, ngx_log_t *log,
     return NGX_ERROR;
   }
 
-  /* 展开到完整绝对路径（包含 Nginx 前缀） */
-  if (ngx_conf_full_name((ngx_cycle_t *)ngx_cycle, &joined, 1) != NGX_OK) {
+  /* 展开到完整绝对路径（相对 Nginx Prefix，而非 conf 目录） */
+  if (ngx_conf_full_name((ngx_cycle_t *)ngx_cycle, &joined, 0) != NGX_OK) {
     if (err) {
       ngx_str_t dummy = {0, NULL};
       waf_json_set_error((waf_merge_ctx_t *)NULL, &dummy, NULL, "路径展开失败");

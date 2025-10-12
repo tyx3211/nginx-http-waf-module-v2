@@ -34,7 +34,13 @@
     - 规则事件：统一改为 `COLLECT_ALWAYS`；等级映射为 `BLOCK→ALERT`、`LOG/BYPASS→INFO`，便于按请求提升 `effective_level` 并决定是否落盘。
     - 信誉事件：`base_access` 改为 `COLLECT_ALWAYS+INFO`；窗口重置 `reputation_window_reset` 仅在 `prev_score>0` 且 `LEVEL_GATED+DEBUG` 下记录，避免噪声。
     - 最终动作：`finalActionType` 覆盖 `BLOCK_BY_RULE/BLOCK_BY_IP_BLACKLIST/BLOCK_BY_DYNAMIC_BLOCK/BYPASS_*`，并在规则导致阻断时联动 `blockRuleId`。
-  - 测试：建议补充 JSONL 顶层 `level`、规则事件等级映射与窗口重置事件门控的用例（未新增自动化用例）。
+    - decisive 策略：决定性事件从 append 阶段前移到 `flush` 阶段自判。规则（统一“从后往前选择最后一条”）：
+      - 最终动作为 `BLOCK_BY_DYNAMIC_BLOCK` → 选择最后一条 `ban` 事件为 decisive；
+      - 最终动作为 `BLOCK_BY_RULE` → 优先匹配 `blockRuleId` 的 `intent=BLOCK` 规则事件，若无则回退到最后一个 `intent=BLOCK` 规则事件；
+      - 最终动作为 `BYPASS` → 选择最后一条 `intent=BYPASS` 的规则事件；
+      - 最终动作为 `ALLOW/LOG` → 无 decisive。
+    - 影响：去除 action 层依赖 `ctx->final_action` 翻转来暗示 decisive，事件追加与最终动作决策彻底解耦，读写顺序更直观。
+  - 测试：建议补充 JSONL 顶层 `level`、规则事件等级映射、窗口重置事件门控，以及“decisive 后向扫描（BYPASS/ban/BLOCK(rule) 回退取最后一条）”的用例（未新增自动化用例）。
 
 - 2025-10-04 / <commit> / <author>
   - 摘要：动态封禁窗口过期时在“请求 JSONL”追加 debug 事件 `reputation_window_reset`；统一使用请求级时间快照避免单请求时间割裂；运维日志保留 INFO 级窗口重置信息。

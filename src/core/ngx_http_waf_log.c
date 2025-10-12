@@ -164,17 +164,6 @@ void waf_log_append_rule_event(ngx_http_request_t *r, ngx_http_waf_main_conf_t *
     }
   }
 
-  /* decisive 判定：纯日志层自判
-   * - 若当前最终动作为 BLOCK，且本事件的 intent 为 BLOCK，则将其标记为 decisive（仅一次）
-   * - intent 由动作层给出，已考虑全局动作，可直接信任
-   */
-  if (!ctx->decisive_set && ctx->final_action == WAF_FINAL_BLOCK && intent_str != NULL) {
-    if (ngx_strcmp(intent_str, "BLOCK") == 0) {
-      yyjson_mut_obj_add_bool(doc, event, "decisive", true);
-      ctx->decisive_set = 1;
-    }
-  }
-
   yyjson_mut_arr_append(ctx->events, event);
   waf_log_raise_effective_level(ctx, level);
 }
@@ -248,13 +237,6 @@ void waf_log_append_ban_event(ngx_http_request_t *r, ngx_http_waf_main_conf_t *m
   yyjson_mut_obj_add_str(doc, event, "type", "ban");
   yyjson_mut_obj_add_uint(doc, event, "window", (ngx_uint_t)window);
 
-  /* 仅当最终动作已确定为 BLOCK 时才标记 decisive；
-   * 避免在全局策略为 LOG 时误写 decisive。 */
-  if (!ctx->decisive_set && ctx->final_action == WAF_FINAL_BLOCK) {
-    yyjson_mut_obj_add_bool(doc, event, "decisive", true);
-    ctx->decisive_set = 1;
-  }
-
   yyjson_mut_arr_append(ctx->events, event);
   waf_log_raise_effective_level(ctx, level);
 }
@@ -327,6 +309,91 @@ static void waf_log_write_jsonl(ngx_http_request_t *r, ngx_http_waf_main_conf_t 
   }
 }
 
+/* 在最终落盘前集中判定并标记 decisive 事件 */
+static void waf_log_mark_decisive_on_flush(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx)
+{
+  if (ctx == NULL || ctx->events == NULL || ctx->decisive_set)
+    return;
+
+  yyjson_mut_doc *doc = ctx->log_doc;
+  size_t n = yyjson_mut_arr_size(ctx->events);
+  if (n == 0)
+    return;
+
+  /* BYPASS：选择最后一条 intent=BYPASS 的规则事件 */
+  if (ctx->final_action == WAF_FINAL_BYPASS) {
+    for (ngx_int_t i = (ngx_int_t)n - 1; i >= 0; i--) {
+      yyjson_mut_val *ev = yyjson_mut_arr_get(ctx->events, (size_t)i);
+      yyjson_mut_val *type = yyjson_mut_obj_get(ev, "type");
+      yyjson_mut_val *intent = yyjson_mut_obj_get(ev, "intent");
+      const char *type_str = type ? yyjson_mut_get_str(type) : NULL;
+      const char *intent_str = intent ? yyjson_mut_get_str(intent) : NULL;
+      if (type_str && ngx_strcmp(type_str, "rule") == 0 &&
+          intent_str && ngx_strcmp(intent_str, "BYPASS") == 0) {
+        yyjson_mut_obj_add_bool(doc, ev, "decisive", true);
+        ctx->decisive_set = 1;
+        return;
+      }
+    }
+    return;
+  }
+
+  /* 仅在最终动作为 BLOCK 时选择 decisive */
+  if (ctx->final_action != WAF_FINAL_BLOCK) {
+    return;
+  }
+
+  /* 动态封禁：优先选择最后一条 ban 事件（从后往前） */
+  if (ctx->final_action_type == WAF_FINAL_ACTION_TYPE_BLOCK_BY_DYNAMIC_BLOCK) {
+    for (ngx_int_t i = (ngx_int_t)n - 1; i >= 0; i--) {
+      yyjson_mut_val *ev = yyjson_mut_arr_get(ctx->events, (size_t)i);
+      yyjson_mut_val *type = yyjson_mut_obj_get(ev, "type");
+      const char *type_str = type ? yyjson_mut_get_str(type) : NULL;
+      if (type_str && ngx_strcmp(type_str, "ban") == 0) {
+        yyjson_mut_obj_add_bool(doc, ev, "decisive", true);
+        ctx->decisive_set = 1;
+        return;
+      }
+    }
+    /* 未找到ban事件则继续走规则回退逻辑 */
+  }
+
+  /* 规则阻断：按照 blockRuleId 精确匹配，否则回退到最后一条 BLOCK 规则事件 */
+  if (ctx->final_action_type == WAF_FINAL_ACTION_TYPE_BLOCK_BY_RULE && ctx->block_rule_id > 0) {
+    for (ngx_int_t i = (ngx_int_t)n - 1; i >= 0; i--) {
+      yyjson_mut_val *ev = yyjson_mut_arr_get(ctx->events, (size_t)i);
+      yyjson_mut_val *type = yyjson_mut_obj_get(ev, "type");
+      yyjson_mut_val *intent = yyjson_mut_obj_get(ev, "intent");
+      yyjson_mut_val *rid = yyjson_mut_obj_get(ev, "ruleId");
+      const char *type_str = type ? yyjson_mut_get_str(type) : NULL;
+      const char *intent_str = intent ? yyjson_mut_get_str(intent) : NULL;
+      ngx_uint_t rule_id = rid ? (ngx_uint_t)yyjson_mut_get_uint(rid) : 0;
+      if (type_str && ngx_strcmp(type_str, "rule") == 0 &&
+          intent_str && ngx_strcmp(intent_str, "BLOCK") == 0 &&
+          rule_id == ctx->block_rule_id) {
+        yyjson_mut_obj_add_bool(doc, ev, "decisive", true);
+        ctx->decisive_set = 1;
+        return;
+      }
+    }
+  }
+
+  /* 回退：选择最后一条 intent=BLOCK 的规则事件（从后往前） */
+  for (ngx_int_t i = (ngx_int_t)n - 1; i >= 0; i--) {
+    yyjson_mut_val *ev = yyjson_mut_arr_get(ctx->events, (size_t)i);
+    yyjson_mut_val *type = yyjson_mut_obj_get(ev, "type");
+    yyjson_mut_val *intent = yyjson_mut_obj_get(ev, "intent");
+    const char *type_str = type ? yyjson_mut_get_str(type) : NULL;
+    const char *intent_str = intent ? yyjson_mut_get_str(intent) : NULL;
+    if (type_str && ngx_strcmp(type_str, "rule") == 0 &&
+        intent_str && ngx_strcmp(intent_str, "BLOCK") == 0) {
+      yyjson_mut_obj_add_bool(doc, ev, "decisive", true);
+      ctx->decisive_set = 1;
+      return;
+    }
+  }
+}
+
 void waf_log_flush_final(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
                          ngx_http_waf_loc_conf_t *lcf, ngx_http_waf_ctx_t *ctx,
                          const char *final_action_hint)
@@ -376,6 +443,9 @@ void waf_log_flush_final(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
   if (ctx->events) {
     yyjson_mut_obj_add_val(doc, root, "events", ctx->events);
   }
+
+  /* 在最终输出前集中判定并标记 decisive 事件 */
+  waf_log_mark_decisive_on_flush(r, ctx);
 
   /* 6. finalAction */
   yyjson_mut_obj_add_str(doc, root, "finalAction", waf_final_action_str(ctx->final_action));

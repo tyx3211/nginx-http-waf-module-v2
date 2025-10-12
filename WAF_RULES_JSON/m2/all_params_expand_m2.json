@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": 700001,
+      "target": "ALL_PARAMS",
+      "match": "CONTAINS",
+      "pattern": "eval(",
+      "action": "DENY",
+      "score": 20
+    }
+  ]
+}
+
+

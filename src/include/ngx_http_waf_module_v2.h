@@ -65,14 +65,14 @@ typedef struct {
   ngx_str_t jsons_dir;
   /* JSONL 日志（M2.5 存根：仅配置存储；M6 落地写盘） */
   ngx_str_t json_log_path;   /* off | 路径 */
-  ngx_uint_t json_log_level; /* 0=off,1=error,2=info,3=debug */
+  ngx_uint_t json_log_level; /* debug|info|alert|error|off */
   /* 动态信誉共享内存（M2.5：创建 zone；M5：执法） */
   ngx_str_t shm_zone_raw;   /* 兼容保留：若通过字符串配置 */
   ngx_shm_zone_t *shm_zone; /* 共享内存区句柄（M2.5 初始化） */
   ngx_str_t shm_zone_name;  /* 区域名称 */
   size_t shm_zone_size;     /* 区域大小（字节） */
   /* 动态封禁参数（M5） */
-  ngx_uint_t dyn_block_threshold; /* 评分阈值（默认100，0表示禁用） */
+  ngx_uint_t dyn_block_threshold; /* 评分阈值（默认100，0表示禁用；封禁条件：score > threshold） */
   ngx_msec_t dyn_block_window;    /* 评分窗口（毫秒，默认60000=1分钟） */
   ngx_msec_t dyn_block_duration;  /* 封禁时长（毫秒，默认1800000=30分钟） */
   /* M5全局运维指令（MAIN级，不继承） */

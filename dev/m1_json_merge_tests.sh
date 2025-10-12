@@ -51,6 +51,9 @@ function grep_rules_count() {
   combined_tmp=$(mktemp)
   cat "$CONF_DIR/logs/error.log" "$LOG_DIR/error.log" 2>/dev/null | tee -a /dev/null > "$combined_tmp" || true
   got=$(grep -E "waf: merged rules [0-9]+ from" -o "$combined_tmp" | tail -n1 | awk '{print $4}') || got="0"
+  if [[ -z "${got:-}" ]]; then
+    got="0"
+  fi
   rm -f "$combined_tmp"
   if [[ "$got" == "$expect" ]]; then
     echo "[PASS] $name rules=$got"

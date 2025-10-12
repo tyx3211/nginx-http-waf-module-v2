@@ -54,7 +54,7 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
     return WAF_RC_ERROR;
   }
 
-  /* 1. 规则事件记录延后到意图分支（BLOCK 时需先设 final 再记录，便于 decisive 判定） */
+  /* 1. 事件采集与最终动作解耦：事件只做追加，decisive 由 flush 阶段统一判定 */
 
   /* 全局执法策略 */
   ngx_uint_t global_block_enabled =
@@ -68,15 +68,14 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
 
     /* 3. 评分后阈值检查：达到阈值则触发封禁（依赖全局BLOCK策略） */
 
-    /* 4. 若已处于封禁窗口内：按全局策略决定是否阻断 */
+    /* 4. 若已处于封禁窗口内：按全局策略决定是否阻断（规则事件与 ban 事件均可记录） */
     if (waf_dyn_is_banned(r)) {
       ngx_msec_t window = (mcf && mcf->dyn_block_window > 0) ? mcf->dyn_block_window : 60000;
       if (global_block_enabled) {
-        /* 先记录规则事件 */
-        ctx->final_action = WAF_FINAL_NONE; // decisive由ban事件判定，此处为none
+        /* 记录规则事件（若存在） */
         waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
 
-        /* 设置最终动作为 BLOCK，再记录事件，保证 decisive 正确归属 */
+        /* 设置最终动作为 BLOCK（动态封禁） */
         ctx->final_action = WAF_FINAL_BLOCK;
         ctx->final_action_type = (final_type_hint != NULL)
                                     ? *final_type_hint
@@ -84,19 +83,19 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
         ctx->final_status = NGX_HTTP_FORBIDDEN;
         ctx->effective_level = WAF_LOG_ALERT;
 
-        /* 再记录 ban 事件（如未被规则事件占用 decisive，将由日志层自判） */
+        /* 记录 ban 事件（decisive 将在 flush 阶段自判） */
         waf_log_append_ban_event(r, mcf, ctx, window, WAF_LOG_COLLECT_ALWAYS, WAF_LOG_ALERT);
 
         waf_log_flush_final(r, mcf, lcf, ctx, "BLOCK_BY_DYNAMIC_BLOCK");
         return WAF_RC_BLOCK;
       } else {
-        /* 全局策略为 LOG：不阻断。顺序：先记录规则事件，再记录 ban 事件，继续流水 */
+        /* 全局策略为 LOG：不阻断。记录规则事件与 ban 事件，继续流水 */
         ctx->final_action = WAF_FINAL_NONE;
         ctx->final_action_type = WAF_FINAL_ACTION_TYPE_ALLOW;
         ctx->final_status = 0;
-        /* 先记录规则事件（仅审计，不会成为 decisive） */
+        /* 记录规则事件（仅审计） */
         waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
-        /* 再记录 ban 事件（表明处于封禁窗口，但全局为 LOG） */
+        /* 记录 ban 事件（表明处于封禁窗口，但全局为 LOG） */
         waf_log_append_ban_event(r, mcf, ctx, window, WAF_LOG_COLLECT_ALWAYS, WAF_LOG_INFO);
         return WAF_RC_CONTINUE;
       }
@@ -112,7 +111,7 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
     case WAF_INTENT_BLOCK:
       /* BLOCK意图：受全局策略控制 */
       if (global_block_enabled) {
-        /* 真实阻断：先设最终动作，再记录规则事件 */
+        /* 真实阻断：设置最终动作 */
         ctx->final_action = WAF_FINAL_BLOCK;
         ctx->final_action_type = (final_type_hint != NULL)
                                      ? *final_type_hint
@@ -125,7 +124,7 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
           ctx->effective_level = WAF_LOG_ALERT;
         }
 
-        /* 记录规则事件（intent=BLOCK，将由日志层判定为 decisive） */
+        /* 记录规则事件（decisive 将由 flush 阶段判定） */
         waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
 
         waf_log_flush_final(r, mcf, lcf, ctx, "BLOCK");
@@ -136,7 +135,7 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
         ctx->final_action = WAF_FINAL_NONE;
         ctx->final_action_type = WAF_FINAL_ACTION_TYPE_ALLOW;
         ctx->final_status = 0;
-        /* 记录规则事件（intent=BLOCK 但在 LOG 策略下不阻断） */
+        /* 记录规则事件 */
         waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
         /* 继续后续检测 */
         return WAF_RC_CONTINUE;
