@@ -1,0 +1,78 @@
+2025/10/13 05:19:25 [notice] 213164#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:19:25 [notice] 213164#0: using the "epoll" event method
+2025/10/13 05:19:25 [notice] 213164#0: nginx/1.24.0
+2025/10/13 05:19:25 [notice] 213164#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:19:25 [notice] 213164#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:19:25 [notice] 213164#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:19:25 [notice] 213165#0: start worker processes
+2025/10/13 05:19:25 [notice] 213165#0: start worker process 213167
+2025/10/13 05:19:25 [notice] 213165#0: signal 15 (SIGTERM) received from 213159, exiting
+2025/10/13 05:19:25 [notice] 213167#0: exiting
+2025/10/13 05:19:25 [notice] 213167#0: exit
+2025/10/13 05:19:25 [notice] 213165#0: signal 17 (SIGCHLD) received from 213167
+2025/10/13 05:19:25 [notice] 213165#0: worker process 213167 exited with code 0
+2025/10/13 05:19:25 [notice] 213165#0: exit
+2025/10/13 05:22:59 [notice] 213771#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:22:59 [notice] 213771#0: using the "epoll" event method
+2025/10/13 05:22:59 [notice] 213771#0: nginx/1.24.0
+2025/10/13 05:22:59 [notice] 213771#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:22:59 [notice] 213771#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:22:59 [notice] 213771#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:22:59 [notice] 213772#0: start worker processes
+2025/10/13 05:22:59 [notice] 213772#0: start worker process 213774
+2025/10/13 05:22:59 [error] 213774#0: *2 open() "/usr/local/nginx/html/health" failed (2: No such file or directory), client: 127.0.0.1, server: , request: "GET /health HTTP/1.1", host: "127.0.0.1:8085"
+2025/10/13 05:22:59 [error] 213774#0: *3 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/smoke/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8085"
+2025/10/13 05:22:59 [notice] 213772#0: signal 15 (SIGTERM) received from 213766, exiting
+2025/10/13 05:22:59 [notice] 213774#0: exiting
+2025/10/13 05:22:59 [notice] 213774#0: exit
+2025/10/13 05:22:59 [notice] 213772#0: signal 17 (SIGCHLD) received from 213774
+2025/10/13 05:22:59 [notice] 213772#0: worker process 213774 exited with code 0
+2025/10/13 05:22:59 [notice] 213772#0: exit
+2025/10/13 05:25:15 [notice] 214275#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:28:21 [notice] 214823#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:28:21 [notice] 214823#0: using the "epoll" event method
+2025/10/13 05:28:21 [notice] 214823#0: nginx/1.24.0
+2025/10/13 05:28:21 [notice] 214823#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:28:21 [notice] 214823#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:28:21 [notice] 214823#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:28:21 [notice] 214824#0: start worker processes
+2025/10/13 05:28:21 [notice] 214824#0: start worker process 214826
+2025/10/13 05:28:21 [error] 214826#0: *2 open() "/usr/local/nginx/html/health" failed (2: No such file or directory), client: 127.0.0.1, server: , request: "GET /health HTTP/1.1", host: "127.0.0.1:8085"
+2025/10/13 05:28:21 [error] 214826#0: *3 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/smoke/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8085"
+2025/10/13 05:28:21 [notice] 214824#0: signal 15 (SIGTERM) received from 214817, exiting
+2025/10/13 05:28:21 [notice] 214826#0: exiting
+2025/10/13 05:28:21 [notice] 214826#0: exit
+2025/10/13 05:28:21 [notice] 214824#0: signal 17 (SIGCHLD) received from 214826
+2025/10/13 05:28:21 [notice] 214824#0: worker process 214826 exited with code 0
+2025/10/13 05:28:21 [notice] 214824#0: exit
+2025/10/13 05:31:05 [notice] 215182#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:31:05 [notice] 215182#0: using the "epoll" event method
+2025/10/13 05:31:05 [notice] 215182#0: nginx/1.24.0
+2025/10/13 05:31:05 [notice] 215182#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:31:05 [notice] 215182#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:31:05 [notice] 215182#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:31:05 [notice] 215183#0: start worker processes
+2025/10/13 05:31:05 [notice] 215183#0: start worker process 215184
+2025/10/13 05:31:05 [error] 215184#0: *2 open() "/usr/local/nginx/html/health" failed (2: No such file or directory), client: 127.0.0.1, server: , request: "GET /health HTTP/1.1", host: "127.0.0.1:8085"
+2025/10/13 05:31:05 [error] 215184#0: *3 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/smoke/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8085"
+2025/10/13 05:31:05 [notice] 215183#0: signal 15 (SIGTERM) received from 215176, exiting
+2025/10/13 05:31:05 [notice] 215184#0: exiting
+2025/10/13 05:31:05 [notice] 215184#0: exit
+2025/10/13 05:31:05 [notice] 215183#0: signal 17 (SIGCHLD) received from 215184
+2025/10/13 05:31:05 [notice] 215183#0: worker process 215184 exited with code 0
+2025/10/13 05:31:05 [notice] 215183#0: exit
+2025/10/13 05:32:43 [notice] 215573#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:32:43 [notice] 215587#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:32:43 [notice] 215587#0: using the "epoll" event method
+2025/10/13 05:32:43 [notice] 215587#0: nginx/1.24.0
+2025/10/13 05:32:43 [notice] 215587#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:32:43 [notice] 215587#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:32:43 [notice] 215587#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:32:43 [notice] 215588#0: start worker processes
+2025/10/13 05:32:43 [notice] 215588#0: start worker process 215590
+2025/10/13 05:32:43 [notice] 215588#0: signal 15 (SIGTERM) received from 215581, exiting
+2025/10/13 05:32:43 [notice] 215590#0: exiting
+2025/10/13 05:32:43 [notice] 215590#0: exit
+2025/10/13 05:32:43 [notice] 215588#0: signal 17 (SIGCHLD) received from 215590
+2025/10/13 05:32:43 [notice] 215588#0: worker process 215590 exited with code 0
+2025/10/13 05:32:43 [notice] 215588#0: exit

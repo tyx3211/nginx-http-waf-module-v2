@@ -30,7 +30,6 @@ static char *ngx_http_waf_set_default_action(ngx_conf_t *cf, ngx_command_t *cmd,
 /* 主配置 */
 void *ngx_http_waf_create_main_conf(ngx_conf_t *cf)
 {
-  fprintf(stderr, "[WAF DEBUG] ngx_http_waf_create_main_conf CALLED\n");
   ngx_http_waf_main_conf_t *mcf = ngx_pcalloc(cf->pool, sizeof(ngx_http_waf_main_conf_t));
   if (mcf == NULL) {
     return NULL;
@@ -61,14 +60,9 @@ char *ngx_http_waf_init_main_conf(ngx_conf_t *cf, void *conf)
   ngx_http_waf_main_conf_t *mcf = conf;
   (void)cf;
 
-  fprintf(stderr, "[WAF DEBUG] ngx_http_waf_init_main_conf CALLED\n");
-  fprintf(stderr, "[WAF DEBUG] json_log_level=%lu, json_log_path.len=%zu\n", 
-          mcf->json_log_level, mcf->json_log_path.len);
-
   /* 回填默认值 */
   if (mcf->json_log_level == NGX_CONF_UNSET_UINT) {
     mcf->json_log_level = (ngx_uint_t)WAF_LOG_OFF; /* 默认 off */
-    fprintf(stderr, "[WAF DEBUG] json_log_level set to default: WAF_LOG_OFF\n");
   }
   if (mcf->dyn_block_threshold == NGX_CONF_UNSET_UINT) {
     mcf->dyn_block_threshold = 100;
@@ -367,7 +361,6 @@ static char *ngx_http_waf_set_json_log(ngx_conf_t *cf, ngx_command_t *cmd, void 
   ngx_http_waf_main_conf_t *mcf = conf;
   ngx_str_t *value;
 
-  fprintf(stderr, "[WAF DEBUG] ngx_http_waf_set_json_log CALLED\n");
 
   if (cf->args->nelts != 2) {
     return "invalid number of arguments";
@@ -375,7 +368,6 @@ static char *ngx_http_waf_set_json_log(ngx_conf_t *cf, ngx_command_t *cmd, void 
 
   value = cf->args->elts;
   mcf->json_log_path = value[1];
-  fprintf(stderr, "[WAF DEBUG] json_log_path set to: %.*s\n", (int)value[1].len, value[1].data);
 
   /* 展开为绝对路径（相对于 Nginx Prefix） */
   if (ngx_conf_full_name(cf->cycle, &mcf->json_log_path, 0) != NGX_OK) {
@@ -395,15 +387,12 @@ static char *ngx_http_waf_set_json_log_level(ngx_conf_t *cf, ngx_command_t *cmd,
   ngx_http_waf_main_conf_t *mcf = conf;
   ngx_str_t *value;
 
-  fprintf(stderr, "[WAF DEBUG] ngx_http_waf_set_json_log_level CALLED\n");
-
   if (cf->args->nelts != 2) {
     return "invalid number of arguments";
   }
 
   value = cf->args->elts;
   ngx_str_t level_str = value[1];
-  fprintf(stderr, "[WAF DEBUG] json_log_level set to: %.*s\n", (int)level_str.len, level_str.data);
 
   if (level_str.len == 3 && ngx_strncmp(level_str.data, "off", 3) == 0) {
     mcf->json_log_level = (ngx_uint_t)WAF_LOG_OFF;

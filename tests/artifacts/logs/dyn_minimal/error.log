@@ -1,0 +1,88 @@
+2025/10/13 05:19:25 [notice] 213182#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:19:25 [notice] 213182#0: using the "epoll" event method
+2025/10/13 05:19:25 [notice] 213182#0: nginx/1.24.0
+2025/10/13 05:19:25 [notice] 213182#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:19:25 [notice] 213182#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:19:25 [notice] 213182#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:19:25 [notice] 213183#0: start worker processes
+2025/10/13 05:19:25 [notice] 213183#0: start worker process 213185
+2025/10/13 05:19:26 [notice] 213183#0: signal 15 (SIGTERM) received from 213177, exiting
+2025/10/13 05:19:26 [notice] 213185#0: exiting
+2025/10/13 05:19:26 [notice] 213185#0: exit
+2025/10/13 05:19:26 [notice] 213183#0: signal 17 (SIGCHLD) received from 213185
+2025/10/13 05:19:26 [notice] 213183#0: worker process 213185 exited with code 0
+2025/10/13 05:19:26 [notice] 213183#0: exit
+2025/10/13 05:22:59 [notice] 213791#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:22:59 [notice] 213791#0: using the "epoll" event method
+2025/10/13 05:22:59 [notice] 213791#0: nginx/1.24.0
+2025/10/13 05:22:59 [notice] 213791#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:22:59 [notice] 213791#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:22:59 [notice] 213791#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:22:59 [notice] 213792#0: start worker processes
+2025/10/13 05:22:59 [notice] 213792#0: start worker process 213794
+2025/10/13 05:23:00 [error] 213794#0: *2 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/dyn_minimal/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:23:00 [warn] 213794#0: *3 waf_dyn: IP blocked, ip=16777343, score=144, threshold=100, expiry=55542130, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:23:00 [error] 213794#0: *3 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/dyn_minimal/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:23:00 [error] 213794#0: *4 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/dyn_minimal/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:23:00 [error] 213794#0: *5 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/dyn_minimal/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /?q=ping HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:23:00 [notice] 213792#0: signal 15 (SIGTERM) received from 213786, exiting
+2025/10/13 05:23:00 [notice] 213794#0: exiting
+2025/10/13 05:23:00 [notice] 213794#0: exit
+2025/10/13 05:23:00 [notice] 213792#0: signal 17 (SIGCHLD) received from 213794
+2025/10/13 05:23:00 [notice] 213792#0: worker process 213794 exited with code 0
+2025/10/13 05:23:00 [notice] 213792#0: exit
+2025/10/13 05:25:15 [notice] 214276#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:28:22 [notice] 214843#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:28:22 [notice] 214843#0: using the "epoll" event method
+2025/10/13 05:28:22 [notice] 214843#0: nginx/1.24.0
+2025/10/13 05:28:22 [notice] 214843#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:28:22 [notice] 214843#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:28:22 [notice] 214843#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:28:22 [notice] 214844#0: start worker processes
+2025/10/13 05:28:22 [notice] 214844#0: start worker process 214846
+2025/10/13 05:28:22 [error] 214846#0: *2 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/dyn_minimal/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:28:22 [warn] 214846#0: *3 waf_dyn: IP blocked, ip=16777343, score=144, threshold=100, expiry=55864213, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:28:22 [error] 214846#0: *3 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/dyn_minimal/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:28:22 [error] 214846#0: *4 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/dyn_minimal/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:28:22 [error] 214846#0: *5 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/dyn_minimal/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /?q=ping HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:28:22 [notice] 214844#0: signal 15 (SIGTERM) received from 214837, exiting
+2025/10/13 05:28:22 [notice] 214846#0: exiting
+2025/10/13 05:28:22 [notice] 214846#0: exit
+2025/10/13 05:28:22 [notice] 214844#0: signal 17 (SIGCHLD) received from 214846
+2025/10/13 05:28:22 [notice] 214844#0: worker process 214846 exited with code 0
+2025/10/13 05:28:22 [notice] 214844#0: exit
+2025/10/13 05:31:05 [notice] 215202#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:31:05 [notice] 215202#0: using the "epoll" event method
+2025/10/13 05:31:05 [notice] 215202#0: nginx/1.24.0
+2025/10/13 05:31:05 [notice] 215202#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:31:05 [notice] 215202#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:31:05 [notice] 215202#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:31:05 [notice] 215203#0: start worker processes
+2025/10/13 05:31:05 [notice] 215203#0: start worker process 215205
+2025/10/13 05:31:05 [error] 215205#0: *2 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/dyn_minimal/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:31:05 [warn] 215205#0: *3 waf_dyn: IP blocked, ip=16777343, score=144, threshold=100, expiry=56027506, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:31:05 [error] 215205#0: *3 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/dyn_minimal/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:31:05 [error] 215205#0: *4 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/dyn_minimal/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:31:06 [error] 215205#0: *5 waf: failed to open json_log file "/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/logs/dyn_minimal/waf.jsonl" (13: Permission denied), client: 127.0.0.1, server: , request: "GET /?q=ping HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:31:06 [notice] 215203#0: signal 15 (SIGTERM) received from 215196, exiting
+2025/10/13 05:31:06 [notice] 215205#0: exiting
+2025/10/13 05:31:06 [notice] 215205#0: exit
+2025/10/13 05:31:06 [notice] 215203#0: signal 17 (SIGCHLD) received from 215205
+2025/10/13 05:31:06 [notice] 215203#0: worker process 215205 exited with code 0
+2025/10/13 05:31:06 [notice] 215203#0: exit
+2025/10/13 05:32:43 [notice] 215574#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:32:43 [notice] 215608#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:32:43 [notice] 215608#0: using the "epoll" event method
+2025/10/13 05:32:43 [notice] 215608#0: nginx/1.24.0
+2025/10/13 05:32:43 [notice] 215608#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:32:43 [notice] 215608#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:32:43 [notice] 215608#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:32:43 [notice] 215609#0: start worker processes
+2025/10/13 05:32:43 [notice] 215609#0: start worker process 215611
+2025/10/13 05:32:43 [warn] 215611#0: *3 waf_dyn: IP blocked, ip=16777343, score=144, threshold=100, expiry=56125574, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:32:44 [notice] 215609#0: signal 15 (SIGTERM) received from 215602, exiting
+2025/10/13 05:32:44 [notice] 215611#0: exiting
+2025/10/13 05:32:44 [notice] 215611#0: exit
+2025/10/13 05:32:44 [notice] 215609#0: signal 17 (SIGCHLD) received from 215611
+2025/10/13 05:32:44 [notice] 215609#0: worker process 215611 exited with code 0
+2025/10/13 05:32:44 [notice] 215609#0: exit

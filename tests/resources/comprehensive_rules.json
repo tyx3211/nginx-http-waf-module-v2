@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "meta": {"name": "comprehensive_rules", "tags": ["functional"]},
+  "policies": {
+    "dynamicBlock": {"baseAccessScore": 2}
+  },
+  "rules": [
+    { "id": 200001, "tags": ["sqli"], "target": "ALL_PARAMS", "match": "REGEX",
+      "pattern": "union.*select|select.*from", "caseless": true, "action": "DENY", "score": 70 },
+    { "id": 300001, "tags": ["xss"], "target": "ALL_PARAMS", "match": "CONTAINS",
+      "pattern": ["<script>", "onerror="], "action": "DENY", "score": 60 },
+    { "id": 500001, "tags": ["path"], "target": "URI", "match": "CONTAINS",
+      "pattern": ["../"], "action": "DENY", "score": 55 },
+    { "id": 700001, "tags": ["health"], "target": "URI", "match": "EXACT",
+      "pattern": ["/health"], "action": "BYPASS" }
+  ]
+}
+
+

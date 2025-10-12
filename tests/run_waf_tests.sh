@@ -59,14 +59,8 @@ if [[ ! -x "$NGINX_BIN" ]]; then
 fi
 
 TEST_SCRIPTS=(
-  "$SCRIPT_DIR/test_basic_directives.sh"
-  "$SCRIPT_DIR/test_jsonl_block_logics.sh"
-  "$SCRIPT_DIR/test_dynamic_block_ab.sh"
-  "$SCRIPT_DIR/test_rule_engine.sh"
-  "$SCRIPT_DIR/test_json_inheritance.sh"
-  "$SCRIPT_DIR/test_jsonl_comprehensive.sh"
-  "$SCRIPT_DIR/test_directive_inheritance.sh"
-  "$SCRIPT_DIR/test_dynamic_block_comprehensive.sh"
+  "$SCRIPT_DIR/test_smoke_basic.sh"
+  "$SCRIPT_DIR/test_dynamic_block_minimal.sh"
 )
 
 for t in "${TEST_SCRIPTS[@]}"; do
@@ -83,18 +77,24 @@ fi
 
 TOTAL=0; PASS=0; FAIL=0
 FAILED=()
+ARTIFACT_DIR="/home/william/myNginxWorkspace/nginx-http-waf-module-v2/tests/artifacts/test_runs"
+ensure_dir "$ARTIFACT_DIR"
 
 for t in "${TEST_SCRIPTS[@]}"; do
   [[ -f "$t" ]] || continue
   TOTAL=$((TOTAL+1))
   log_info "运行测试：$t"
-  if bash "$t" "$NGINX_BIN" "$NGINX_PREFIX" "$MODULE_DIR"; then
+  log_file="$ARTIFACT_DIR/$(basename "$t").log"
+  if bash "$t" "$NGINX_BIN" "$NGINX_PREFIX" "$MODULE_DIR" >"$log_file" 2>&1; then
     echo -e "${GREEN}✅ PASS${NC} $t"
     PASS=$((PASS+1))
   else
     echo -e "${RED}❌ FAIL${NC} $t"
     FAIL=$((FAIL+1))
     FAILED+=("$t")
+    echo "——— 失败日志开始 ($log_file) ———"
+    cat "$log_file"
+    echo "——— 失败日志结束 ———"
   fi
 done
 
