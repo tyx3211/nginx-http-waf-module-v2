@@ -21,12 +21,16 @@ static char *ngx_http_waf_set_shm_zone(ngx_conf_t *cf, ngx_command_t *cmd, void 
 /* 自定义 setter：解析 waf_json_log_level debug|info|alert|error|off */
 static char *ngx_http_waf_set_json_log_level(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
+/* 自定义 setter：解析 waf_json_log 路径并展开为绝对路径 */
+static char *ngx_http_waf_set_json_log(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+
 /* 自定义 setter：解析 waf_default_action block|log，允许同级后者覆盖前者 */
 static char *ngx_http_waf_set_default_action(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 /* 主配置 */
 void *ngx_http_waf_create_main_conf(ngx_conf_t *cf)
 {
+  fprintf(stderr, "[WAF DEBUG] ngx_http_waf_create_main_conf CALLED\n");
   ngx_http_waf_main_conf_t *mcf = ngx_pcalloc(cf->pool, sizeof(ngx_http_waf_main_conf_t));
   if (mcf == NULL) {
     return NULL;
@@ -57,9 +61,14 @@ char *ngx_http_waf_init_main_conf(ngx_conf_t *cf, void *conf)
   ngx_http_waf_main_conf_t *mcf = conf;
   (void)cf;
 
+  fprintf(stderr, "[WAF DEBUG] ngx_http_waf_init_main_conf CALLED\n");
+  fprintf(stderr, "[WAF DEBUG] json_log_level=%lu, json_log_path.len=%zu\n", 
+          mcf->json_log_level, mcf->json_log_path.len);
+
   /* 回填默认值 */
   if (mcf->json_log_level == NGX_CONF_UNSET_UINT) {
     mcf->json_log_level = (ngx_uint_t)WAF_LOG_OFF; /* 默认 off */
+    fprintf(stderr, "[WAF DEBUG] json_log_level set to default: WAF_LOG_OFF\n");
   }
   if (mcf->dyn_block_threshold == NGX_CONF_UNSET_UINT) {
     mcf->dyn_block_threshold = 100;
@@ -103,6 +112,9 @@ char *ngx_http_waf_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
   ngx_http_waf_loc_conf_t *conf = child;
 
   ngx_http_waf_main_conf_t *mcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_waf_module);
+
+  ngx_log_error(NGX_LOG_INFO, cf->log, 0, "waf: merge_loc_conf called, conf->rules_json_path.len=%uz prev->rules_json_path.len=%uz",
+                conf->rules_json_path.len, prev->rules_json_path.len);
 
   ngx_conf_merge_uint_value(conf->json_extends_max_depth, prev->json_extends_max_depth,
                             mcf ? mcf->json_extends_max_depth : WAF_JSON_MAX_EXTENDS_DEPTH);
@@ -221,9 +233,9 @@ ngx_command_t ngx_http_waf_commands[] = {
     {
       ngx_string("waf_json_log"),
       NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
-      ngx_conf_set_str_slot,
+      ngx_http_waf_set_json_log,
       NGX_HTTP_MAIN_CONF_OFFSET,
-      offsetof(ngx_http_waf_main_conf_t, json_log_path),
+      0,
       NULL
     },
     {
@@ -349,11 +361,41 @@ static char *ngx_http_waf_set_shm_zone(ngx_conf_t *cf, ngx_command_t *cmd, void 
   return NGX_CONF_OK;
 }
 
+/* 解析 waf_json_log 路径并展开为绝对路径（相对 Nginx Prefix） */
+static char *ngx_http_waf_set_json_log(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+  ngx_http_waf_main_conf_t *mcf = conf;
+  ngx_str_t *value;
+
+  fprintf(stderr, "[WAF DEBUG] ngx_http_waf_set_json_log CALLED\n");
+
+  if (cf->args->nelts != 2) {
+    return "invalid number of arguments";
+  }
+
+  value = cf->args->elts;
+  mcf->json_log_path = value[1];
+  fprintf(stderr, "[WAF DEBUG] json_log_path set to: %.*s\n", (int)value[1].len, value[1].data);
+
+  /* 展开为绝对路径（相对于 Nginx Prefix） */
+  if (ngx_conf_full_name(cf->cycle, &mcf->json_log_path, 0) != NGX_OK) {
+    return NGX_CONF_ERROR;
+  }
+
+  ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0,
+                     "waf: json_log_path configured: \"%V\"", &mcf->json_log_path);
+
+  (void)cmd;
+  return NGX_CONF_OK;
+}
+
 /* 解析 waf_json_log_level off|debug|info|alert|error */
 static char *ngx_http_waf_set_json_log_level(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
   ngx_http_waf_main_conf_t *mcf = conf;
   ngx_str_t *value;
+
+  fprintf(stderr, "[WAF DEBUG] ngx_http_waf_set_json_log_level CALLED\n");
 
   if (cf->args->nelts != 2) {
     return "invalid number of arguments";
@@ -361,6 +403,7 @@ static char *ngx_http_waf_set_json_log_level(ngx_conf_t *cf, ngx_command_t *cmd,
 
   value = cf->args->elts;
   ngx_str_t level_str = value[1];
+  fprintf(stderr, "[WAF DEBUG] json_log_level set to: %.*s\n", (int)level_str.len, level_str.data);
 
   if (level_str.len == 3 && ngx_strncmp(level_str.data, "off", 3) == 0) {
     mcf->json_log_level = (ngx_uint_t)WAF_LOG_OFF;

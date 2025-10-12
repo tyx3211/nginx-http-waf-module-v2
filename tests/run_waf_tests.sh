@@ -62,6 +62,11 @@ TEST_SCRIPTS=(
   "$SCRIPT_DIR/test_basic_directives.sh"
   "$SCRIPT_DIR/test_jsonl_block_logics.sh"
   "$SCRIPT_DIR/test_dynamic_block_ab.sh"
+  "$SCRIPT_DIR/test_rule_engine.sh"
+  "$SCRIPT_DIR/test_json_inheritance.sh"
+  "$SCRIPT_DIR/test_jsonl_comprehensive.sh"
+  "$SCRIPT_DIR/test_directive_inheritance.sh"
+  "$SCRIPT_DIR/test_dynamic_block_comprehensive.sh"
 )
 
 for t in "${TEST_SCRIPTS[@]}"; do

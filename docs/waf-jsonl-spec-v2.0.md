@@ -6,6 +6,7 @@
 - `time:string`：UTC ISO8601（`%Y-%m-%dT%H:%M:%SZ`）
 - `clientIp:string`：文本 IP（当前实现：IPv4）
 - `method:string`：HTTP 方法
+- `host?:string`：HTTP Host 头（可选，若请求中存在）
 - `uri:string`：`r->uri` 原文
 - `events:array<object>`：事件数组（见第 2 节）
 - `finalAction:string`：`BLOCK|BYPASS|ALLOW`
@@ -53,6 +54,7 @@
   "time": "2025-10-12T08:00:00Z",
   "clientIp": "1.2.3.4",
   "method": "POST",
+  "host": "example.com",
   "uri": "/login?x=1",
   "events": [
     { "type": "reputation", "scoreDelta": 1,  "totalScore": 1,  "reason": "base_access" },

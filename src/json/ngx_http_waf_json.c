@@ -792,7 +792,9 @@ static ngx_int_t waf_copy_tags_array(waf_merge_ctx_t *ctx, yyjson_val *src,
       return waf_json_set_error(ctx, file, pointer, "tags 元素必须为字符串");
     }
     const char *tag = yyjson_get_str(it);
-    if (!yyjson_mut_arr_add_str(ctx->out_doc, arr, tag)) {
+    size_t tag_len = yyjson_get_len(it);
+    yyjson_mut_val *str_val = yyjson_mut_strncpy(ctx->out_doc, tag, tag_len);
+    if (!str_val || !yyjson_mut_arr_append(arr, str_val)) {
       return waf_json_set_error(ctx, file, pointer, "写入 tags 失败");
     }
   }
@@ -1071,7 +1073,7 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule, waf_
 
   if (phase_node) {
     yyjson_mut_val *k = yyjson_mut_str(ctx->out_doc, "phase");
-    yyjson_mut_val *v = yyjson_mut_str(ctx->out_doc, yyjson_get_str(phase_node));
+    yyjson_mut_val *v = yyjson_mut_strncpy(ctx->out_doc, yyjson_get_str(phase_node), yyjson_get_len(phase_node));
     if (!k || !v || !yyjson_mut_obj_add(rule_mut, k, v)) {
       return waf_json_set_error(ctx, file, base_pointer, "写入 phase 失败");
     }
@@ -1079,7 +1081,7 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule, waf_
 
   if (header_name_node) {
     yyjson_mut_val *k = yyjson_mut_str(ctx->out_doc, "headerName");
-    yyjson_mut_val *v = yyjson_mut_str(ctx->out_doc, yyjson_get_str(header_name_node));
+    yyjson_mut_val *v = yyjson_mut_strncpy(ctx->out_doc, yyjson_get_str(header_name_node), yyjson_get_len(header_name_node));
     if (!k || !v || !yyjson_mut_obj_add(rule_mut, k, v)) {
       return waf_json_set_error(ctx, file, base_pointer, "写入 headerName 失败");
     }
@@ -1090,7 +1092,7 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule, waf_
   }
 
   yyjson_mut_val *k_match = yyjson_mut_str(ctx->out_doc, "match");
-  yyjson_mut_val *v_match = yyjson_mut_str(ctx->out_doc, match_text);
+  yyjson_mut_val *v_match = yyjson_mut_strncpy(ctx->out_doc, match_text, match_len);
   if (!k_match || !v_match || !yyjson_mut_obj_add(rule_mut, k_match, v_match)) {
     return waf_json_set_error(ctx, file, base_pointer, "写入 match 失败");
   }
@@ -1102,7 +1104,7 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule, waf_
     if (plen == 0) {
       return waf_json_set_error(ctx, file, base_pointer, "pattern 字符串不能为空");
     }
-    yyjson_mut_val *v = yyjson_mut_str(ctx->out_doc, yyjson_get_str(pattern_node));
+    yyjson_mut_val *v = yyjson_mut_strncpy(ctx->out_doc, yyjson_get_str(pattern_node), plen);
     if (!k || !v || !yyjson_mut_obj_add(rule_mut, k, v)) {
       return waf_json_set_error(ctx, file, base_pointer, "写入 pattern 失败");
     }
@@ -1118,10 +1120,12 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule, waf_
       if (!yyjson_is_str(it)) {
         return waf_json_set_error(ctx, file, base_pointer, "pattern 数组元素必须为字符串");
       }
-      if (yyjson_get_len(it) == 0) {
+      size_t it_len = yyjson_get_len(it);
+      if (it_len == 0) {
         return waf_json_set_error(ctx, file, base_pointer, "pattern 数组元素不能为空字符串");
       }
-      if (!yyjson_mut_arr_add_str(ctx->out_doc, arr, yyjson_get_str(it))) {
+      yyjson_mut_val *str_val = yyjson_mut_strncpy(ctx->out_doc, yyjson_get_str(it), it_len);
+      if (!str_val || !yyjson_mut_arr_append(arr, str_val)) {
         return waf_json_set_error(ctx, file, base_pointer, "写入 pattern 失败");
       }
     }
@@ -1131,7 +1135,7 @@ static ngx_int_t waf_parse_rule(waf_merge_ctx_t *ctx, yyjson_val *src_rule, waf_
   }
 
   yyjson_mut_val *k_action = yyjson_mut_str(ctx->out_doc, "action");
-  yyjson_mut_val *v_action = yyjson_mut_str(ctx->out_doc, action_text);
+  yyjson_mut_val *v_action = yyjson_mut_strncpy(ctx->out_doc, action_text, action_len);
   if (!k_action || !v_action || !yyjson_mut_obj_add(rule_mut, k_action, v_action)) {
     return waf_json_set_error(ctx, file, base_pointer, "写入 action 失败");
   }

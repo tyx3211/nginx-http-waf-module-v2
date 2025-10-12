@@ -278,7 +278,10 @@ static void waf_log_write_jsonl(ngx_http_request_t *r, ngx_http_waf_main_conf_t 
     return;
 
   /* 检查是否配置了日志路径 */
+  ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                "waf: write_jsonl_to_file called, json_log_path.len=%uz", mcf->json_log_path.len);
   if (mcf->json_log_path.len == 0) {
+    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "waf: json_log_path not configured, skipping JSONL write");
     return; /* 未配置日志文件 */
   }
 
@@ -436,10 +439,17 @@ void waf_log_flush_final(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
   yyjson_mut_obj_add_strn(doc, root, "method", (const char *)r->method_name.data,
                           r->method_name.len);
 
-  /* 4. URI */
+  /* 4. Host */
+  if (r->headers_in.host && r->headers_in.host->value.len > 0) {
+    yyjson_mut_obj_add_strn(doc, root, "host", 
+                            (const char *)r->headers_in.host->value.data,
+                            r->headers_in.host->value.len);
+  }
+
+  /* 5. URI */
   yyjson_mut_obj_add_strn(doc, root, "uri", (const char *)r->uri.data, r->uri.len);
 
-  /* 5. events 数组 */
+  /* 6. events 数组 */
   if (ctx->events) {
     yyjson_mut_obj_add_val(doc, root, "events", ctx->events);
   }
@@ -447,30 +457,30 @@ void waf_log_flush_final(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
   /* 在最终输出前集中判定并标记 decisive 事件 */
   waf_log_mark_decisive_on_flush(r, ctx);
 
-  /* 6. finalAction */
+  /* 7. finalAction */
   yyjson_mut_obj_add_str(doc, root, "finalAction", waf_final_action_str(ctx->final_action));
 
-  /* 7. finalActionType */
+  /* 8. finalActionType */
   yyjson_mut_obj_add_str(doc, root, "finalActionType",
                          waf_final_action_type_str(ctx->final_action_type));
 
-  /* 8. currentGlobalAction（记录当前请求的全局策略） */
+  /* 9. currentGlobalAction（记录当前请求的全局策略） */
   if (lcf != NULL) {
     const char *global_action = (lcf->default_action == WAF_DEFAULT_ACTION_BLOCK) ? "BLOCK" : "LOG";
     yyjson_mut_obj_add_str(doc, root, "currentGlobalAction", global_action);
   }
 
-  /* 9. blockRuleId（仅BLOCK_BY_RULE时） */
+  /* 10. blockRuleId（仅BLOCK_BY_RULE时） */
   if (ctx->final_action_type == WAF_FINAL_ACTION_TYPE_BLOCK_BY_RULE && ctx->block_rule_id > 0) {
     yyjson_mut_obj_add_uint(doc, root, "blockRuleId", ctx->block_rule_id);
   }
 
-  /* 10. status */
+  /* 11. status */
   if (ctx->final_status > 0) {
     yyjson_mut_obj_add_uint(doc, root, "status", ctx->final_status);
   }
 
-  /* 11. level（顶层日志级别，文本） */
+  /* 12. level（顶层日志级别，文本） */
   yyjson_mut_obj_add_str(doc, root, "level", waf_log_level_str(ctx->effective_level));
 
   /* 输出 JSONL */
@@ -479,8 +489,8 @@ void waf_log_flush_final(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
   if (json) {
     /* 检查日志级别是否需要输出 */
     ngx_flag_t should_log = 0;
-    if (ctx->final_action == WAF_FINAL_BLOCK) {
-      /* BLOCK 强制输出 */
+    if (ctx->final_action == WAF_FINAL_BLOCK || ctx->final_action == WAF_FINAL_BYPASS) {
+      /* BLOCK/BYPASS 强制输出（decisive events） */
       should_log = 1;
     } else if (mcf && mcf->json_log_level != (ngx_uint_t)WAF_LOG_NONE) {
       /* 根据配置级别判断 */
