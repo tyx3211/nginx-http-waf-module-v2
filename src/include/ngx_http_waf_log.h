@@ -79,7 +79,6 @@ typedef struct {
   ngx_str_t matched_pattern;        /* 可为空表示未知 */
   ngx_uint_t pattern_index;         /* 未知为 0 */
   ngx_flag_t negate;                /* 规则是否取反 */
-  ngx_flag_t decisive;              /* 是否标记为 decisive */
 } waf_event_details_t;
 
 /* 记录规则事件（使用聚合结构） */

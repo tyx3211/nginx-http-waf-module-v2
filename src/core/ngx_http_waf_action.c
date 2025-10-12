@@ -1,5 +1,6 @@
 #include "ngx_http_waf_action.h"
 #include "ngx_http_waf_dynamic_block.h"
+#include "ngx_http_waf_log.h"
 
 /*
  * ================================================================
@@ -31,10 +32,9 @@ static void waf_record_rule_event(ngx_http_request_t *r, ngx_http_waf_main_conf_
                            : (intent == WAF_INTENT_BYPASS) ? "BYPASS"
                                                            : "LOG";
 
-  waf_log_level_e lv = (intent == WAF_INTENT_BLOCK) ? WAF_LOG_INFO : WAF_LOG_DEBUG;
-  waf_log_collect_mode_e mode = (details && details->decisive)
-                                    ? WAF_LOG_COLLECT_ALWAYS
-                                    : WAF_LOG_COLLECT_LEVEL_GATED;
+  /* 统一收集：规则事件一律 COLLECT_ALWAYS；级别：BLOCK->ALERT，BYPASS/LOG->INFO */
+  waf_log_level_e lv = (intent == WAF_INTENT_BLOCK) ? WAF_LOG_ALERT : WAF_LOG_INFO;
+  waf_log_collect_mode_e mode = WAF_LOG_COLLECT_ALWAYS;
 
   waf_log_append_rule_event(r, mcf, ctx, rule_id, intent_str, score_delta,
                             details, mode, lv);
@@ -54,28 +54,54 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
     return WAF_RC_ERROR;
   }
 
-  /* 1. 记录事件并（稍后）累积分 */
-  waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
+  /* 1. 规则事件记录延后到意图分支（BLOCK 时需先设 final 再记录，便于 decisive 判定） */
 
   /* 2. 动态封禁：先增量计分，再检查是否已被封禁（与v1一致） */
   if (score_delta > 0) {
     waf_dyn_score_add(r, score_delta);
   }
 
-  if (waf_dyn_is_banned(r)) {
-    ctx->final_action = WAF_FINAL_BLOCK;
-    ctx->final_action_type = (final_type_hint != NULL)
-                                 ? *final_type_hint
-                                 : WAF_FINAL_ACTION_TYPE_BLOCK_BY_DYNAMIC_BLOCK;
-    ctx->final_status = NGX_HTTP_FORBIDDEN;
-    ctx->effective_level = WAF_LOG_ALERT;
-    waf_log_flush_final(r, mcf, lcf, ctx, "BLOCK_BY_DYNAMIC_BLOCK");
-    return WAF_RC_BLOCK;
-  }
-
-  /* 4. 获取执法策略（默认BLOCK） */
+  /* 3. 全局执法策略 */
   ngx_uint_t global_block_enabled =
       (lcf && lcf->default_action == WAF_DEFAULT_ACTION_BLOCK) ? 1 : 0;
+
+  /* 4. 若已处于封禁窗口内：按全局策略决定是否阻断 */
+  if (waf_dyn_is_banned(r)) {
+    ngx_msec_t window = (mcf && mcf->dyn_block_window > 0) ? mcf->dyn_block_window : 60000;
+    if (global_block_enabled) {
+      /* 先设置最终动作为 BLOCK，再记录事件，保证 decisive 正确归属 */
+      ctx->final_action = WAF_FINAL_BLOCK;
+      ctx->final_action_type = (final_type_hint != NULL)
+                                   ? *final_type_hint
+                                   : WAF_FINAL_ACTION_TYPE_BLOCK_BY_DYNAMIC_BLOCK;
+      ctx->final_status = NGX_HTTP_FORBIDDEN;
+      ctx->effective_level = WAF_LOG_ALERT;
+
+      /* 若当前意图为 BLOCK，优先记录规则事件（将被日志层判为 decisive） */
+      if (intent == WAF_INTENT_BLOCK) {
+        if (rule_id_or_0 > 0) {
+          ctx->block_rule_id = rule_id_or_0;
+        }
+        waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
+      }
+
+      /* 再记录 ban 事件（如未被规则事件占用 decisive，将由日志层自判） */
+      waf_log_append_ban_event(r, mcf, ctx, window, WAF_LOG_COLLECT_ALWAYS, WAF_LOG_ALERT);
+
+      waf_log_flush_final(r, mcf, lcf, ctx, "BLOCK_BY_DYNAMIC_BLOCK");
+      return WAF_RC_BLOCK;
+    } else {
+      /* 全局策略为 LOG：不阻断。顺序：先记录规则事件，再记录 ban 事件，继续流水 */
+      ctx->final_action = WAF_FINAL_NONE;
+      ctx->final_action_type = WAF_FINAL_ACTION_TYPE_ALLOW;
+      ctx->final_status = 0;
+      /* 先记录规则事件（仅审计，不会成为 decisive） */
+      waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
+      /* 再记录 ban 事件（表明处于封禁窗口，但全局为 LOG） */
+      waf_log_append_ban_event(r, mcf, ctx, window, WAF_LOG_COLLECT_ALWAYS, WAF_LOG_INFO);
+      return WAF_RC_CONTINUE;
+    }
+  }
 
   /* 5. 处理意图 */
   if (http_status <= 0) {
@@ -86,9 +112,11 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
     case WAF_INTENT_BLOCK:
       /* BLOCK意图：受全局策略控制 */
       if (global_block_enabled) {
-        /* 真实阻断 */
+        /* 真实阻断：先设最终动作，再记录规则事件 */
         ctx->final_action = WAF_FINAL_BLOCK;
-        ctx->final_action_type = WAF_FINAL_ACTION_TYPE_BLOCK_BY_RULE;
+        ctx->final_action_type = (final_type_hint != NULL)
+                                     ? *final_type_hint
+                                     : WAF_FINAL_ACTION_TYPE_BLOCK_BY_RULE;
         ctx->final_status = (ngx_uint_t)http_status;
         if (rule_id_or_0 > 0) {
           ctx->block_rule_id = rule_id_or_0;
@@ -97,16 +125,10 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
           ctx->effective_level = WAF_LOG_ALERT;
         }
 
-        /* 记录decisive事件（首次BLOCK） */
-        if (!ctx->decisive_set && rule_id_or_0 > 0) {
-          waf_event_details_t det = {0};
-          det.decisive = 1;
-          waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, 0, &det);
-        }
+        /* 记录规则事件（intent=BLOCK，将由日志层判定为 decisive） */
+        waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
 
         waf_log_flush_final(r, mcf, lcf, ctx, "BLOCK");
-
-        /* 动态封禁状态已在增量计分时更新；此处不再写入总分 */
 
         return WAF_RC_BLOCK;
       } else {
@@ -114,6 +136,8 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
         ctx->final_action = WAF_FINAL_NONE;
         ctx->final_action_type = WAF_FINAL_ACTION_TYPE_ALLOW;
         ctx->final_status = 0;
+        /* 记录规则事件（intent=BLOCK 但在 LOG 策略下不阻断） */
+        waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
         /* 继续后续检测 */
         return WAF_RC_CONTINUE;
       }
@@ -125,6 +149,8 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
                                    ? *final_type_hint
                                    : WAF_FINAL_ACTION_TYPE_BYPASS_BY_URI_WHITELIST; /* 默认URI白名单 */
       ctx->final_status = 0;
+      /* 记录规则事件（BYPASS） */
+      waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
       waf_log_flush_final(r, mcf, lcf, ctx, "BYPASS");
       return WAF_RC_BYPASS;
 
@@ -134,6 +160,8 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
       ctx->final_action = WAF_FINAL_NONE;
       ctx->final_action_type = WAF_FINAL_ACTION_TYPE_ALLOW;
       ctx->final_status = 0;
+      /* 记录规则事件（LOG） */
+      waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
       return WAF_RC_CONTINUE;
   }
 }
@@ -202,22 +230,30 @@ waf_rc_e waf_enforce_base_add(ngx_http_request_t *r, ngx_http_waf_main_conf_t *m
     /* 先增量计分，再检查封禁（v1 顺序语义） */
     waf_dyn_score_add(r, score_delta);
 
-    /* 记录reputation事件 */
+    /* 记录reputation事件：base_access 改为 ALWAYS 且 INFO 级 */
     waf_log_append_reputation_event(r, mcf, ctx, score_delta, "base_access",
-                                    WAF_LOG_COLLECT_LEVEL_GATED, WAF_LOG_DEBUG);
+                                    WAF_LOG_COLLECT_ALWAYS, WAF_LOG_INFO);
 
     /* 检查是否达阈值 */
     ngx_uint_t threshold = (mcf && mcf->dyn_block_threshold > 0) ? mcf->dyn_block_threshold : 100;
     ngx_uint_t global_block_enabled =
         (lcf && lcf->default_action == WAF_DEFAULT_ACTION_BLOCK) ? 1 : 0;
 
+    /* 已在共享层置位封禁时，遵循全局策略 */
     if (waf_dyn_is_banned(r)) {
-      ctx->final_action = WAF_FINAL_BLOCK;
-      ctx->final_action_type = WAF_FINAL_ACTION_TYPE_BLOCK_BY_DYNAMIC_BLOCK;
-      ctx->final_status = NGX_HTTP_FORBIDDEN;
-      ctx->effective_level = WAF_LOG_ALERT;
-      waf_log_flush_final(r, mcf, lcf, ctx, "BLOCK_BY_DYNAMIC_BLOCK");
-      return WAF_RC_BLOCK;
+      ngx_msec_t window = (mcf && mcf->dyn_block_window > 0) ? mcf->dyn_block_window : 60000;
+      if (global_block_enabled) {
+        waf_log_append_ban_event(r, mcf, ctx, window, WAF_LOG_COLLECT_ALWAYS, WAF_LOG_ALERT);
+        ctx->final_action = WAF_FINAL_BLOCK;
+        ctx->final_action_type = WAF_FINAL_ACTION_TYPE_BLOCK_BY_DYNAMIC_BLOCK;
+        ctx->final_status = NGX_HTTP_FORBIDDEN;
+        ctx->effective_level = WAF_LOG_ALERT;
+        waf_log_flush_final(r, mcf, lcf, ctx, "BLOCK_BY_DYNAMIC_BLOCK");
+        return WAF_RC_BLOCK;
+      } else {
+        waf_log_append_ban_event(r, mcf, ctx, window, WAF_LOG_COLLECT_LEVEL_GATED, WAF_LOG_INFO);
+        return WAF_RC_CONTINUE;
+      }
     }
 
     if (global_block_enabled && ctx->total_score >= threshold) {

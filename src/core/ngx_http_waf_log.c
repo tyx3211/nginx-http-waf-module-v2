@@ -164,9 +164,15 @@ void waf_log_append_rule_event(ngx_http_request_t *r, ngx_http_waf_main_conf_t *
     }
   }
 
-  if (details && details->decisive && !ctx->decisive_set) {
-    yyjson_mut_obj_add_bool(doc, event, "decisive", true);
-    ctx->decisive_set = 1;
+  /* decisive 判定：纯日志层自判
+   * - 若当前最终动作为 BLOCK，且本事件的 intent 为 BLOCK，则将其标记为 decisive（仅一次）
+   * - intent 由动作层给出，已考虑全局动作，可直接信任
+   */
+  if (!ctx->decisive_set && ctx->final_action == WAF_FINAL_BLOCK && intent_str != NULL) {
+    if (ngx_strcmp(intent_str, "BLOCK") == 0) {
+      yyjson_mut_obj_add_bool(doc, event, "decisive", true);
+      ctx->decisive_set = 1;
+    }
   }
 
   yyjson_mut_arr_append(ctx->events, event);
@@ -242,7 +248,9 @@ void waf_log_append_ban_event(ngx_http_request_t *r, ngx_http_waf_main_conf_t *m
   yyjson_mut_obj_add_str(doc, event, "type", "ban");
   yyjson_mut_obj_add_uint(doc, event, "window", (ngx_uint_t)window);
 
-  if (!ctx->decisive_set) {
+  /* 仅当最终动作已确定为 BLOCK 时才标记 decisive；
+   * 避免在全局策略为 LOG 时误写 decisive。 */
+  if (!ctx->decisive_set && ctx->final_action == WAF_FINAL_BLOCK) {
     yyjson_mut_obj_add_bool(doc, event, "decisive", true);
     ctx->decisive_set = 1;
   }
@@ -376,15 +384,24 @@ void waf_log_flush_final(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
   yyjson_mut_obj_add_str(doc, root, "finalActionType",
                          waf_final_action_type_str(ctx->final_action_type));
 
-  /* 8. blockRuleId（仅BLOCK_BY_RULE时） */
+  /* 8. currentGlobalAction（记录当前请求的全局策略） */
+  if (lcf != NULL) {
+    const char *global_action = (lcf->default_action == WAF_DEFAULT_ACTION_BLOCK) ? "BLOCK" : "LOG";
+    yyjson_mut_obj_add_str(doc, root, "currentGlobalAction", global_action);
+  }
+
+  /* 9. blockRuleId（仅BLOCK_BY_RULE时） */
   if (ctx->final_action_type == WAF_FINAL_ACTION_TYPE_BLOCK_BY_RULE && ctx->block_rule_id > 0) {
     yyjson_mut_obj_add_uint(doc, root, "blockRuleId", ctx->block_rule_id);
   }
 
-  /* 9. status */
+  /* 10. status */
   if (ctx->final_status > 0) {
     yyjson_mut_obj_add_uint(doc, root, "status", ctx->final_status);
   }
+
+  /* 11. level（顶层日志级别，文本） */
+  yyjson_mut_obj_add_str(doc, root, "level", waf_log_level_str(ctx->effective_level));
 
   /* 输出 JSONL */
   yyjson_write_err werr;
