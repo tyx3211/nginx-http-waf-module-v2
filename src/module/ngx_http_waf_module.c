@@ -26,6 +26,140 @@ static void ngx_http_waf_post_read_body_handler(ngx_http_request_t *r);
 
 /* 工具函数改为从 utils 复用：ngx_http_waf_collect_request_body 等 */
 
+/* =========================
+ *  $waf_* 变量实现与注册
+ * ========================= */
+static ngx_int_t ngx_http_waf_var_get_blocked(ngx_http_request_t *r,
+                                              ngx_http_variable_value_t *v,
+                                              uintptr_t data);
+static ngx_int_t ngx_http_waf_var_get_action(ngx_http_request_t *r,
+                                             ngx_http_variable_value_t *v,
+                                             uintptr_t data);
+static ngx_int_t ngx_http_waf_var_get_rule_id(ngx_http_request_t *r,
+                                              ngx_http_variable_value_t *v,
+                                              uintptr_t data);
+static ngx_int_t ngx_http_waf_var_get_attack_type(ngx_http_request_t *r,
+                                                  ngx_http_variable_value_t *v,
+                                                  uintptr_t data);
+
+static ngx_int_t ngx_http_waf_register_variables(ngx_conf_t *cf)
+{
+  ngx_http_variable_t *var;
+  ngx_str_t name;
+
+  name.len = sizeof("waf_blocked") - 1; name.data = (u_char *)"waf_blocked";
+  var = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_NOCACHEABLE);
+  if (var == NULL) { return NGX_ERROR; }
+  var->get_handler = ngx_http_waf_var_get_blocked; var->data = 0;
+
+  name.len = sizeof("waf_action") - 1; name.data = (u_char *)"waf_action";
+  var = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_NOCACHEABLE);
+  if (var == NULL) { return NGX_ERROR; }
+  var->get_handler = ngx_http_waf_var_get_action; var->data = 0;
+
+  name.len = sizeof("waf_rule_id") - 1; name.data = (u_char *)"waf_rule_id";
+  var = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_NOCACHEABLE);
+  if (var == NULL) { return NGX_ERROR; }
+  var->get_handler = ngx_http_waf_var_get_rule_id; var->data = 0;
+
+  name.len = sizeof("waf_attack_type") - 1; name.data = (u_char *)"waf_attack_type";
+  var = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_NOCACHEABLE);
+  if (var == NULL) { return NGX_ERROR; }
+  var->get_handler = ngx_http_waf_var_get_attack_type; var->data = 0;
+
+  return NGX_OK;
+}
+
+static ngx_http_waf_ctx_t *
+ngx_http_waf_get_main_ctx(ngx_http_request_t *r)
+{
+  ngx_http_request_t *mr = r->main ? r->main : r;
+  return (ngx_http_waf_ctx_t *)ngx_http_get_module_ctx(mr, ngx_http_waf_module);
+}
+
+static ngx_int_t ngx_http_waf_var_get_blocked(ngx_http_request_t *r,
+                                              ngx_http_variable_value_t *v,
+                                              uintptr_t data)
+{
+  (void)data;
+  ngx_http_waf_ctx_t *ctx = ngx_http_waf_get_main_ctx(r);
+  if (ctx && ctx->final_action == WAF_FINAL_BLOCK) {
+    v->len = 1; v->data = (u_char *)"1";
+  } else {
+    v->len = 1; v->data = (u_char *)"0";
+  }
+  v->valid = 1; v->no_cacheable = 0; v->not_found = 0;
+  return NGX_OK;
+}
+
+static const char *
+ngx_http_waf_action_to_str(waf_final_action_e a)
+{
+  switch (a) {
+    case WAF_FINAL_BLOCK: return "BLOCK";
+    case WAF_FINAL_BYPASS: return "BYPASS";
+    case WAF_FINAL_NONE: default: return "ALLOW";
+  }
+}
+
+static ngx_int_t ngx_http_waf_var_get_action(ngx_http_request_t *r,
+                                             ngx_http_variable_value_t *v,
+                                             uintptr_t data)
+{
+  (void)data;
+  ngx_http_waf_ctx_t *ctx = ngx_http_waf_get_main_ctx(r);
+  const char *s = ngx_http_waf_action_to_str(ctx ? ctx->final_action : WAF_FINAL_NONE);
+  v->len = (size_t)ngx_strlen(s); v->data = (u_char *)s;
+  v->valid = 1; v->no_cacheable = 0; v->not_found = 0;
+  return NGX_OK;
+}
+
+static const char *
+ngx_http_waf_action_type_to_str(waf_final_action_type_e t)
+{
+  switch (t) {
+    case WAF_FINAL_ACTION_TYPE_ALLOW: return "ALLOW";
+    case WAF_FINAL_ACTION_TYPE_BYPASS_BY_IP_WHITELIST: return "BYPASS_BY_IP_WHITELIST";
+    case WAF_FINAL_ACTION_TYPE_BYPASS_BY_URI_WHITELIST: return "BYPASS_BY_URI_WHITELIST";
+    case WAF_FINAL_ACTION_TYPE_BLOCK_BY_RULE: return "BLOCK_BY_RULE";
+    case WAF_FINAL_ACTION_TYPE_BLOCK_BY_REPUTATION: return "BLOCK_BY_REPUTATION";
+    case WAF_FINAL_ACTION_TYPE_BLOCK_BY_IP_BLACKLIST: return "BLOCK_BY_IP_BLACKLIST";
+    case WAF_FINAL_ACTION_TYPE_BLOCK_BY_DYNAMIC_BLOCK: return "BLOCK_BY_DYNAMIC_BLOCK";
+    default: return "ALLOW";
+  }
+}
+
+static ngx_int_t ngx_http_waf_var_get_rule_id(ngx_http_request_t *r,
+                                              ngx_http_variable_value_t *v,
+                                              uintptr_t data)
+{
+  (void)data;
+  ngx_http_waf_ctx_t *ctx = ngx_http_waf_get_main_ctx(r);
+  if (ctx && ctx->final_action_type == WAF_FINAL_ACTION_TYPE_BLOCK_BY_RULE && ctx->block_rule_id > 0) {
+    /* 至多 10 位 + 终止符 */
+    u_char *p = ngx_pnalloc(r->pool, 16);
+    if (p == NULL) { v->len = 0; v->data = (u_char *)""; v->valid = 1; v->no_cacheable = 0; v->not_found = 0; return NGX_OK; }
+    u_char *end = ngx_sprintf(p, "%ui", (ngx_uint_t)ctx->block_rule_id);
+    v->len = (size_t)(end - p); v->data = p;
+  } else {
+    v->len = 0; v->data = (u_char *)"";
+  }
+  v->valid = 1; v->no_cacheable = 0; v->not_found = 0;
+  return NGX_OK;
+}
+
+static ngx_int_t ngx_http_waf_var_get_attack_type(ngx_http_request_t *r,
+                                                  ngx_http_variable_value_t *v,
+                                                  uintptr_t data)
+{
+  (void)data;
+  ngx_http_waf_ctx_t *ctx = ngx_http_waf_get_main_ctx(r);
+  const char *s = ngx_http_waf_action_type_to_str(ctx ? ctx->final_action_type : WAF_FINAL_ACTION_TYPE_ALLOW);
+  v->len = (size_t)ngx_strlen(s); v->data = (u_char *)s;
+  v->valid = 1; v->no_cacheable = 0; v->not_found = 0;
+  return NGX_OK;
+}
+
 static waf_rc_e waf_stage_ip_allow(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
                                    ngx_http_waf_loc_conf_t *lcf, ngx_http_waf_ctx_t *ctx)
 {
@@ -331,7 +465,11 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
 
         case WAF_T_ARGS_COMBINED: {
           ngx_str_t subj;
-          if (ngx_http_waf_get_decoded_args_combined(r, &subj) != NGX_OK || subj.len == 0) {
+          ngx_int_t decode_rc = ngx_http_waf_get_decoded_args_combined(r, &subj);
+          ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                        "waf-debug: ARGS_COMBINED decode_rc=%i subj.len=%uz subj=%V",
+                        decode_rc, subj.len, &subj);
+          if (decode_rc != NGX_OK || subj.len == 0) {
             matched = 0;
             break;
           }
@@ -665,6 +803,11 @@ static ngx_int_t ngx_http_waf_postconfiguration(ngx_conf_t *cf)
     return NGX_ERROR;
   }
   *h = ngx_http_waf_access_handler;
+
+  /* 注册 $waf_* 变量 */
+  if (ngx_http_waf_register_variables(cf) != NGX_OK) {
+    return NGX_ERROR;
+  }
 
   return NGX_OK;
 }

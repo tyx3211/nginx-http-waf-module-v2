@@ -130,6 +130,25 @@ LOC（可继承/覆盖）
 - `waf_json_log` 写入采用 Nginx open_files 句柄，支持 USR1 reopen；未配置路径则仅输出 error_log 摘要。
 - `waf off` 时该作用域完全旁路（不检测、不加分、不封禁、不写 JSONL）。
 
+### 快速 include 接入（access 日志 + WAF 核心）
+
+在 `http {}` 中加入：
+
+```
+include waf/waf_core.conf;       # 模块指令集中定义
+include waf/waf_access_log.conf; # 输出 access_waf.json（含 $waf_*）
+```
+
+更多“快速交付”说明见 `docs/quick-implementation.md`。
+
+部署建议：将两份 conf 安装至 `/usr/local/nginx/conf/waf/` 目录（本仓库提供示例：`conf/waf/waf_core.conf` 与 `conf/waf/waf_access_log.conf`）。
+示例（加入 http{}）：
+```
+include waf/waf_core.conf;
+include waf/waf_access_log.conf;
+```
+
+
 ---
 
 ## 3. JSONL 日志（一次请求最多一行）
