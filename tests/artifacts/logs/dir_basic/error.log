@@ -1,0 +1,127 @@
+2025/10/13 05:52:51 [notice] 221880#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:52:51 [notice] 221880#0: using the "epoll" event method
+2025/10/13 05:52:51 [notice] 221880#0: nginx/1.24.0
+2025/10/13 05:52:51 [notice] 221880#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:52:51 [notice] 221880#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:52:51 [notice] 221880#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:52:51 [notice] 221881#0: start worker processes
+2025/10/13 05:52:51 [notice] 221881#0: start worker process 221883
+2025/10/13 05:52:51 [warn] 221883#0: *4 waf_dyn: IP blocked, ip=16777343, score=162, threshold=100, expiry=57333726, client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 05:52:51 [error] 221883#0: *4 open() "/usr/local/nginx/html/api2" failed (2: No such file or directory), client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 05:52:51 [notice] 221881#0: signal 15 (SIGTERM) received from 221874, exiting
+2025/10/13 05:52:51 [notice] 221883#0: exiting
+2025/10/13 05:52:51 [notice] 221883#0: exit
+2025/10/13 05:52:51 [notice] 221881#0: signal 17 (SIGCHLD) received from 221883
+2025/10/13 05:52:51 [notice] 221881#0: worker process 221883 exited with code 0
+2025/10/13 05:52:51 [notice] 221881#0: exit
+2025/10/13 06:00:30 [notice] 223528#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:00:30 [notice] 223528#0: using the "epoll" event method
+2025/10/13 06:00:30 [notice] 223528#0: nginx/1.24.0
+2025/10/13 06:00:30 [notice] 223528#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:00:30 [notice] 223528#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:00:30 [notice] 223528#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:00:30 [notice] 223529#0: start worker processes
+2025/10/13 06:00:30 [notice] 223529#0: start worker process 223531
+2025/10/13 06:00:31 [warn] 223531#0: *4 waf_dyn: IP blocked, ip=16777343, score=162, threshold=100, expiry=57793026, client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 06:00:31 [error] 223531#0: *4 open() "/usr/local/nginx/html/api2" failed (2: No such file or directory), client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 06:00:31 [notice] 223529#0: signal 15 (SIGTERM) received from 223522, exiting
+2025/10/13 06:00:31 [notice] 223531#0: exiting
+2025/10/13 06:00:31 [notice] 223531#0: exit
+2025/10/13 06:00:31 [notice] 223529#0: signal 17 (SIGCHLD) received from 223531
+2025/10/13 06:00:31 [notice] 223529#0: worker process 223531 exited with code 0
+2025/10/13 06:00:31 [notice] 223529#0: exit
+2025/10/13 06:02:25 [notice] 224153#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:02:25 [notice] 224153#0: using the "epoll" event method
+2025/10/13 06:02:25 [notice] 224153#0: nginx/1.24.0
+2025/10/13 06:02:25 [notice] 224153#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:02:25 [notice] 224153#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:02:25 [notice] 224153#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:02:25 [notice] 224154#0: start worker processes
+2025/10/13 06:02:25 [notice] 224154#0: start worker process 224156
+2025/10/13 06:02:25 [warn] 224156#0: *4 waf_dyn: IP blocked, ip=16777343, score=162, threshold=100, expiry=57907908, client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 06:02:25 [error] 224156#0: *4 open() "/usr/local/nginx/html/api2" failed (2: No such file or directory), client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 06:02:25 [notice] 224154#0: signal 15 (SIGTERM) received from 224147, exiting
+2025/10/13 06:02:25 [notice] 224156#0: exiting
+2025/10/13 06:02:25 [notice] 224156#0: exit
+2025/10/13 06:02:25 [notice] 224154#0: signal 17 (SIGCHLD) received from 224156
+2025/10/13 06:02:25 [notice] 224154#0: worker process 224156 exited with code 0
+2025/10/13 06:02:25 [notice] 224154#0: exit
+2025/10/13 06:05:01 [notice] 224793#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:05:01 [notice] 224793#0: using the "epoll" event method
+2025/10/13 06:05:01 [notice] 224793#0: nginx/1.24.0
+2025/10/13 06:05:01 [notice] 224793#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:05:01 [notice] 224793#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:05:01 [notice] 224793#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:05:01 [notice] 224794#0: start worker processes
+2025/10/13 06:05:01 [notice] 224794#0: start worker process 224797
+2025/10/13 06:05:01 [warn] 224797#0: *4 waf_dyn: IP blocked, ip=16777343, score=162, threshold=100, expiry=58063764, client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 06:05:01 [error] 224797#0: *4 open() "/usr/local/nginx/html/api2" failed (2: No such file or directory), client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 06:05:01 [notice] 224794#0: signal 15 (SIGTERM) received from 224782, exiting
+2025/10/13 06:05:01 [notice] 224797#0: exiting
+2025/10/13 06:05:01 [notice] 224797#0: exit
+2025/10/13 06:05:01 [notice] 224794#0: signal 17 (SIGCHLD) received from 224797
+2025/10/13 06:05:01 [notice] 224794#0: worker process 224797 exited with code 0
+2025/10/13 06:05:01 [notice] 224794#0: exit
+2025/10/13 06:10:21 [notice] 226004#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:10:21 [notice] 226004#0: using the "epoll" event method
+2025/10/13 06:10:21 [notice] 226004#0: nginx/1.24.0
+2025/10/13 06:10:21 [notice] 226004#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:10:21 [notice] 226004#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:10:21 [notice] 226004#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:10:21 [notice] 226005#0: start worker processes
+2025/10/13 06:10:21 [notice] 226005#0: start worker process 226007
+2025/10/13 06:10:21 [warn] 226007#0: *4 waf_dyn: IP blocked, ip=16777343, score=162, threshold=100, expiry=58383628, client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 06:10:21 [error] 226007#0: *4 open() "/usr/local/nginx/html/api2" failed (2: No such file or directory), client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 06:10:21 [notice] 226005#0: signal 15 (SIGTERM) received from 225998, exiting
+2025/10/13 06:10:21 [notice] 226007#0: exiting
+2025/10/13 06:10:21 [notice] 226007#0: exit
+2025/10/13 06:10:21 [notice] 226005#0: signal 17 (SIGCHLD) received from 226007
+2025/10/13 06:10:21 [notice] 226005#0: worker process 226007 exited with code 0
+2025/10/13 06:10:21 [notice] 226005#0: exit
+2025/10/13 06:29:27 [notice] 231950#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:29:27 [notice] 231950#0: using the "epoll" event method
+2025/10/13 06:29:27 [notice] 231950#0: nginx/1.24.0
+2025/10/13 06:29:27 [notice] 231950#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:29:27 [notice] 231950#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:29:27 [notice] 231950#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:29:27 [notice] 231951#0: start worker processes
+2025/10/13 06:29:27 [notice] 231951#0: start worker process 231953
+2025/10/13 06:29:27 [warn] 231953#0: *4 waf_dyn: IP blocked, ip=16777343, score=162, threshold=100, expiry=59529455, client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 06:29:27 [error] 231953#0: *4 open() "/usr/local/nginx/html/api2" failed (2: No such file or directory), client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 06:29:27 [notice] 231951#0: signal 15 (SIGTERM) received from 231944, exiting
+2025/10/13 06:29:27 [notice] 231953#0: exiting
+2025/10/13 06:29:27 [notice] 231953#0: exit
+2025/10/13 06:29:27 [notice] 231951#0: signal 17 (SIGCHLD) received from 231953
+2025/10/13 06:29:27 [notice] 231951#0: worker process 231953 exited with code 0
+2025/10/13 06:29:27 [notice] 231951#0: exit
+2025/10/13 07:59:09 [notice] 252997#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 07:59:09 [notice] 252997#0: using the "epoll" event method
+2025/10/13 07:59:09 [notice] 252997#0: nginx/1.24.0
+2025/10/13 07:59:09 [notice] 252997#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 07:59:09 [notice] 252997#0: OS: Linux 6.17.0-5-generic
+2025/10/13 07:59:09 [notice] 252997#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 07:59:09 [notice] 252998#0: start worker processes
+2025/10/13 07:59:09 [notice] 252998#0: start worker process 252999
+2025/10/13 07:59:09 [notice] 252999#0: *3 waf-debug: uri_allow check rule=100001 matchedPre=0 negate=0 matchedFinal=0 action=2, client: 127.0.0.1, server: , request: "GET /api1?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252999#0: *3 waf-debug: detect check rule=400001 target=1 match=2 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /api1?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252999#0: *3 waf-debug: detect check rule=400001 target=2 match=2 matchedPre=1 negate=0 matchedFinal=1 action=0, client: 127.0.0.1, server: , request: "GET /api1?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252999#0: *3 waf-debug: enforce DENY rule=400001 target=2 negate=0, client: 127.0.0.1, server: , request: "GET /api1?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252999#0: *3 waf-debug: enforce enter intent=0 http_status=403 ruleId=400001 scoreDelta=80 global=BLOCK, client: 127.0.0.1, server: , request: "GET /api1?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252999#0: *3 waf-debug: BLOCK commit ruleId=400001 status=403 finalType=3, client: 127.0.0.1, server: , request: "GET /api1?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252999#0: *3 waf-debug: decisive marking for BLOCK_BY_RULE ruleId=400001 events=2, client: 127.0.0.1, server: , request: "GET /api1?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252999#0: *3 waf-debug: decisive set at index=1 type=BLOCK ruleId=400001, client: 127.0.0.1, server: , request: "GET /api1?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252999#0: *4 waf-debug: uri_allow check rule=100001 matchedPre=0 negate=0 matchedFinal=0 action=2, client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252999#0: *4 waf-debug: detect check rule=400001 target=1 match=2 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252999#0: *4 waf-debug: detect check rule=400001 target=2 match=2 matchedPre=1 negate=0 matchedFinal=1 action=0, client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252999#0: *4 waf-debug: enforce DENY rule=400001 target=2 negate=0, client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252999#0: *4 waf-debug: enforce enter intent=0 http_status=403 ruleId=400001 scoreDelta=80 global=LOG, client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [warn] 252999#0: *4 waf_dyn: IP blocked, ip=16777343, score=162, threshold=100, expiry=64910962, client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252999#0: *4 waf-debug: dynamic-ban SUPPRESSED_BY_GLOBAL_LOG window=60000, client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252999#0: *4 waf-debug: detect check rule=400001 target=5 match=2 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [error] 252999#0: *4 open() "/usr/local/nginx/html/api2" failed (2: No such file or directory), client: 127.0.0.1, server: , request: "GET /api2?x=eval( HTTP/1.1", host: "127.0.0.1:8087"
+2025/10/13 07:59:09 [notice] 252998#0: signal 15 (SIGTERM) received from 252991, exiting
+2025/10/13 07:59:09 [notice] 252999#0: exiting
+2025/10/13 07:59:09 [notice] 252999#0: exit
+2025/10/13 07:59:09 [notice] 252998#0: signal 17 (SIGCHLD) received from 252999
+2025/10/13 07:59:09 [notice] 252998#0: worker process 252999 exited with code 0
+2025/10/13 07:59:09 [notice] 252998#0: exit

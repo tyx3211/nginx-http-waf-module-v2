@@ -1,0 +1,1 @@
+{"time":"2025-10-12T23:59:10Z","clientIp":"127.0.0.1","method":"GET","host":"127.0.0.1:8097","uri":"/","events":[{"type":"rule","ruleId":900001,"intent":"BLOCK","scoreDelta":10,"totalScore":10,"target":"header","negate":true}],"finalAction":"ALLOW","finalActionType":"ALLOW","currentGlobalAction":"LOG","level":"ALERT"}

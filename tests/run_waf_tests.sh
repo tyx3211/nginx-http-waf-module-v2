@@ -61,6 +61,13 @@ fi
 TEST_SCRIPTS=(
   "$SCRIPT_DIR/test_smoke_basic.sh"
   "$SCRIPT_DIR/test_dynamic_block_minimal.sh"
+  "$SCRIPT_DIR/test_directives_basic.sh"
+  "$SCRIPT_DIR/test_jsonl_schema.sh"
+  "$SCRIPT_DIR/test_dynamic_block_ab.sh"
+  "$SCRIPT_DIR/test_xff_trust_off.sh"
+  "$SCRIPT_DIR/test_waf_off_no_log.sh"
+  "$SCRIPT_DIR/test_default_action_log.sh"
+  "$SCRIPT_DIR/test_csrf_referer_negate.sh"
 )
 
 for t in "${TEST_SCRIPTS[@]}"; do

@@ -86,3 +86,147 @@
 2025/10/13 05:32:44 [notice] 215609#0: signal 17 (SIGCHLD) received from 215611
 2025/10/13 05:32:44 [notice] 215609#0: worker process 215611 exited with code 0
 2025/10/13 05:32:44 [notice] 215609#0: exit
+2025/10/13 05:41:24 [notice] 219720#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:41:24 [notice] 219720#0: using the "epoll" event method
+2025/10/13 05:41:24 [notice] 219720#0: nginx/1.24.0
+2025/10/13 05:41:24 [notice] 219720#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:41:24 [notice] 219720#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:41:24 [notice] 219720#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:41:24 [notice] 219721#0: start worker processes
+2025/10/13 05:41:24 [notice] 219721#0: start worker process 219723
+2025/10/13 05:41:24 [warn] 219723#0: *3 waf_dyn: IP blocked, ip=16777343, score=144, threshold=100, expiry=56646835, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:41:25 [notice] 219721#0: signal 15 (SIGTERM) received from 219714, exiting
+2025/10/13 05:41:25 [notice] 219723#0: exiting
+2025/10/13 05:41:25 [notice] 219723#0: exit
+2025/10/13 05:41:25 [notice] 219721#0: signal 17 (SIGCHLD) received from 219723
+2025/10/13 05:41:25 [notice] 219721#0: worker process 219723 exited with code 0
+2025/10/13 05:41:25 [notice] 219721#0: exit
+2025/10/13 05:52:50 [notice] 221850#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:52:50 [notice] 221850#0: using the "epoll" event method
+2025/10/13 05:52:50 [notice] 221850#0: nginx/1.24.0
+2025/10/13 05:52:50 [notice] 221850#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:52:50 [notice] 221850#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:52:50 [notice] 221850#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:52:50 [notice] 221851#0: start worker processes
+2025/10/13 05:52:50 [notice] 221851#0: start worker process 221852
+2025/10/13 05:52:51 [warn] 221852#0: *3 waf_dyn: IP blocked, ip=16777343, score=144, threshold=100, expiry=57333069, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 05:52:51 [notice] 221851#0: signal 15 (SIGTERM) received from 221844, exiting
+2025/10/13 05:52:51 [notice] 221852#0: exiting
+2025/10/13 05:52:51 [notice] 221852#0: exit
+2025/10/13 05:52:51 [notice] 221851#0: signal 17 (SIGCHLD) received from 221852
+2025/10/13 05:52:51 [notice] 221851#0: worker process 221852 exited with code 0
+2025/10/13 05:52:51 [notice] 221851#0: exit
+2025/10/13 06:00:30 [notice] 223488#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:00:30 [notice] 223488#0: using the "epoll" event method
+2025/10/13 06:00:30 [notice] 223488#0: nginx/1.24.0
+2025/10/13 06:00:30 [notice] 223488#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:00:30 [notice] 223488#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:00:30 [notice] 223488#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:00:30 [notice] 223489#0: start worker processes
+2025/10/13 06:00:30 [notice] 223489#0: start worker process 223491
+2025/10/13 06:00:30 [warn] 223491#0: *3 waf_dyn: IP blocked, ip=16777343, score=144, threshold=100, expiry=57792375, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 06:00:30 [notice] 223489#0: signal 15 (SIGTERM) received from 223482, exiting
+2025/10/13 06:00:30 [notice] 223491#0: exiting
+2025/10/13 06:00:30 [notice] 223491#0: exit
+2025/10/13 06:00:30 [notice] 223489#0: signal 17 (SIGCHLD) received from 223491
+2025/10/13 06:00:30 [notice] 223489#0: worker process 223491 exited with code 0
+2025/10/13 06:00:30 [notice] 223489#0: exit
+2025/10/13 06:02:25 [notice] 224126#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:02:25 [notice] 224126#0: using the "epoll" event method
+2025/10/13 06:02:25 [notice] 224126#0: nginx/1.24.0
+2025/10/13 06:02:25 [notice] 224126#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:02:25 [notice] 224126#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:02:25 [notice] 224126#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:02:25 [notice] 224127#0: start worker processes
+2025/10/13 06:02:25 [notice] 224127#0: start worker process 224129
+2025/10/13 06:02:25 [warn] 224129#0: *3 waf_dyn: IP blocked, ip=16777343, score=144, threshold=100, expiry=57907259, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 06:02:25 [notice] 224127#0: signal 15 (SIGTERM) received from 224120, exiting
+2025/10/13 06:02:25 [notice] 224129#0: exiting
+2025/10/13 06:02:25 [notice] 224129#0: exit
+2025/10/13 06:02:25 [notice] 224127#0: signal 17 (SIGCHLD) received from 224129
+2025/10/13 06:02:25 [notice] 224127#0: worker process 224129 exited with code 0
+2025/10/13 06:02:25 [notice] 224127#0: exit
+2025/10/13 06:05:00 [notice] 224761#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:05:00 [notice] 224761#0: using the "epoll" event method
+2025/10/13 06:05:00 [notice] 224761#0: nginx/1.24.0
+2025/10/13 06:05:00 [notice] 224761#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:05:00 [notice] 224761#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:05:00 [notice] 224761#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:05:00 [notice] 224762#0: start worker processes
+2025/10/13 06:05:00 [notice] 224762#0: start worker process 224763
+2025/10/13 06:05:01 [warn] 224763#0: *3 waf_dyn: IP blocked, ip=16777343, score=144, threshold=100, expiry=58063109, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 06:05:01 [notice] 224762#0: signal 15 (SIGTERM) received from 224755, exiting
+2025/10/13 06:05:01 [notice] 224763#0: exiting
+2025/10/13 06:05:01 [notice] 224763#0: exit
+2025/10/13 06:05:01 [notice] 224762#0: signal 17 (SIGCHLD) received from 224763
+2025/10/13 06:05:01 [notice] 224762#0: worker process 224763 exited with code 0
+2025/10/13 06:05:01 [notice] 224762#0: exit
+2025/10/13 06:10:20 [notice] 225977#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:10:20 [notice] 225977#0: using the "epoll" event method
+2025/10/13 06:10:20 [notice] 225977#0: nginx/1.24.0
+2025/10/13 06:10:20 [notice] 225977#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:10:20 [notice] 225977#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:10:20 [notice] 225977#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:10:20 [notice] 225978#0: start worker processes
+2025/10/13 06:10:20 [notice] 225978#0: start worker process 225979
+2025/10/13 06:10:21 [warn] 225979#0: *3 waf_dyn: IP blocked, ip=16777343, score=144, threshold=100, expiry=58382980, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 06:10:21 [notice] 225978#0: signal 15 (SIGTERM) received from 225971, exiting
+2025/10/13 06:10:21 [notice] 225979#0: exiting
+2025/10/13 06:10:21 [notice] 225979#0: exit
+2025/10/13 06:10:21 [notice] 225978#0: signal 17 (SIGCHLD) received from 225979
+2025/10/13 06:10:21 [notice] 225978#0: worker process 225979 exited with code 0
+2025/10/13 06:10:21 [notice] 225978#0: exit
+2025/10/13 06:29:26 [notice] 231923#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:29:26 [notice] 231923#0: using the "epoll" event method
+2025/10/13 06:29:26 [notice] 231923#0: nginx/1.24.0
+2025/10/13 06:29:26 [notice] 231923#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:29:26 [notice] 231923#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:29:26 [notice] 231923#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:29:26 [notice] 231924#0: start worker processes
+2025/10/13 06:29:26 [notice] 231924#0: start worker process 231925
+2025/10/13 06:29:26 [warn] 231925#0: *3 waf_dyn: IP blocked, ip=16777343, score=144, threshold=100, expiry=59528806, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 06:29:27 [notice] 231924#0: signal 15 (SIGTERM) received from 231917, exiting
+2025/10/13 06:29:27 [notice] 231925#0: exiting
+2025/10/13 06:29:27 [notice] 231925#0: exit
+2025/10/13 06:29:27 [notice] 231924#0: signal 17 (SIGCHLD) received from 231925
+2025/10/13 06:29:27 [notice] 231924#0: worker process 231925 exited with code 0
+2025/10/13 06:29:27 [notice] 231924#0: exit
+2025/10/13 07:59:08 [notice] 252957#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 07:59:08 [notice] 252957#0: using the "epoll" event method
+2025/10/13 07:59:08 [notice] 252957#0: nginx/1.24.0
+2025/10/13 07:59:08 [notice] 252957#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 07:59:08 [notice] 252957#0: OS: Linux 6.17.0-5-generic
+2025/10/13 07:59:08 [notice] 252957#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 07:59:08 [notice] 252958#0: start worker processes
+2025/10/13 07:59:08 [notice] 252958#0: start worker process 252960
+2025/10/13 07:59:08 [notice] 252960#0: *2 waf-debug: uri_allow check rule=700001 matchedPre=0 negate=0 matchedFinal=0 action=2, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *2 waf-debug: detect check rule=200001 target=1 match=2 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *2 waf-debug: detect check rule=300001 target=1 match=0 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *2 waf-debug: detect check rule=500001 target=1 match=0 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *2 waf-debug: detect check rule=200001 target=2 match=2 matchedPre=1 negate=0 matchedFinal=1 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *2 waf-debug: enforce DENY rule=200001 target=2 negate=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *2 waf-debug: enforce enter intent=0 http_status=403 ruleId=200001 scoreDelta=70 global=BLOCK, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *2 waf-debug: BLOCK commit ruleId=200001 status=403 finalType=3, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *2 waf-debug: decisive marking for BLOCK_BY_RULE ruleId=200001 events=2, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *2 waf-debug: decisive set at index=1 type=BLOCK ruleId=200001, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *3 waf-debug: uri_allow check rule=700001 matchedPre=0 negate=0 matchedFinal=0 action=2, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *3 waf-debug: detect check rule=200001 target=1 match=2 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *3 waf-debug: detect check rule=300001 target=1 match=0 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *3 waf-debug: detect check rule=500001 target=1 match=0 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *3 waf-debug: detect check rule=200001 target=2 match=2 matchedPre=1 negate=0 matchedFinal=1 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *3 waf-debug: enforce DENY rule=200001 target=2 negate=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *3 waf-debug: enforce enter intent=0 http_status=403 ruleId=200001 scoreDelta=70 global=BLOCK, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [warn] 252960#0: *3 waf_dyn: IP blocked, ip=16777343, score=144, threshold=100, expiry=64910416, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *3 waf-debug: dynamic-ban BLOCK window=60000 finalType=6, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *3 waf-debug: decisive marking for DYNAMIC_BLOCK, events=3, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *3 waf-debug: decisive set at index=2 type=ban, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *4 waf-debug: decisive marking for DYNAMIC_BLOCK, events=2, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *4 waf-debug: decisive set at index=1 type=ban, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *5 waf-debug: decisive marking for DYNAMIC_BLOCK, events=2, client: 127.0.0.1, server: , request: "GET /?q=ping HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252960#0: *5 waf-debug: decisive set at index=1 type=ban, client: 127.0.0.1, server: , request: "GET /?q=ping HTTP/1.1", host: "127.0.0.1:8086"
+2025/10/13 07:59:08 [notice] 252958#0: signal 15 (SIGTERM) received from 252951, exiting
+2025/10/13 07:59:08 [notice] 252960#0: exiting
+2025/10/13 07:59:08 [notice] 252960#0: exit
+2025/10/13 07:59:08 [notice] 252958#0: signal 17 (SIGCHLD) received from 252960
+2025/10/13 07:59:08 [notice] 252958#0: worker process 252960 exited with code 0
+2025/10/13 07:59:08 [notice] 252958#0: exit

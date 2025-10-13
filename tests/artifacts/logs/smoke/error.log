@@ -76,3 +76,123 @@
 2025/10/13 05:32:43 [notice] 215588#0: signal 17 (SIGCHLD) received from 215590
 2025/10/13 05:32:43 [notice] 215588#0: worker process 215590 exited with code 0
 2025/10/13 05:32:43 [notice] 215588#0: exit
+2025/10/13 05:41:24 [notice] 219698#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:41:24 [notice] 219698#0: using the "epoll" event method
+2025/10/13 05:41:24 [notice] 219698#0: nginx/1.24.0
+2025/10/13 05:41:24 [notice] 219698#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:41:24 [notice] 219698#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:41:24 [notice] 219698#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:41:24 [notice] 219699#0: start worker processes
+2025/10/13 05:41:24 [notice] 219699#0: start worker process 219701
+2025/10/13 05:41:24 [notice] 219699#0: signal 15 (SIGTERM) received from 219692, exiting
+2025/10/13 05:41:24 [notice] 219701#0: exiting
+2025/10/13 05:41:24 [notice] 219701#0: exit
+2025/10/13 05:41:24 [notice] 219699#0: signal 17 (SIGCHLD) received from 219701
+2025/10/13 05:41:24 [notice] 219699#0: worker process 219701 exited with code 0
+2025/10/13 05:41:24 [notice] 219699#0: exit
+2025/10/13 05:52:50 [notice] 221829#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 05:52:50 [notice] 221829#0: using the "epoll" event method
+2025/10/13 05:52:50 [notice] 221829#0: nginx/1.24.0
+2025/10/13 05:52:50 [notice] 221829#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 05:52:50 [notice] 221829#0: OS: Linux 6.17.0-5-generic
+2025/10/13 05:52:50 [notice] 221829#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 05:52:50 [notice] 221830#0: start worker processes
+2025/10/13 05:52:50 [notice] 221830#0: start worker process 221831
+2025/10/13 05:52:50 [notice] 221830#0: signal 15 (SIGTERM) received from 221823, exiting
+2025/10/13 05:52:50 [notice] 221831#0: exiting
+2025/10/13 05:52:50 [notice] 221831#0: exit
+2025/10/13 05:52:50 [notice] 221830#0: signal 17 (SIGCHLD) received from 221831
+2025/10/13 05:52:50 [notice] 221830#0: worker process 221831 exited with code 0
+2025/10/13 05:52:50 [notice] 221830#0: exit
+2025/10/13 06:00:29 [notice] 223466#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:00:29 [notice] 223466#0: using the "epoll" event method
+2025/10/13 06:00:29 [notice] 223466#0: nginx/1.24.0
+2025/10/13 06:00:29 [notice] 223466#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:00:29 [notice] 223466#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:00:29 [notice] 223466#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:00:29 [notice] 223467#0: start worker processes
+2025/10/13 06:00:29 [notice] 223467#0: start worker process 223469
+2025/10/13 06:00:30 [notice] 223467#0: signal 15 (SIGTERM) received from 223460, exiting
+2025/10/13 06:00:30 [notice] 223469#0: exiting
+2025/10/13 06:00:30 [notice] 223469#0: exit
+2025/10/13 06:00:30 [notice] 223467#0: signal 17 (SIGCHLD) received from 223469
+2025/10/13 06:00:30 [notice] 223467#0: worker process 223469 exited with code 0
+2025/10/13 06:00:30 [notice] 223467#0: exit
+2025/10/13 06:02:24 [notice] 224105#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:02:24 [notice] 224105#0: using the "epoll" event method
+2025/10/13 06:02:24 [notice] 224105#0: nginx/1.24.0
+2025/10/13 06:02:24 [notice] 224105#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:02:24 [notice] 224105#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:02:24 [notice] 224105#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:02:24 [notice] 224106#0: start worker processes
+2025/10/13 06:02:24 [notice] 224106#0: start worker process 224107
+2025/10/13 06:02:25 [notice] 224106#0: signal 15 (SIGTERM) received from 224099, exiting
+2025/10/13 06:02:25 [notice] 224107#0: exiting
+2025/10/13 06:02:25 [notice] 224107#0: exit
+2025/10/13 06:02:25 [notice] 224106#0: signal 17 (SIGCHLD) received from 224107
+2025/10/13 06:02:25 [notice] 224106#0: worker process 224107 exited with code 0
+2025/10/13 06:02:25 [notice] 224106#0: exit
+2025/10/13 06:05:00 [notice] 224739#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:05:00 [notice] 224739#0: using the "epoll" event method
+2025/10/13 06:05:00 [notice] 224739#0: nginx/1.24.0
+2025/10/13 06:05:00 [notice] 224739#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:05:00 [notice] 224739#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:05:00 [notice] 224739#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:05:00 [notice] 224740#0: start worker processes
+2025/10/13 06:05:00 [notice] 224740#0: start worker process 224742
+2025/10/13 06:05:00 [notice] 224740#0: signal 15 (SIGTERM) received from 224733, exiting
+2025/10/13 06:05:00 [notice] 224742#0: exiting
+2025/10/13 06:05:00 [notice] 224742#0: exit
+2025/10/13 06:05:00 [notice] 224740#0: signal 17 (SIGCHLD) received from 224742
+2025/10/13 06:05:00 [notice] 224740#0: worker process 224742 exited with code 0
+2025/10/13 06:05:00 [notice] 224740#0: exit
+2025/10/13 06:10:20 [notice] 225956#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:10:20 [notice] 225956#0: using the "epoll" event method
+2025/10/13 06:10:20 [notice] 225956#0: nginx/1.24.0
+2025/10/13 06:10:20 [notice] 225956#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:10:20 [notice] 225956#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:10:20 [notice] 225956#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:10:20 [notice] 225957#0: start worker processes
+2025/10/13 06:10:20 [notice] 225957#0: start worker process 225959
+2025/10/13 06:10:20 [notice] 225957#0: signal 15 (SIGTERM) received from 225950, exiting
+2025/10/13 06:10:20 [notice] 225959#0: exiting
+2025/10/13 06:10:20 [notice] 225959#0: exit
+2025/10/13 06:10:20 [notice] 225957#0: signal 17 (SIGCHLD) received from 225959
+2025/10/13 06:10:20 [notice] 225957#0: worker process 225959 exited with code 0
+2025/10/13 06:10:20 [notice] 225957#0: exit
+2025/10/13 06:29:26 [notice] 231901#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 06:29:26 [notice] 231901#0: using the "epoll" event method
+2025/10/13 06:29:26 [notice] 231901#0: nginx/1.24.0
+2025/10/13 06:29:26 [notice] 231901#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 06:29:26 [notice] 231901#0: OS: Linux 6.17.0-5-generic
+2025/10/13 06:29:26 [notice] 231901#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 06:29:26 [notice] 231902#0: start worker processes
+2025/10/13 06:29:26 [notice] 231902#0: start worker process 231904
+2025/10/13 06:29:26 [notice] 231902#0: signal 15 (SIGTERM) received from 231895, exiting
+2025/10/13 06:29:26 [notice] 231904#0: exiting
+2025/10/13 06:29:26 [notice] 231904#0: exit
+2025/10/13 06:29:26 [notice] 231902#0: signal 17 (SIGCHLD) received from 231904
+2025/10/13 06:29:26 [notice] 231902#0: worker process 231904 exited with code 0
+2025/10/13 06:29:26 [notice] 231902#0: exit
+2025/10/13 07:59:07 [notice] 252935#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 07:59:07 [notice] 252935#0: using the "epoll" event method
+2025/10/13 07:59:07 [notice] 252935#0: nginx/1.24.0
+2025/10/13 07:59:07 [notice] 252935#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 07:59:07 [notice] 252935#0: OS: Linux 6.17.0-5-generic
+2025/10/13 07:59:07 [notice] 252935#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 07:59:07 [notice] 252936#0: start worker processes
+2025/10/13 07:59:07 [notice] 252936#0: start worker process 252938
+2025/10/13 07:59:08 [notice] 252938#0: *3 waf-debug: uri_allow check rule=100001 matchedPre=0 negate=0 matchedFinal=0 action=2, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8085"
+2025/10/13 07:59:08 [notice] 252938#0: *3 waf-debug: detect check rule=400001 target=1 match=2 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8085"
+2025/10/13 07:59:08 [notice] 252938#0: *3 waf-debug: detect check rule=400001 target=2 match=2 matchedPre=1 negate=0 matchedFinal=1 action=0, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8085"
+2025/10/13 07:59:08 [notice] 252938#0: *3 waf-debug: enforce DENY rule=400001 target=2 negate=0, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8085"
+2025/10/13 07:59:08 [notice] 252938#0: *3 waf-debug: enforce enter intent=0 http_status=403 ruleId=400001 scoreDelta=80 global=BLOCK, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8085"
+2025/10/13 07:59:08 [notice] 252938#0: *3 waf-debug: BLOCK commit ruleId=400001 status=403 finalType=3, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8085"
+2025/10/13 07:59:08 [notice] 252938#0: *3 waf-debug: decisive marking for BLOCK_BY_RULE ruleId=400001 events=2, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8085"
+2025/10/13 07:59:08 [notice] 252938#0: *3 waf-debug: decisive set at index=1 type=BLOCK ruleId=400001, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8085"
+2025/10/13 07:59:08 [notice] 252936#0: signal 15 (SIGTERM) received from 252929, exiting
+2025/10/13 07:59:08 [notice] 252938#0: exiting
+2025/10/13 07:59:08 [notice] 252938#0: exit
+2025/10/13 07:59:08 [notice] 252936#0: signal 17 (SIGCHLD) received from 252938
+2025/10/13 07:59:08 [notice] 252936#0: worker process 252938 exited with code 0
+2025/10/13 07:59:08 [notice] 252936#0: exit

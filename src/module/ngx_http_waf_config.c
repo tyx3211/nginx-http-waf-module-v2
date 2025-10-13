@@ -46,6 +46,7 @@ void *ngx_http_waf_create_main_conf(ngx_conf_t *cf)
   mcf->shm_zone_name.len = 0;
   mcf->shm_zone_name.data = NULL;
   mcf->shm_zone_size = 0;
+  mcf->json_log_of = NULL;
   /* 动态封禁默认值（M5） */
   mcf->dyn_block_threshold = NGX_CONF_UNSET_UINT;   /* 改为未设置哨兵 */
   mcf->dyn_block_window = NGX_CONF_UNSET_MSEC;      /* 改为未设置哨兵 */
@@ -369,6 +370,16 @@ static char *ngx_http_waf_set_json_log(ngx_conf_t *cf, ngx_command_t *cmd, void 
   value = cf->args->elts;
   mcf->json_log_path = value[1];
 
+  /* 支持 off 关闭：不注册 open_files，后续写入将跳过 */
+  if (mcf->json_log_path.len == 3 && ngx_strncasecmp(mcf->json_log_path.data, (u_char*)"off", 3) == 0) {
+    mcf->json_log_path.len = 0;
+    mcf->json_log_path.data = NULL;
+    mcf->json_log_of = NULL;
+    ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0, "waf: json_log disabled by 'off'");
+    (void)cmd;
+    return NGX_CONF_OK;
+  }
+
   /* 展开为绝对路径（相对于 Nginx Prefix） */
   if (ngx_conf_full_name(cf->cycle, &mcf->json_log_path, 0) != NGX_OK) {
     return NGX_CONF_ERROR;
@@ -376,6 +387,18 @@ static char *ngx_http_waf_set_json_log(ngx_conf_t *cf, ngx_command_t *cmd, void 
 
   ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0,
                      "waf: json_log_path configured: \"%V\"", &mcf->json_log_path);
+
+  /* 注册到 open_files：由 master 打开，worker 复用 fd；支持 USR1 重新打开 */
+  if (mcf->json_log_path.len != 0) {
+    mcf->json_log_of = ngx_conf_open_file(cf->cycle, &mcf->json_log_path);
+    if (mcf->json_log_of == NULL) {
+      ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                         "waf: failed to register json_log to open_files: %V",
+                         &mcf->json_log_path);
+      return NGX_CONF_ERROR;
+    }
+    /* 具体 open 标志由 Nginx 在 master 阶段统一处理，这里无需设置 */
+  }
 
   (void)cmd;
   return NGX_CONF_OK;

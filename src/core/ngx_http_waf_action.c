@@ -60,6 +60,11 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
   ngx_uint_t global_block_enabled =
   (lcf && lcf->default_action == WAF_DEFAULT_ACTION_BLOCK) ? 1 : 0;
 
+  ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "waf-debug: enforce enter intent=%ui http_status=%i ruleId=%ui scoreDelta=%ui global=%s",
+                (ngx_uint_t)intent, (ngx_int_t)http_status, (ngx_uint_t)rule_id_or_0,
+                (ngx_uint_t)score_delta, global_block_enabled ? "BLOCK" : "LOG");
+
   if (intent != WAF_INTENT_BYPASS) {
     /* 2. 动态封禁：先增量计分，再检查是否已被封禁（与v1一致） */
     if (score_delta > 0) {
@@ -83,6 +88,10 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
         ctx->final_status = NGX_HTTP_FORBIDDEN;
         ctx->effective_level = WAF_LOG_ALERT;
 
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                      "waf-debug: dynamic-ban BLOCK window=%ui finalType=%ui",
+                      (ngx_uint_t)window, (ngx_uint_t)ctx->final_action_type);
+
         /* 记录 ban 事件（decisive 将在 flush 阶段自判） */
         waf_log_append_ban_event(r, mcf, ctx, window, WAF_LOG_COLLECT_ALWAYS, WAF_LOG_ALERT);
 
@@ -97,6 +106,8 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
         waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
         /* 记录 ban 事件（表明处于封禁窗口，但全局为 LOG） */
         waf_log_append_ban_event(r, mcf, ctx, window, WAF_LOG_COLLECT_ALWAYS, WAF_LOG_INFO);
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                      "waf-debug: dynamic-ban SUPPRESSED_BY_GLOBAL_LOG window=%ui", (ngx_uint_t)window);
         return WAF_RC_CONTINUE;
       }
     }
@@ -127,6 +138,11 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
         /* 记录规则事件（decisive 将由 flush 阶段判定） */
         waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
 
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                      "waf-debug: BLOCK commit ruleId=%ui status=%ui finalType=%ui",
+                      (ngx_uint_t)ctx->block_rule_id, (ngx_uint_t)ctx->final_status,
+                      (ngx_uint_t)ctx->final_action_type);
+
         waf_log_flush_final(r, mcf, lcf, ctx, "BLOCK");
 
         return WAF_RC_BLOCK;
@@ -137,6 +153,9 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
         ctx->final_status = 0;
         /* 记录规则事件 */
         waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                      "waf-debug: BLOCK suppressed by global LOG ruleId=%ui",
+                      (ngx_uint_t)rule_id_or_0);
         /* 继续后续检测 */
         return WAF_RC_CONTINUE;
       }
@@ -150,6 +169,9 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
       ctx->final_status = 0;
       /* 记录规则事件（BYPASS） */
       waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
+      ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                    "waf-debug: BYPASS commit ruleId=%ui finalType=%ui",
+                    (ngx_uint_t)rule_id_or_0, (ngx_uint_t)ctx->final_action_type);
       waf_log_flush_final(r, mcf, lcf, ctx, "BYPASS");
       return WAF_RC_BYPASS;
 
@@ -161,6 +183,9 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
       ctx->final_status = 0;
       /* 记录规则事件（LOG） */
       waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
+      ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                    "waf-debug: LOG record ruleId=%ui scoreDelta=%ui",
+                    (ngx_uint_t)rule_id_or_0, (ngx_uint_t)score_delta);
       return WAF_RC_CONTINUE;
   }
 }

@@ -285,31 +285,20 @@ static void waf_log_write_jsonl(ngx_http_request_t *r, ngx_http_waf_main_conf_t 
     return; /* 未配置日志文件 */
   }
 
-  /* 打开文件（追加模式） */
-  ngx_fd_t fd =
-      ngx_open_file(mcf->json_log_path.data, NGX_FILE_APPEND, NGX_FILE_CREATE_OR_OPEN, 0644);
-  if (fd == NGX_INVALID_FILE) {
-    ngx_log_error(NGX_LOG_ERR, r->connection->log, ngx_errno,
-                  "waf: failed to open json_log file \"%V\"", &mcf->json_log_path);
+  /* 使用 master 打开的 open_files 句柄（worker 复用 fd；USR1 可重开） */
+  if (mcf->json_log_of == NULL || mcf->json_log_of->fd == NGX_INVALID_FILE) {
+    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                  "waf: json_log open_file handle invalid for %V", &mcf->json_log_path);
     return;
   }
 
-  /* 写入 JSONL（一行JSON + 换行符） */
   size_t len = ngx_strlen(jsonl);
-  ssize_t n = ngx_write_fd(fd, (void *)jsonl, len);
+  ssize_t n = ngx_write_fd(mcf->json_log_of->fd, (void *)jsonl, len);
   if (n != (ssize_t)len) {
     ngx_log_error(NGX_LOG_ERR, r->connection->log, ngx_errno,
                   "waf: failed to write json_log, expected %uz bytes, wrote %z", len, n);
   }
-
-  /* 写入换行符 */
-  ngx_write_fd(fd, (void *)"\n", 1);
-
-  /* 关闭文件 */
-  if (ngx_close_file(fd) == NGX_FILE_ERROR) {
-    ngx_log_error(NGX_LOG_ERR, r->connection->log, ngx_errno,
-                  "waf: failed to close json_log file \"%V\"", &mcf->json_log_path);
-  }
+  ngx_write_fd(mcf->json_log_of->fd, (void *)"\n", 1);
 }
 
 /* 在最终落盘前集中判定并标记 decisive 事件 */
@@ -325,6 +314,8 @@ static void waf_log_mark_decisive_on_flush(ngx_http_request_t *r, ngx_http_waf_c
 
   /* BYPASS：选择最后一条 intent=BYPASS 的规则事件 */
   if (ctx->final_action == WAF_FINAL_BYPASS) {
+    ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                  "waf-debug: decisive marking for BYPASS, events=%uz", (size_t)n);
     for (ngx_int_t i = (ngx_int_t)n - 1; i >= 0; i--) {
       yyjson_mut_val *ev = yyjson_mut_arr_get(ctx->events, (size_t)i);
       yyjson_mut_val *type = yyjson_mut_obj_get(ev, "type");
@@ -335,6 +326,8 @@ static void waf_log_mark_decisive_on_flush(ngx_http_request_t *r, ngx_http_waf_c
           intent_str && ngx_strcmp(intent_str, "BYPASS") == 0) {
         yyjson_mut_obj_add_bool(doc, ev, "decisive", true);
         ctx->decisive_set = 1;
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                      "waf-debug: decisive set at index=%i type=BYPASS", (ngx_int_t)i);
         return;
       }
     }
@@ -348,6 +341,8 @@ static void waf_log_mark_decisive_on_flush(ngx_http_request_t *r, ngx_http_waf_c
 
   /* 动态封禁：优先选择最后一条 ban 事件（从后往前） */
   if (ctx->final_action_type == WAF_FINAL_ACTION_TYPE_BLOCK_BY_DYNAMIC_BLOCK) {
+    ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                  "waf-debug: decisive marking for DYNAMIC_BLOCK, events=%uz", (size_t)n);
     for (ngx_int_t i = (ngx_int_t)n - 1; i >= 0; i--) {
       yyjson_mut_val *ev = yyjson_mut_arr_get(ctx->events, (size_t)i);
       yyjson_mut_val *type = yyjson_mut_obj_get(ev, "type");
@@ -355,6 +350,8 @@ static void waf_log_mark_decisive_on_flush(ngx_http_request_t *r, ngx_http_waf_c
       if (type_str && ngx_strcmp(type_str, "ban") == 0) {
         yyjson_mut_obj_add_bool(doc, ev, "decisive", true);
         ctx->decisive_set = 1;
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                      "waf-debug: decisive set at index=%i type=ban", (ngx_int_t)i);
         return;
       }
     }
@@ -363,6 +360,9 @@ static void waf_log_mark_decisive_on_flush(ngx_http_request_t *r, ngx_http_waf_c
 
   /* 规则阻断：按照 blockRuleId 精确匹配，否则回退到最后一条 BLOCK 规则事件 */
   if (ctx->final_action_type == WAF_FINAL_ACTION_TYPE_BLOCK_BY_RULE && ctx->block_rule_id > 0) {
+    ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                  "waf-debug: decisive marking for BLOCK_BY_RULE ruleId=%ui events=%uz",
+                  (ngx_uint_t)ctx->block_rule_id, (size_t)n);
     for (ngx_int_t i = (ngx_int_t)n - 1; i >= 0; i--) {
       yyjson_mut_val *ev = yyjson_mut_arr_get(ctx->events, (size_t)i);
       yyjson_mut_val *type = yyjson_mut_obj_get(ev, "type");
@@ -376,6 +376,9 @@ static void waf_log_mark_decisive_on_flush(ngx_http_request_t *r, ngx_http_waf_c
           rule_id == ctx->block_rule_id) {
         yyjson_mut_obj_add_bool(doc, ev, "decisive", true);
         ctx->decisive_set = 1;
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                      "waf-debug: decisive set at index=%i type=BLOCK ruleId=%ui",
+                      (ngx_int_t)i, (ngx_uint_t)rule_id);
         return;
       }
     }
@@ -392,6 +395,8 @@ static void waf_log_mark_decisive_on_flush(ngx_http_request_t *r, ngx_http_waf_c
         intent_str && ngx_strcmp(intent_str, "BLOCK") == 0) {
       yyjson_mut_obj_add_bool(doc, ev, "decisive", true);
       ctx->decisive_set = 1;
+      ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                    "waf-debug: decisive set at index=%i type=BLOCK(last)", (ngx_int_t)i);
       return;
     }
   }

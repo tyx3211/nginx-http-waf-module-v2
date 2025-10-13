@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "meta": {"name": "referer_csrf_negate", "tags": ["csrf", "header", "referer", "negate"]},
+  "rules": [
+    {
+      "id": 900001,
+      "target": "HEADER",
+      "headerName": "Referer",
+      "match": "REGEX",
+      "pattern": [
+        "^$",
+        "^https?://([a-z0-9-]+\\.)?test\\.my\\.com(:\\d+)?(/|$)",
+        "^https?://([a-z0-9-]+\\.)?test2\\.my\\.com(:\\d+)?(/|$)"
+      ],
+      "caseless": true,
+      "negate": true,
+      "action": "DENY"
+    }
+  ]
+}
+
+

@@ -67,9 +67,14 @@ static waf_rc_e waf_stage_ip_allow(ngx_http_request_t *r, ngx_http_waf_main_conf
     }
 
     /* 应用negate */
+    ngx_uint_t matched_pre = matched;
     if (rule->negate) {
       matched = matched ? 0 : 1;
     }
+
+    ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                  "waf-debug: ip_allow check rule=%ui matchedPre=%ui negate=%ui matchedFinal=%ui action=%ui",
+                  (ngx_uint_t)rule->id, matched_pre, (ngx_uint_t)rule->negate, matched, (ngx_uint_t)rule->action);
 
     if (!matched) {
       continue;
@@ -129,9 +134,14 @@ static waf_rc_e waf_stage_ip_deny(ngx_http_request_t *r, ngx_http_waf_main_conf_
     }
 
     /* 应用negate */
+    ngx_uint_t matched_pre = matched;
     if (rule->negate) {
       matched = matched ? 0 : 1;
     }
+
+    ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                  "waf-debug: ip_deny check rule=%ui matchedPre=%ui negate=%ui matchedFinal=%ui action=%ui",
+                  (ngx_uint_t)rule->id, matched_pre, (ngx_uint_t)rule->negate, matched, (ngx_uint_t)rule->action);
 
     if (!matched) {
       continue;
@@ -237,9 +247,14 @@ static waf_rc_e waf_stage_uri_allow(ngx_http_request_t *r, ngx_http_waf_main_con
     }
 
     /* 应用negate */
+    ngx_uint_t matched_pre = matched;
     if (rule->negate) {
       matched = matched ? 0 : 1;
     }
+
+    ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                  "waf-debug: uri_allow check rule=%ui matchedPre=%ui negate=%ui matchedFinal=%ui action=%ui",
+                  (ngx_uint_t)rule->id, matched_pre, (ngx_uint_t)rule->negate, matched, (ngx_uint_t)rule->action);
 
     if (!matched) {
       continue;
@@ -373,20 +388,43 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
         }
 
         case WAF_T_HEADER: {
+          /* 缺失的 HEADER 视为空串以参与匹配（支持 ^$ 白名单 + negate 逻辑） */
           ngx_str_t hv;
-          if (ngx_http_waf_get_header(r, &rule->header_name, &hv)) {
-            if (rule->match == WAF_MATCH_CONTAINS) {
-              ngx_str_t *pats = rule->patterns ? rule->patterns->elts : NULL;
-              if (pats) {
-                for (ngx_uint_t k = 0; k < rule->patterns->nelts; k++) {
-                  if (ngx_http_waf_contains_ci(&hv, &pats[k], rule->caseless)) {
-                    matched = 1;
-                    break;
-                  }
+          if (!ngx_http_waf_get_header(r, &rule->header_name, &hv)) {
+            hv.data = (u_char *)"";
+            hv.len = 0;
+          }
+          if (rule->match == WAF_MATCH_CONTAINS) {
+            ngx_str_t *pats = rule->patterns ? rule->patterns->elts : NULL;
+            if (pats) {
+              for (ngx_uint_t k = 0; k < rule->patterns->nelts; k++) {
+                if (ngx_http_waf_contains_ci(&hv, &pats[k], rule->caseless)) {
+                  matched = 1;
+                  break;
                 }
               }
-            } else if (rule->match == WAF_MATCH_REGEX) {
-              matched = ngx_http_waf_regex_any_match(rule->compiled_regexes, &hv);
+            }
+          } else if (rule->match == WAF_MATCH_EXACT) {
+            ngx_str_t *pats = rule->patterns ? rule->patterns->elts : NULL;
+            if (pats) {
+              for (ngx_uint_t k = 0; k < rule->patterns->nelts; k++) {
+                if (ngx_http_waf_equals_ci(&hv, &pats[k], rule->caseless)) {
+                  matched = 1;
+                  break;
+                }
+              }
+            }
+          } else if (rule->match == WAF_MATCH_REGEX) {
+            matched = ngx_http_waf_regex_any_match(rule->compiled_regexes, &hv);
+            /* 特判：空串与 ^$ */
+            if (!matched && hv.len == 0 && rule->patterns && rule->patterns->nelts > 0) {
+              ngx_str_t *pats = rule->patterns->elts;
+              for (ngx_uint_t k = 0; k < rule->patterns->nelts; k++) {
+                if (pats[k].len == 2 && pats[k].data && pats[k].data[0] == '^' && pats[k].data[1] == '$') {
+                  matched = 1;
+                  break;
+                }
+              }
             }
           }
           break;
@@ -455,8 +493,21 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
       }
 
       /* 应用 negate */
+      ngx_uint_t matched_pre = matched;
       if (rule->negate) {
         matched = matched ? 0 : 1;
+      }
+
+      if (rule->target == WAF_T_HEADER) {
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                      "waf-debug: detect header check rule=%ui header=%V match=%ui matchedPre=%ui negate=%ui matchedFinal=%ui action=%ui",
+                      (ngx_uint_t)rule->id, &rule->header_name, (ngx_uint_t)rule->match,
+                      matched_pre, (ngx_uint_t)rule->negate, matched, (ngx_uint_t)rule->action);
+      } else {
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                      "waf-debug: detect check rule=%ui target=%ui match=%ui matchedPre=%ui negate=%ui matchedFinal=%ui action=%ui",
+                      (ngx_uint_t)rule->id, (ngx_uint_t)rule->target, (ngx_uint_t)rule->match,
+                      matched_pre, (ngx_uint_t)rule->negate, matched, (ngx_uint_t)rule->action);
       }
 
       if (!matched) {
@@ -466,6 +517,9 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
       /* 命中后执法：DENY/BYPASS/LOG */
       switch (rule->action) {
         case WAF_ACT_DENY: {
+          ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                        "waf-debug: enforce DENY rule=%ui target=%ui negate=%ui",
+                        (ngx_uint_t)rule->id, (ngx_uint_t)rule->target, (ngx_uint_t)rule->negate);
           waf_event_details_t det = {0};
           det.target_tag = (rule->target == WAF_T_URI)
                                 ? "uri"
@@ -489,6 +543,9 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
           break;
         }
         case WAF_ACT_BYPASS: {
+          ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                        "waf-debug: enforce BYPASS rule=%ui target=%ui negate=%ui",
+                        (ngx_uint_t)rule->id, (ngx_uint_t)rule->target, (ngx_uint_t)rule->negate);
           waf_event_details_t det2 = {0};
           det2.target_tag = (rule->target == WAF_T_URI)
                                 ? "uri"
@@ -513,6 +570,9 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
         }
         case WAF_ACT_LOG:
         default: {
+          ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                        "waf-debug: enforce LOG rule=%ui target=%ui negate=%ui",
+                        (ngx_uint_t)rule->id, (ngx_uint_t)rule->target, (ngx_uint_t)rule->negate);
           waf_event_details_t det3 = {0};
           det3.target_tag = (rule->target == WAF_T_URI)
                                 ? "uri"

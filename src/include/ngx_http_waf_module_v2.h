@@ -66,6 +66,8 @@ typedef struct {
   /* JSONL 日志（M2.5 存根：仅配置存储；M6 落地写盘） */
   ngx_str_t json_log_path;   /* off | 路径 */
   ngx_uint_t json_log_level; /* debug|info|alert|error|off */
+  /* 由 master 在启动/USR1 时统一打开，worker 复用 fd（通过 cycle->open_files） */
+  ngx_open_file_t *json_log_of;
   /* 动态信誉共享内存（M2.5：创建 zone；M5：执法） */
   ngx_str_t shm_zone_raw;   /* 兼容保留：若通过字符串配置 */
   ngx_shm_zone_t *shm_zone; /* 共享内存区句柄（M2.5 初始化） */
