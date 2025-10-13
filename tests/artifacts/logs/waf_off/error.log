@@ -76,3 +76,16 @@
 2025/10/13 07:59:10 [notice] 253121#0: signal 17 (SIGCHLD) received from 253123
 2025/10/13 07:59:10 [notice] 253121#0: worker process 253123 exited with code 0
 2025/10/13 07:59:10 [notice] 253121#0: exit
+2025/10/13 08:42:37 [notice] 259517#0: using the "epoll" event method
+2025/10/13 08:42:37 [notice] 259517#0: nginx/1.24.0
+2025/10/13 08:42:37 [notice] 259517#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 08:42:37 [notice] 259517#0: OS: Linux 6.17.0-5-generic
+2025/10/13 08:42:37 [notice] 259517#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 08:42:37 [notice] 259518#0: start worker processes
+2025/10/13 08:42:37 [notice] 259518#0: start worker process 259520
+2025/10/13 08:42:37 [notice] 259518#0: signal 15 (SIGTERM) received from 259510, exiting
+2025/10/13 08:42:37 [notice] 259520#0: exiting
+2025/10/13 08:42:37 [notice] 259520#0: exit
+2025/10/13 08:42:37 [notice] 259518#0: signal 17 (SIGCHLD) received from 259520
+2025/10/13 08:42:37 [notice] 259518#0: worker process 259520 exited with code 0
+2025/10/13 08:42:37 [notice] 259518#0: exit

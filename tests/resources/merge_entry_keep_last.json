@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "meta": {
+    "name": "merge_entry_keep_last",
+    "duplicatePolicy": "warn_keep_last",
+    "extends": [
+      {
+        "file": "./merge_parent.json",
+        "rewriteTargetsForTag": {
+          "groupA": "URI"
+        }
+      }
+    ]
+  },
+  "disableByTag": ["header"],
+  "rules": [
+    { "id": 800004, "tags": ["local"], "target": "URI", "match": "EXACT",
+      "pattern": ["/local"], "action": "DENY", "score": 55 },
+    { "id": 800003, "tags": ["dup", "override"], "target": "URI", "match": "EXACT",
+      "pattern": ["/old"], "action": "LOG" }
+  ]
+}
+
+

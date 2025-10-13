@@ -219,3 +219,25 @@
 2025/10/13 07:59:10 [notice] 253170#0: signal 17 (SIGCHLD) received from 253172
 2025/10/13 07:59:10 [notice] 253170#0: worker process 253172 exited with code 0
 2025/10/13 07:59:10 [notice] 253170#0: exit
+2025/10/13 08:42:37 [notice] 259565#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 08:42:37 [notice] 259565#0: using the "epoll" event method
+2025/10/13 08:42:37 [notice] 259565#0: nginx/1.24.0
+2025/10/13 08:42:37 [notice] 259565#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 08:42:37 [notice] 259565#0: OS: Linux 6.17.0-5-generic
+2025/10/13 08:42:37 [notice] 259565#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 08:42:37 [notice] 259566#0: start worker processes
+2025/10/13 08:42:37 [notice] 259566#0: start worker process 259567
+2025/10/13 08:42:37 [notice] 259567#0: *2 waf-debug: detect header check rule=900001 header=Referer match=2 matchedPre=1 negate=1 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET / HTTP/1.1", host: "127.0.0.1:8096"
+2025/10/13 08:42:37 [notice] 259567#0: *3 waf-debug: detect header check rule=900001 header=Referer match=2 matchedPre=1 negate=1 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET / HTTP/1.1", host: "127.0.0.1:8096", referrer: "https://sub.test.my.com/path"
+2025/10/13 08:42:37 [notice] 259567#0: *4 waf-debug: detect header check rule=900001 header=Referer match=2 matchedPre=0 negate=1 matchedFinal=1 action=0, client: 127.0.0.1, server: , request: "GET / HTTP/1.1", host: "127.0.0.1:8096", referrer: "https://evil.example/"
+2025/10/13 08:42:37 [notice] 259567#0: *4 waf-debug: enforce DENY rule=900001 target=6 negate=1, client: 127.0.0.1, server: , request: "GET / HTTP/1.1", host: "127.0.0.1:8096", referrer: "https://evil.example/"
+2025/10/13 08:42:37 [notice] 259567#0: *4 waf-debug: enforce enter intent=0 http_status=403 ruleId=900001 scoreDelta=10 global=BLOCK, client: 127.0.0.1, server: , request: "GET / HTTP/1.1", host: "127.0.0.1:8096", referrer: "https://evil.example/"
+2025/10/13 08:42:37 [notice] 259567#0: *4 waf-debug: BLOCK commit ruleId=900001 status=403 finalType=3, client: 127.0.0.1, server: , request: "GET / HTTP/1.1", host: "127.0.0.1:8096", referrer: "https://evil.example/"
+2025/10/13 08:42:37 [notice] 259567#0: *4 waf-debug: decisive marking for BLOCK_BY_RULE ruleId=900001 events=1, client: 127.0.0.1, server: , request: "GET / HTTP/1.1", host: "127.0.0.1:8096", referrer: "https://evil.example/"
+2025/10/13 08:42:37 [notice] 259567#0: *4 waf-debug: decisive set at index=0 type=BLOCK ruleId=900001, client: 127.0.0.1, server: , request: "GET / HTTP/1.1", host: "127.0.0.1:8096", referrer: "https://evil.example/"
+2025/10/13 08:42:37 [notice] 259566#0: signal 15 (SIGTERM) received from 259557, exiting
+2025/10/13 08:42:37 [notice] 259567#0: exiting
+2025/10/13 08:42:37 [notice] 259567#0: exit
+2025/10/13 08:42:37 [notice] 259566#0: signal 17 (SIGCHLD) received from 259567
+2025/10/13 08:42:37 [notice] 259566#0: worker process 259567 exited with code 0
+2025/10/13 08:42:37 [notice] 259566#0: exit

@@ -104,3 +104,25 @@
 2025/10/13 07:59:09 [notice] 253021#0: signal 17 (SIGCHLD) received from 253023
 2025/10/13 07:59:09 [notice] 253021#0: worker process 253023 exited with code 0
 2025/10/13 07:59:09 [notice] 253021#0: exit
+2025/10/13 08:42:36 [notice] 259403#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 08:42:36 [notice] 259403#0: using the "epoll" event method
+2025/10/13 08:42:36 [notice] 259403#0: nginx/1.24.0
+2025/10/13 08:42:36 [notice] 259403#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 08:42:36 [notice] 259403#0: OS: Linux 6.17.0-5-generic
+2025/10/13 08:42:36 [notice] 259403#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 08:42:36 [notice] 259404#0: start worker processes
+2025/10/13 08:42:36 [notice] 259404#0: start worker process 259406
+2025/10/13 08:42:36 [notice] 259406#0: *2 waf-debug: uri_allow check rule=100001 matchedPre=0 negate=0 matchedFinal=0 action=2, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8088"
+2025/10/13 08:42:36 [notice] 259406#0: *2 waf-debug: detect check rule=400001 target=1 match=2 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8088"
+2025/10/13 08:42:36 [notice] 259406#0: *2 waf-debug: detect check rule=400001 target=2 match=2 matchedPre=1 negate=0 matchedFinal=1 action=0, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8088"
+2025/10/13 08:42:36 [notice] 259406#0: *2 waf-debug: enforce DENY rule=400001 target=2 negate=0, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8088"
+2025/10/13 08:42:36 [notice] 259406#0: *2 waf-debug: enforce enter intent=0 http_status=403 ruleId=400001 scoreDelta=80 global=BLOCK, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8088"
+2025/10/13 08:42:36 [notice] 259406#0: *2 waf-debug: BLOCK commit ruleId=400001 status=403 finalType=3, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8088"
+2025/10/13 08:42:36 [notice] 259406#0: *2 waf-debug: decisive marking for BLOCK_BY_RULE ruleId=400001 events=2, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8088"
+2025/10/13 08:42:36 [notice] 259406#0: *2 waf-debug: decisive set at index=1 type=BLOCK ruleId=400001, client: 127.0.0.1, server: , request: "GET /api?x=eval( HTTP/1.1", host: "127.0.0.1:8088"
+2025/10/13 08:42:36 [notice] 259404#0: signal 15 (SIGTERM) received from 259396, exiting
+2025/10/13 08:42:36 [notice] 259406#0: exiting
+2025/10/13 08:42:36 [notice] 259406#0: exit
+2025/10/13 08:42:36 [notice] 259404#0: signal 17 (SIGCHLD) received from 259406
+2025/10/13 08:42:36 [notice] 259404#0: worker process 259406 exited with code 0
+2025/10/13 08:42:36 [notice] 259404#0: exit

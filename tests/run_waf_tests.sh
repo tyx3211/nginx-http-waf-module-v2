@@ -68,6 +68,7 @@ TEST_SCRIPTS=(
   "$SCRIPT_DIR/test_waf_off_no_log.sh"
   "$SCRIPT_DIR/test_default_action_log.sh"
   "$SCRIPT_DIR/test_csrf_referer_negate.sh"
+  "$SCRIPT_DIR/test_merge_semantics.sh"
 )
 
 for t in "${TEST_SCRIPTS[@]}"; do

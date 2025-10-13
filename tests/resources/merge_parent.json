@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "meta": {"name": "merge_parent", "tags": ["parent", "merge"]},
+  "rules": [
+    { "id": 800001, "tags": ["groupA"], "target": "ALL_PARAMS", "match": "CONTAINS",
+      "pattern": ["evil"], "action": "DENY", "score": 60 },
+    { "id": 800002, "tags": ["groupB", "header"], "target": "HEADER", "headerName": "X-Test",
+      "match": "EXACT", "pattern": ["forbidden"], "action": "DENY" },
+    { "id": 800003, "tags": ["dup", "uri"], "target": "URI", "match": "EXACT",
+      "pattern": ["/old"], "action": "DENY", "score": 50 }
+  ]
+}
+
+

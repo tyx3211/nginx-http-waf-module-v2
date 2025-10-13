@@ -131,3 +131,46 @@
 2025/10/13 07:59:09 [notice] 253066#0: signal 17 (SIGCHLD) received from 253068
 2025/10/13 07:59:09 [notice] 253066#0: worker process 253068 exited with code 0
 2025/10/13 07:59:09 [notice] 253066#0: exit
+2025/10/13 08:42:36 [notice] 259461#0: waf_dyn: initialized new shm zone "waf_zone" with rbtree & LRU
+2025/10/13 08:42:36 [notice] 259461#0: using the "epoll" event method
+2025/10/13 08:42:36 [notice] 259461#0: nginx/1.24.0
+2025/10/13 08:42:36 [notice] 259461#0: built by gcc 15.2.0 (Ubuntu 15.2.0-4ubuntu4) 
+2025/10/13 08:42:36 [notice] 259461#0: OS: Linux 6.17.0-5-generic
+2025/10/13 08:42:36 [notice] 259461#0: getrlimit(RLIMIT_NOFILE): 524288:524288
+2025/10/13 08:42:36 [notice] 259462#0: start worker processes
+2025/10/13 08:42:36 [notice] 259462#0: start worker process 259464
+2025/10/13 08:42:36 [notice] 259464#0: *2 waf-debug: uri_allow check rule=700001 matchedPre=0 negate=0 matchedFinal=0 action=2, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *2 waf-debug: detect check rule=200001 target=1 match=2 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *2 waf-debug: detect check rule=300001 target=1 match=0 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *2 waf-debug: detect check rule=500001 target=1 match=0 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *2 waf-debug: detect check rule=200001 target=2 match=2 matchedPre=1 negate=0 matchedFinal=1 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *2 waf-debug: enforce DENY rule=200001 target=2 negate=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *2 waf-debug: enforce enter intent=0 http_status=403 ruleId=200001 scoreDelta=70 global=BLOCK, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *2 waf-debug: BLOCK commit ruleId=200001 status=403 finalType=3, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *2 waf-debug: decisive marking for BLOCK_BY_RULE ruleId=200001 events=2, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *2 waf-debug: decisive set at index=1 type=BLOCK ruleId=200001, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *3 waf-debug: uri_allow check rule=700001 matchedPre=0 negate=0 matchedFinal=0 action=2, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *3 waf-debug: detect check rule=200001 target=1 match=2 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *3 waf-debug: detect check rule=300001 target=1 match=0 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *3 waf-debug: detect check rule=500001 target=1 match=0 matchedPre=0 negate=0 matchedFinal=0 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *3 waf-debug: detect check rule=200001 target=2 match=2 matchedPre=1 negate=0 matchedFinal=1 action=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *3 waf-debug: enforce DENY rule=200001 target=2 negate=0, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *3 waf-debug: enforce enter intent=0 http_status=403 ruleId=200001 scoreDelta=70 global=BLOCK, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [warn] 259464#0: *3 waf_dyn: IP blocked, ip=16777343, score=144, threshold=100, expiry=65952067, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *3 waf-debug: dynamic-ban BLOCK window=60000 finalType=6, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *3 waf-debug: decisive marking for DYNAMIC_BLOCK, events=3, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *3 waf-debug: decisive set at index=2 type=ban, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *4 waf-debug: decisive marking for DYNAMIC_BLOCK, events=2, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *4 waf-debug: decisive set at index=1 type=ban, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *5 waf-debug: decisive marking for DYNAMIC_BLOCK, events=2, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *5 waf-debug: decisive set at index=1 type=ban, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *6 waf-debug: decisive marking for DYNAMIC_BLOCK, events=2, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *6 waf-debug: decisive set at index=1 type=ban, client: 127.0.0.1, server: , request: "GET /?q=select+from HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *7 waf-debug: decisive marking for DYNAMIC_BLOCK, events=2, client: 127.0.0.1, server: , request: "GET /?q=hello HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259464#0: *7 waf-debug: decisive set at index=1 type=ban, client: 127.0.0.1, server: , request: "GET /?q=hello HTTP/1.1", host: "127.0.0.1:8089"
+2025/10/13 08:42:36 [notice] 259462#0: signal 15 (SIGTERM) received from 259454, exiting
+2025/10/13 08:42:36 [notice] 259464#0: exiting
+2025/10/13 08:42:36 [notice] 259464#0: exit
+2025/10/13 08:42:36 [notice] 259462#0: signal 17 (SIGCHLD) received from 259464
+2025/10/13 08:42:36 [notice] 259462#0: worker process 259464 exited with code 0
+2025/10/13 08:42:36 [notice] 259462#0: exit
