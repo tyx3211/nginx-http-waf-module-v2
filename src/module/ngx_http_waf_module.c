@@ -420,6 +420,11 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
 
   /* 工具函数已在文件顶部以 C 形式定义，直接调用 */
 
+  /* decode 缓存：避免对 ARGS_COMBINED 多次解码 */
+  ngx_str_t cached_args_combined = ngx_null_string;
+  ngx_uint_t cached_args_ready = 0;
+  ngx_int_t cached_args_rc = NGX_ERROR;
+
   /* 遍历 detect 段各 target 的桶 */
   for (ngx_uint_t target = 0; target <= WAF_T_HEADER; target++) {
     ngx_array_t *bucket = snap->buckets[WAF_PHASE_DETECT][target];
@@ -464,15 +469,15 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
         }
 
         case WAF_T_ARGS_COMBINED: {
-          ngx_str_t subj;
-          ngx_int_t decode_rc = ngx_http_waf_get_decoded_args_combined(r, &subj);
-          ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-                        "waf-debug: ARGS_COMBINED decode_rc=%i subj.len=%uz subj=%V",
-                        decode_rc, subj.len, &subj);
-          if (decode_rc != NGX_OK || subj.len == 0) {
+          if (!cached_args_ready) {
+            cached_args_rc = ngx_http_waf_get_decoded_args_combined(r, &cached_args_combined);
+            cached_args_ready = 1;
+          }
+          if (cached_args_rc != NGX_OK || cached_args_combined.len == 0) {
             matched = 0;
             break;
           }
+          ngx_str_t subj = cached_args_combined;
           if (rule->match == WAF_MATCH_CONTAINS) {
             ngx_str_t *pats = rule->patterns ? rule->patterns->elts : NULL;
             if (pats) {
@@ -631,21 +636,8 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
       }
 
       /* 应用 negate */
-      ngx_uint_t matched_pre = matched;
       if (rule->negate) {
         matched = matched ? 0 : 1;
-      }
-
-      if (rule->target == WAF_T_HEADER) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-                      "waf-debug: detect header check rule=%ui header=%V match=%ui matchedPre=%ui negate=%ui matchedFinal=%ui action=%ui",
-                      (ngx_uint_t)rule->id, &rule->header_name, (ngx_uint_t)rule->match,
-                      matched_pre, (ngx_uint_t)rule->negate, matched, (ngx_uint_t)rule->action);
-      } else {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-                      "waf-debug: detect check rule=%ui target=%ui match=%ui matchedPre=%ui negate=%ui matchedFinal=%ui action=%ui",
-                      (ngx_uint_t)rule->id, (ngx_uint_t)rule->target, (ngx_uint_t)rule->match,
-                      matched_pre, (ngx_uint_t)rule->negate, matched, (ngx_uint_t)rule->action);
       }
 
       if (!matched) {

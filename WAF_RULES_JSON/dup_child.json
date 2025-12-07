@@ -1,7 +1,0 @@
-{
-  "version": 1,
-  "meta": {"name": "dup_child"},
-  "rules": [
-    {"id": 700, "tags": ["dup"], "target": "URI", "match": "CONTAINS", "pattern": "/child", "action": "LOG"}
-  ]
-}

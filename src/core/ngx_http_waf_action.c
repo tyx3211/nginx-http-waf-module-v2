@@ -22,12 +22,8 @@ static void waf_record_rule_event(ngx_http_request_t *r, ngx_http_waf_main_conf_
   if (ctx == NULL)
     return;
 
-  /* 累积评分（无论是否实际封禁） */
-  if (score_delta > 0) {
-    ctx->total_score += score_delta;
-  }
-
-  /* 记录详细的规则事件 */
+  // record时ctx->total_score已经同步了最新的累计分数 所以这里不需要再累加
+    /* 记录详细的规则事件 */
   const char *intent_str = (intent == WAF_INTENT_BLOCK)    ? "BLOCK"
                            : (intent == WAF_INTENT_BYPASS) ? "BYPASS"
                                                            : "LOG";
@@ -60,15 +56,30 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
   ngx_uint_t global_block_enabled =
   (lcf && lcf->default_action == WAF_DEFAULT_ACTION_BLOCK) ? 1 : 0;
 
-  ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-                "waf-debug: enforce enter intent=%ui http_status=%i ruleId=%ui scoreDelta=%ui global=%s",
-                (ngx_uint_t)intent, (ngx_int_t)http_status, (ngx_uint_t)rule_id_or_0,
-                (ngx_uint_t)score_delta, global_block_enabled ? "BLOCK" : "LOG");
+  /* 动态封禁开关（需要shm与阈值） */
+  ngx_uint_t dyn_enabled = (lcf && lcf->dyn_block_enable && mcf && mcf->shm_zone &&
+                            mcf->shm_zone->data && mcf->dyn_block_threshold > 0)
+                               ? 1
+                               : 0;
 
-  if (intent != WAF_INTENT_BYPASS) {
+  /* 若关闭动态封禁，仍可读取当前 IP 分值 到 ctx->total_score 用于展示 */
+  if (!dyn_enabled) {
+    (void)waf_dyn_peek_score(r);
+  }
+
+  /* 关闭动态封禁时，scoreDelta 视为 0（仅展示 totalScore） */
+  ngx_uint_t eff_score_delta = dyn_enabled ? score_delta : 0;
+
+  ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "waf-debug: enforce enter intent=%ui http_status=%i ruleId=%ui scoreDelta=%ui global=%s dyn=%s",
+                (ngx_uint_t)intent, (ngx_int_t)http_status, (ngx_uint_t)rule_id_or_0,
+                (ngx_uint_t)eff_score_delta, global_block_enabled ? "BLOCK" : "LOG",
+                dyn_enabled ? "on" : "off");
+
+  if (intent != WAF_INTENT_BYPASS && dyn_enabled) {
     /* 2. 动态封禁：先增量计分，再检查是否已被封禁（与v1一致） */
-    if (score_delta > 0) {
-      waf_dyn_score_add(r, score_delta);
+    if (eff_score_delta > 0) {
+      waf_dyn_score_add(r, eff_score_delta);
     }
 
     /* 3. 评分后阈值检查：达到阈值则触发封禁（依赖全局BLOCK策略） */
@@ -78,7 +89,7 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
       ngx_msec_t window = (mcf && mcf->dyn_block_window > 0) ? mcf->dyn_block_window : 60000;
       if (global_block_enabled) {
         /* 记录规则事件（若存在） */
-        waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
+        waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, eff_score_delta, details);
 
         /* 设置最终动作为 BLOCK（动态封禁） */
         ctx->final_action = WAF_FINAL_BLOCK;
@@ -103,7 +114,7 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
         ctx->final_action_type = WAF_FINAL_ACTION_TYPE_ALLOW;
         ctx->final_status = 0;
         /* 记录规则事件（仅审计） */
-        waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
+        waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, eff_score_delta, details);
         /* 记录 ban 事件（表明处于封禁窗口，但全局为 LOG） */
         waf_log_append_ban_event(r, mcf, ctx, window, WAF_LOG_COLLECT_ALWAYS, WAF_LOG_INFO);
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
@@ -136,7 +147,7 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
         }
 
         /* 记录规则事件（decisive 将由 flush 阶段判定） */
-        waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
+        waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, eff_score_delta, details);
 
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
                       "waf-debug: BLOCK commit ruleId=%ui status=%ui finalType=%ui",
@@ -152,7 +163,7 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
         ctx->final_action_type = WAF_FINAL_ACTION_TYPE_ALLOW;
         ctx->final_status = 0;
         /* 记录规则事件 */
-        waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
+        waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, eff_score_delta, details);
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
                       "waf-debug: BLOCK suppressed by global LOG ruleId=%ui",
                       (ngx_uint_t)rule_id_or_0);
@@ -168,7 +179,7 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
                                    : WAF_FINAL_ACTION_TYPE_BYPASS_BY_URI_WHITELIST; /* 默认URI白名单 */
       ctx->final_status = 0;
       /* 记录规则事件（BYPASS） */
-      waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
+      waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, eff_score_delta, details);
       ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
                     "waf-debug: BYPASS commit ruleId=%ui finalType=%ui",
                     (ngx_uint_t)rule_id_or_0, (ngx_uint_t)ctx->final_action_type);
@@ -182,10 +193,10 @@ waf_rc_e waf_enforce(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
       ctx->final_action_type = WAF_FINAL_ACTION_TYPE_ALLOW;
       ctx->final_status = 0;
       /* 记录规则事件（LOG） */
-      waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, score_delta, details);
+      waf_record_rule_event(r, mcf, ctx, intent, rule_id_or_0, eff_score_delta, details);
       ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
                     "waf-debug: LOG record ruleId=%ui scoreDelta=%ui",
-                    (ngx_uint_t)rule_id_or_0, (ngx_uint_t)score_delta);
+                    (ngx_uint_t)rule_id_or_0, (ngx_uint_t)eff_score_delta);
       return WAF_RC_CONTINUE;
   }
 }
@@ -249,7 +260,8 @@ waf_rc_e waf_enforce_base_add(ngx_http_request_t *r, ngx_http_waf_main_conf_t *m
 
   /* 累积基础评分（请求内总分） */
   if (score_delta > 0) {
-    ctx->total_score += score_delta;
+    // ctx->total_score += score_delta;
+    // 在waf_dyn_score_add中已经累加了，所以这里不需要再累加
 
     /* 先增量计分，再检查封禁（v1 顺序语义） */
     waf_dyn_score_add(r, score_delta);
@@ -259,7 +271,7 @@ waf_rc_e waf_enforce_base_add(ngx_http_request_t *r, ngx_http_waf_main_conf_t *m
                                     WAF_LOG_COLLECT_ALWAYS, WAF_LOG_INFO);
 
     /* 检查是否达阈值 */
-    ngx_uint_t threshold = (mcf && mcf->dyn_block_threshold > 0) ? mcf->dyn_block_threshold : 100;
+    ngx_uint_t threshold = (mcf && mcf->dyn_block_threshold > 0) ? mcf->dyn_block_threshold : 1000;
     ngx_uint_t global_block_enabled =
         (lcf && lcf->default_action == WAF_DEFAULT_ACTION_BLOCK) ? 1 : 0;
 

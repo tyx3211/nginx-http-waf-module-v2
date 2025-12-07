@@ -1,1 +1,0 @@
-2025/10/13 03:06:41 [error] 153342#0: waf: failed to load rules_json invalid_exact_pattern_array_empty.json: file=/home/william/myNginxWorkspace/nginx-http-waf-module-v2/WAF_RULES_JSON/invalid_exact_pattern_array_empty.json ptr=/rules[0]��	b^ msg=pattern 数组不能为空

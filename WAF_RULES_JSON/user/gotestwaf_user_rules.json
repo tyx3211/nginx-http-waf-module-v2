@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "name": "gotestwaf_user_rules",
+    "tags": ["user", "gotestwaf"],
+    "extends": [
+      "core/core_sqli_rules.json",
+      "core/core_xss_rules.json",
+      "core/core_dir_traversal_rules.json",
+      "core/core_lfi_rules.json",
+      "core/core_rce_rules.json",
+      "core/core_user_agent_rules.json"
+    ],
+    "duplicatePolicy": "warn_skip"
+  },
+  "rules": []
+}
+
+

@@ -46,6 +46,7 @@ void waf_dyn_init_shm_zone(ngx_cycle_t *cycle); /* 生命周期入口（当前�
 
 void waf_dyn_score_add(ngx_http_request_t *r, ngx_uint_t delta);
 ngx_flag_t waf_dyn_is_banned(ngx_http_request_t *r);
+ngx_uint_t waf_dyn_peek_score(ngx_http_request_t *r);
 
 /* 共享内存初始化回调（挂到 ngx_shm_zone_t->init） */
 ngx_int_t waf_dyn_shm_zone_init(ngx_shm_zone_t *shm_zone, void *data);

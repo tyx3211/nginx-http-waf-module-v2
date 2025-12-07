@@ -1,9 +1,0 @@
-{
-  "version": 1,
-  "meta": { "name": "missing_parent_entry", "extends": ["./not_exists.json"] },
-  "rules": []
-}
-
-
-
-

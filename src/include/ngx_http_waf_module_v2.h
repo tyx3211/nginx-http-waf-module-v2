@@ -74,7 +74,7 @@ typedef struct {
   ngx_str_t shm_zone_name;  /* 区域名称 */
   size_t shm_zone_size;     /* 区域大小（字节） */
   /* 动态封禁参数（M5） */
-  ngx_uint_t dyn_block_threshold; /* 评分阈值（默认100，0表示禁用；封禁条件：score > threshold） */
+  ngx_uint_t dyn_block_threshold; /* 评分阈值（默认1000，0表示禁用；封禁条件：score > threshold） */
   ngx_msec_t dyn_block_window;    /* 评分窗口（毫秒，默认60000=1分钟） */
   ngx_msec_t dyn_block_duration;  /* 封禁时长（毫秒，默认1800000=30分钟） */
   /* M5全局运维指令（MAIN级，不继承） */

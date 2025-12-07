@@ -1,8 +1,0 @@
-{
-  // 合法：HEADER 目标且提供 headerName，单目标
-  "rules": [
-    { "id": 4101, "target": "HEADER", "headerName": "User-Agent", "match": "CONTAINS", "pattern": ["curl"], "action": "LOG" }
-  ]
-}
-
-

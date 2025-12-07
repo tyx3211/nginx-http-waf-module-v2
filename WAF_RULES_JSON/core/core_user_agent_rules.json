@@ -1,0 +1,54 @@
+{
+  "meta": {
+    "name": "core_user_agent_rules",
+    "tags": ["core", "ua"]
+  },
+  "rules": [
+    { "id": 1501, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)burpcollaborator\\.net", "action": "DENY", "score": 60 },
+    { "id": 1502, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)(\\$|%24)\\s*\\{.*?jndi\\s*:", "action": "DENY", "score": 60 },
+    { "id": 1503, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)interact\\.sh", "action": "DENY", "score": 60 },
+    { "id": 1504, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)oast\\.me", "action": "DENY", "score": 60 },
+    { "id": 1510, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)(?:\\b|(?<=\\d))sqlmap\\b", "action": "DENY", "score": 50 },
+    { "id": 1511, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)(?:\\b|(?<=\\d))Nuclei\\b", "action": "DENY", "score": 50 },
+    { "id": 1512, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)ffuf|Fuzz Faster U Fool", "action": "DENY", "score": 50 },
+    { "id": 1513, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)(?:\\b|(?<=\\d))OpenVAS-?VT\\b", "action": "DENY", "score": 50 },
+    { "id": 1520, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)mercuryboard_user_agent_sql_injection", "action": "DENY", "score": 50 },
+    { "id": 1521, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)nikto", "action": "DENY", "score": 30 },
+    { "id": 1522, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)sqlmap", "action": "DENY", "score": 50 },
+    { "id": 1523, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)nmap", "action": "DENY", "score": 20 },
+    { "id": 1524, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)acunetix", "action": "DENY", "score": 40 },
+    { "id": 1525, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)netsparker", "action": "DENY", "score": 40 },
+    { "id": 1526, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)wpscan", "action": "DENY", "score": 30 },
+    { "id": 1527, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)nessus", "action": "DENY", "score": 30 },
+    { "id": 1528, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)burp(suite|collaborator)", "action": "DENY", "score": 20 },
+    { "id": 1529, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)havij", "action": "DENY", "score": 50 },
+    { "id": 1530, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)libwww-perl", "action": "DENY", "score": 20 },
+    { "id": 1531, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)python-requests", "action": "DENY", "score": 10 },
+    { "id": 1533, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)wget/", "action": "DENY", "score": 10 },
+    { "id": 1534, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)HTTrack", "action": "DENY", "score": 30 },
+    { "id": 1535, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)masscan", "action": "DENY", "score": 40 },
+    { "id": 1536, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)zgrab", "action": "DENY", "score": 40 },
+    { "id": 1537, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)Go-http-client", "action": "DENY", "score": 10 },
+    { "id": 1538, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)DirBuster", "action": "DENY", "score": 40 },
+    { "id": 1539, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)Gobuster", "action": "DENY", "score": 40 },
+    { "id": 1540, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)feroxbuster", "action": "DENY", "score": 40 },
+    { "id": 1541, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)wfuzz", "action": "DENY", "score": 30 },
+    { "id": 1542, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)Arachni", "action": "DENY", "score": 40 },
+    { "id": 1543, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)Vega", "action": "DENY", "score": 40 },
+    { "id": 1544, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)ZmEu", "action": "DENY", "score": 30 },
+    { "id": 1545, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)DataCha0s", "action": "DENY", "score": 50 },
+    { "id": 1546, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)Jorgee", "action": "DENY", "score": 50 },
+    { "id": 1547, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)Detectify", "action": "DENY", "score": 20 },
+    { "id": 1548, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)DotDotPwn", "action": "DENY", "score": 40 },
+    { "id": 1549, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)HttpClient", "action": "DENY", "score": 10 },
+    { "id": 1550, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)AhrefsBot", "action": "LOG", "score": 5 },
+    { "id": 1551, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)SemrushBot", "action": "LOG", "score": 5 },
+    { "id": 1552, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)MJ12bot", "action": "LOG", "score": 5 },
+    { "id": 1553, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)BLEXBot", "action": "LOG", "score": 5 },
+    { "id": 1554, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "(?i)SiteAuditBot", "action": "LOG", "score": 5 },
+    { "id": 1560, "tags": ["core", "ua"], "target": ["HEADER"], "headerName": "User-Agent", "match": "REGEX", "pattern": "^$", "action": "LOG", "score": 5 }
+  ]
+}
+
+
+

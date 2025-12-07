@@ -66,7 +66,7 @@ char *ngx_http_waf_init_main_conf(ngx_conf_t *cf, void *conf)
     mcf->json_log_level = (ngx_uint_t)WAF_LOG_OFF; /* 默认 off */
   }
   if (mcf->dyn_block_threshold == NGX_CONF_UNSET_UINT) {
-    mcf->dyn_block_threshold = 100;
+    mcf->dyn_block_threshold = 1000;
   }
   if (mcf->dyn_block_window == NGX_CONF_UNSET_MSEC) {
     mcf->dyn_block_window = 60000;

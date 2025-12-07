@@ -49,7 +49,7 @@ void waf_dyn_score_add(ngx_http_request_t *r, ngx_uint_t delta)
 
   /* 未启用动态封禁或shm未初始化 */
   if (mcf == NULL || lcf == NULL || ctx == NULL || mcf->shm_zone == NULL ||
-      mcf->shm_zone->data == NULL || mcf->dyn_block_threshold == 0) {
+      mcf->shm_zone->data == NULL || mcf->dyn_block_threshold == 0 || !lcf->dyn_block_enable) {
     return;
   }
 
@@ -126,6 +126,9 @@ void waf_dyn_score_add(ngx_http_request_t *r, ngx_uint_t delta)
   ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "waf_dyn: ip=%uD, score: %ui -> %ui",
                  ip_addr, old_score, new_score);
 
+  /* 将最新分值同步到 ctx，供日志 totalScore 展示当前 IP 累计分 */
+  ctx->total_score = new_score;
+
   /* 检查是否超过阈值（严格大于）且当前未封禁 */
   if (new_score > mcf->dyn_block_threshold &&
       (ip_node->block_expiry == 0 || ip_node->block_expiry <= now)) {
@@ -141,6 +144,7 @@ void waf_dyn_score_add(ngx_http_request_t *r, ngx_uint_t delta)
 ngx_flag_t waf_dyn_is_banned(ngx_http_request_t *r)
 {
   ngx_http_waf_main_conf_t *mcf;
+  ngx_http_waf_loc_conf_t *lcf;
   ngx_http_waf_ctx_t *ctx;
   waf_dyn_shm_ctx_t *shm_ctx;
   waf_dyn_ip_node_t *ip_node;
@@ -152,9 +156,11 @@ ngx_flag_t waf_dyn_is_banned(ngx_http_request_t *r)
     return 0;
 
   mcf = ngx_http_get_module_main_conf(r, ngx_http_waf_module);
+  lcf = ngx_http_get_module_loc_conf(r, ngx_http_waf_module);
   ctx = ngx_http_get_module_ctx(r, ngx_http_waf_module);
 
-  if (mcf == NULL || ctx == NULL || mcf->shm_zone == NULL || mcf->shm_zone->data == NULL) {
+  if (mcf == NULL || lcf == NULL || ctx == NULL || mcf->shm_zone == NULL ||
+      mcf->shm_zone->data == NULL || mcf->dyn_block_threshold == 0 || !lcf->dyn_block_enable) {
     return 0;
   }
 
@@ -193,6 +199,43 @@ ngx_flag_t waf_dyn_is_banned(ngx_http_request_t *r)
   ngx_shmtx_unlock(&shm_ctx->shpool->mutex);
 
   return banned;
+}
+
+/* 只读取当前IP的累计分（不加分、不封禁），用于“仅计分/仅展示”场景 */
+ngx_uint_t waf_dyn_peek_score(ngx_http_request_t *r)
+{
+  ngx_http_waf_main_conf_t *mcf;
+  ngx_http_waf_ctx_t *ctx;
+  waf_dyn_shm_ctx_t *shm_ctx;
+  waf_dyn_ip_node_t *ip_node;
+  ngx_uint_t ip_addr;
+  ngx_uint_t score = 0;
+
+  if (r == NULL)
+    return 0;
+
+  mcf = ngx_http_get_module_main_conf(r, ngx_http_waf_module);
+  ctx = ngx_http_get_module_ctx(r, ngx_http_waf_module);
+
+  if (mcf == NULL || ctx == NULL || mcf->shm_zone == NULL || mcf->shm_zone->data == NULL) {
+    return 0;
+  }
+
+  shm_ctx = (waf_dyn_shm_ctx_t *)mcf->shm_zone->data;
+  ip_addr = ctx->client_ip;
+  if (ip_addr == 0) {
+    return 0;
+  }
+
+  ngx_shmtx_lock(&shm_ctx->shpool->mutex);
+  ip_node = waf_dyn_lookup_ip(shm_ctx, ip_addr);
+  if (ip_node != NULL) {
+    score = (ngx_uint_t)ip_node->score;
+  }
+  ngx_shmtx_unlock(&shm_ctx->shpool->mutex);
+
+  ctx->total_score = score;
+  return score;
 }
 
 /* ===== 红黑树查找 ===== */

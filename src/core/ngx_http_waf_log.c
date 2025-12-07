@@ -144,9 +144,9 @@ void waf_log_append_rule_event(ngx_http_request_t *r, ngx_http_waf_main_conf_t *
   if (intent_str) {
     yyjson_mut_obj_add_str(doc, event, "intent", intent_str);
   }
-  if (score_delta > 0) {
+  // if (score_delta > 0) {
     yyjson_mut_obj_add_uint(doc, event, "scoreDelta", score_delta);
-  }
+  // }
   yyjson_mut_obj_add_uint(doc, event, "totalScore", ctx->total_score);
 
   if (details) {
@@ -182,9 +182,9 @@ void waf_log_append_reputation_event(ngx_http_request_t *r, ngx_http_waf_main_co
   yyjson_mut_val *event = yyjson_mut_obj(doc);
 
   yyjson_mut_obj_add_str(doc, event, "type", "reputation");
-  if (score_delta > 0) {
+  // if (score_delta >= 0) {
     yyjson_mut_obj_add_uint(doc, event, "scoreDelta", score_delta);
-  }
+  // }
   yyjson_mut_obj_add_uint(doc, event, "totalScore", ctx->total_score);
   if (reason) {
     yyjson_mut_obj_add_str(doc, event, "reason", reason);

@@ -1,8 +1,0 @@
-{
-  // 非法：target 同时包含 HEADER 与其他目标
-  "rules": [
-    { "id": 4103, "target": ["HEADER", "URI"], "headerName": "X-Token", "match": "CONTAINS", "pattern": ["abc"], "action": "LOG" }
-  ]
-}
-
-

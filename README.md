@@ -1,438 +1,280 @@
-### Nginx HTTP WAF v2 接入指南（供 NestJS 后端与 Vue3 前端使用）
+# Nginx HTTP WAF 模块 (v2.0)
 
-本指南面向下游控制台（NestJS 后端 + Vue3 前端），提供“可发布、可回滚、可校验”的对接契约：
-- 规则 JSON（数据面）字段与取值一览（严格以当前实现为准）
-- Nginx 指令（运维面）完整清单与作用域
-- JSONL 请求日志字段定义（一次请求最多一行）
+## 简介
 
-注：下文内容以仓库 `src/` 真实实现为基准，已与以下核心源码交叉校对：
-- 指令注册与配置：`src/module/ngx_http_waf_config.c`
-- 规则 JSON 解析与合并：`src/json/ngx_http_waf_json.c`
-- 编译期快照与字段校验：`src/core/ngx_http_waf_compiler.c`
-- JSONL 日志实现：`src/core/ngx_http_waf_log.c`
+Nginx HTTP WAF (Web Application Firewall) v2 是一个基于 Nginx 的高性能、生产级 Web 应用防火墙。相比 v1 版本，v2 引入了现代化的规则引擎（基于 JSON 结构化配置与 yyjson 解析）、灵活的继承/重写机制、以及一次请求一行（JSONL）的审计日志系统。
+
+本项目旨在为 Nginx 提供“开箱即用”的安全防护能力，覆盖 OWASP Top 10 等常见 Web 攻击，同时保持配置的简洁与运维的友好性。
 
 ---
 
-## 1. 规则 JSON（数据面）
+## 核心特性 (v2)
 
-入口 JSON 顶层对象，支持注释与尾逗号（宽容解析）。最终合并后的产物由模块在加载时生成（不可变）。
+### 1. 现代化规则引擎
+- **JSON 结构化**: 告别繁琐的自定义语法，使用标准 JSON 定义规则，易于阅读、校验与自动化生成。
+- **继承与重写 (`extends`)**: 支持规则集继承（如 `user_rules` 继承 `core_rules`），并可针对特定 ID 或标签进行禁用、参数重写。
+- **多阶段流水线**: 内置精密编排的检测流水线（IP 白名单 -> IP 黑名单 -> 动态信誉 -> URI 白名单 -> 核心检测），确保高效拦截。
 
-### 1.1 顶层字段
-- version: number（可选）。仅透传，不参与合并。
-- meta: object（可选，分层生效项仅用于本层合并时读取，最终产物保留入口层 meta）
-  - name: string（可选）
-  - versionId: string（可选）
-  - tags: string[]（可选；仅信息标识，不参与合并规则）
-  - extends: Array<string | object>（可选；父规则文件列表，左→右递归合并）
-    - 字符串：路径（绝对/相对），解析规则见“路径解析”。
-    - 对象：{ file: string; rewriteTargetsForTag?: Record<string, Target[]>; rewriteTargetsForIds?: Array<{ ids: number[]; target: Target[] }>}。
-      - rewriteTargetsForTag：对 imported_set 中包含指定标签的规则，批量重写其 target。
-      - rewriteTargetsForIds：对 imported_set 中命中 id 的规则，批量重写其 target。
-  - duplicatePolicy: "error" | "warn_skip" | "warn_keep_last"（默认：warn_skip；本层合并结束时执行去重策略）。
-- disableById: number[]（可选；仅过滤 imported_set，不影响本地 rules）
-- disableByTag: string[]（可选；仅过滤 imported_set，不影响本地 rules）
-- rules: Rule[]（必填；本地规则集合，追加在 imported_set 之后，再统一去重）
-- policies: object（可选；当前版本透传到内存快照，未参与 M1 合并与执法）
+### 2. 强大的防护能力
+- **核心攻击防御**: 内置 SQL 注入 (SQLi)、跨站脚本 (XSS)、目录遍历、远程代码执行 (RCE)、本地文件包含 (LFI)、恶意 User-Agent 等高危攻击的防护规则集。
+- **动态信誉系统**: 基于共享内存的动态 IP 评分机制。攻击行为累积评分，超过阈值自动封禁（Block），支持自定义封禁时长与评分窗口。
+- **智能解码**: 自动处理 URL 编码、HTML 实体编码等绕过手段，只需编写原始 Payload 即可防御多种变体。
 
-路径解析：
-- 绝对路径原样；以 `./`、`../` 开头相对当前 JSON 所在目录；否则相对 `waf_jsons_dir`（若配置）或 Nginx prefix。解析后统一规范化。
-
-循环与深度：
-- 检测 extends 循环（报错信息包含“extends cycle detected”）；深度上限由指令 `waf_json_extends_max_depth` 控制（0 表示不限）。
-
-### 1.2 Rule 项完整字段与取值
-每条规则必须为对象，且仅允许以下字段（多余字段将报错）：
-- id: number（必填，正整数；集合内作为去重键）
-- tags: string[]（可选）
-- phase: "ip_allow" | "ip_block" | "uri_allow" | "detect"（可选）
-- target: Target | Target[]（必填；支持数组表示多目标独立评估）
-- headerName: string（当 target=HEADER 时必填；其他 target 禁止出现）
-- match: "CONTAINS" | "EXACT" | "REGEX" | "CIDR"（必填）
-- pattern: string | string[]（必填；数组为 OR；字符串/数组元素不得为空）
-- caseless: boolean（可选；默认 false）
-- negate: boolean（可选；默认 false）
-- action: "DENY" | "LOG" | "BYPASS"（必填）
-- score: number（可选；默认 10；当 action=BYPASS 禁止出现）
-- priority: number（可选；默认 0；用于桶内稳定排序）
-
-Target 取值全集（严格与实现一致）：
-- "CLIENT_IP" | "URI" | "ALL_PARAMS" | "ARGS_COMBINED" | "ARGS_NAME" | "ARGS_VALUE" | "BODY" | "HEADER"
-- 语义与约束：
-  - ALL_PARAMS：在解析期自动展开为 ["URI","ARGS_COMBINED","BODY"]，最终规则不保留字面 ALL_PARAMS。
-  - HEADER：当 target 包含 HEADER 时：
-    - 必须提供非空 `headerName`；
-    - 严禁与其他目标混用（target 不得再包含其他项）。
-  - CLIENT_IP：`match=CIDR` 时编译期预解析；`BYPASS`→`ip_allow`，`DENY`→`ip_block` 推断/校验。
-
-组合与校验（编译期 `src/core/ngx_http_waf_compiler.c`）：
-- phase 显式提供时将严格校验 `phase/target/action` 组合：
-  - ip_allow: target 必须为 CLIENT_IP 且 action=BYPASS
-  - ip_block: target 必须为 CLIENT_IP 且 action=DENY
-  - uri_allow: target 必须为 URI 且 action=BYPASS
-  - detect: 其他组合
-- 未显式给出 phase 时按上述规则从 target+action 推断。
-
-duplicatePolicy 去重（解析期按层执行，键=id）：
-- error：发现重复 id 立即报错
-- warn_skip（默认）：保留首次，忽略其后
-- warn_keep_last：保留最后一次出现（位置覆盖首个位置，保持整体顺序语义）
-
-禁用 imported_set（只作用父集）：
-- disableById：移除命中的规则 id
-- disableByTag：规则含任一本条禁用标签即移除
-
-导入级重写（仅作用于本层 imported_set，不回写父文件）：
-- rewriteTargetsForTag：按标签重写父集规则目标
-- rewriteTargetsForIds：按 id 集合重写父集规则目标
-
-示例（片段）：
-```json
-{
-  "meta": {
-    "extends": [
-      "./base.json",
-      { "file": "./child.json", "rewriteTargetsForTag": { "apply:multi-surface": ["URI","ARGS_COMBINED","BODY"] } }
-    ],
-    "duplicatePolicy": "warn_keep_last"
-  },
-  "disableById": [200],
-  "disableByTag": ["legacy"],
-  "rules": [
-    { "id": 300001, "target": "HEADER", "headerName": "User-Agent", "match": "CONTAINS", "pattern": "BadBot", "action": "LOG", "score": 1 }
-  ]
-}
-```
+### 3. 生产级审计日志
+- **JSONL 格式**: 采用 `JSON Lines` 标准，一次请求输出一行完整日志，便于 Filebeat/Logstash 采集与大数据分析。
+- **全景上下文**: 记录请求时间、客户端 IP、URI、命中规则链、最终决策（Block/Bypass/Log）、评分变化及动态封禁状态。
+- **Decisive 标记**: 智能标记导致最终决策的“决定性事件”，快速定位拦截原因。
 
 ---
 
-## 2. Nginx 指令（运维面）
+## 快速上手与部署
 
-指令以模块实现为准（`src/module/ngx_http_waf_config.c`）。括号内为作用域：MAIN 仅 http{}，LOC 为 http/server/location。
+### 1. 编译安装 (交互式脚本)
 
-MAIN（全局，不继承）
-- waf_jsons_dir <dir>：规则 JSON 根目录
-- waf_json_log <path|off>：JSONL 日志文件路径；设为 `off` 关闭
-- waf_json_log_level off|debug|info|alert|error：日志级别阈值（BLOCK 至少 alert 强制落盘）
-- waf_shm_zone <name> <size>：共享内存区（动态封禁等）
-- waf_trust_xff on|off：是否信任 X-Forwarded-For（取最左 IP）
-- waf_dynamic_block_score_threshold <number>：封禁阈值（默认 100）
-- waf_dynamic_block_duration <time>：封禁持续时长（默认 30m）
-- waf_dynamic_block_window_size <time>：评分窗口（默认 1m）
+我们提供了一个方便的交互式脚本 `script/interactive_build.sh`，可自动下载 Nginx 源码并完成编译安装。
 
-LOC（可继承/覆盖）
-- waf on|off：模块开关（默认 on）
-- waf_default_action block|log：全局执法策略（默认 block）；与日志 `currentGlobalAction` 对应
-- waf_dynamic_block_enable on|off：是否启用动态封禁（默认 off；建议仅 http{} 设置一次）
-- waf_rules_json <path>：入口规则文件（解析合并后在本作用域生效）
-- waf_json_extends_max_depth <uint>：extends 最大深度（默认 5；0 表示不限）
+**步骤**:
+1. **克隆仓库**:
+   ```bash
+   git clone https://github.com/your-repo/nginx-http-waf-module-v2.git
+   cd nginx-http-waf-module-v2
+   ```
 
-注意：
-- `waf_json_log` 写入采用 Nginx open_files 句柄，支持 USR1 reopen；未配置路径则仅输出 error_log 摘要。
-- `waf off` 时该作用域完全旁路（不检测、不加分、不封禁、不写 JSONL）。
+2. **运行交互式脚本**:
+   ```bash
+   chmod +x script/interactive_build.sh
+   ./script/interactive_build.sh
+   ```
+   *脚本会提示输入 Nginx 版本（默认 1.24.0）、安装路径（默认 `/usr/local/nginx`）等信息，确认后自动开始下载、编译并安装。*
 
-### 快速 include 接入（access 日志 + WAF 核心）
+### 2. 手动编译 (高级用户)
 
-在 `http {}` 中加入：
+如果您偏好手动控制或已有 Nginx 源码：
 
+1. **下载 Nginx 源码**: [nginx.org](http://nginx.org/en/download.html)
+2. **Configure**:
+   ```bash
+   ./configure --prefix=/usr/local/nginx \
+               --with-compat \
+               --add-dynamic-module=/path/to/nginx-http-waf-module-v2 \
+               # 其他您需要的模块...
+   ```
+3. **Build & Install**:
+   ```bash
+   make && sudo make install
+   ```
+4. **部署规则**:
+   将 `WAF_RULES_JSON` 目录复制到 `/usr/local/nginx/WAF_RULES_JSON`。
+
+### 3. 配置 Nginx
+
+**推荐配置**：直接使用我们提供的模板 `docs/gotestwaf.nginx.conf`（已包含最佳实践配置）。
+
+```bash
+sudo cp nginx-http-waf-module-v2/docs/gotestwaf.nginx.conf /usr/local/nginx/conf/nginx.conf
 ```
-include waf/waf_core.conf;       # 模块指令集中定义
-include waf/waf_access_log.conf; # 输出 access_waf.json（含 $waf_*）
-```
 
-更多“快速交付”说明见 `docs/quick-implementation.md`。
+**或者手动修改 `nginx.conf`**:
 
-部署建议：将两份 conf 安装至 `/usr/local/nginx/conf/waf/` 目录（本仓库提供示例：`conf/waf/waf_core.conf` 与 `conf/waf/waf_access_log.conf`）。
-示例（加入 http{}）：
-```
-include waf/waf_core.conf;
-include waf/waf_access_log.conf;
-```
+在 `http {}` 块中添加：
 
-
----
-
-## 3. JSONL 日志（一次请求最多一行）
-
-顶层字段（`src/core/ngx_http_waf_log.c`）：
-- time: string（UTC ISO8601）
-- clientIp: string（文本 IP）
-- method: string
-- host?: string（可选）
-- uri: string
-- events: array<object>（见下）
-- finalAction: string（BLOCK | BYPASS | ALLOW）
-- finalActionType: string（ALLOW | BYPASS_BY_IP_WHITELIST | BYPASS_BY_URI_WHITELIST | BLOCK_BY_RULE | BLOCK_BY_REPUTATION | BLOCK_BY_IP_BLACKLIST | BLOCK_BY_DYNAMIC_BLOCK）
-- currentGlobalAction: string（BLOCK | LOG；来自生效的 `waf_default_action`）
-- blockRuleId?: uint（当 finalActionType=BLOCK_BY_RULE 时出现）
-- status?: uint（最终 HTTP 状态；BLOCK/BYPASS 路径会被设置）
-- level: string（DEBUG | INFO | ALERT | ERROR | NONE；最终日志级别文本）
-
-events 类型与字段：
-- type="rule"：规则事件
-  - ruleId: uint
-  - intent?: "BLOCK" | "LOG" | "BYPASS"
-  - scoreDelta?: uint
-  - totalScore: uint
-  - matchedPattern?: string
-  - patternIndex?: uint
-  - target?: string（命中目标标签）
-  - negate?: bool
-  - decisive?: bool（仅在最终决策事件上会标记，最多 1 次）
-- type="reputation"：信誉加分
-  - scoreDelta?: uint
-  - totalScore: uint
-  - reason?: string
-- type="ban"：进入动态封禁窗口
-  - window: uint(ms)
-- type="reputation_window_reset"：信誉窗口到期清零
-  - prevScore: uint
-  - windowStartMs: uint
-  - windowEndMs: uint
-  - reason: "window_expired"
-  - category: "reputation/dyn_block"
-
-落盘策略：
-- finalAction=BLOCK：必落盘（至少 alert）
-- finalAction=BYPASS：强制落盘
-- 其他（ALLOW）：若 `effective_level >= waf_json_log_level` 才落盘；空事件且 ALLOW 不落盘
-
-decisive 选择规则：
-- BYPASS：最后一条 intent=BYPASS 的规则事件
-- BLOCK_BY_DYNAMIC_BLOCK：最后一条 ban 事件；若无，则回退到规则事件策略
-- BLOCK_BY_RULE：优先匹配 blockRuleId 的规则事件；若无，则回退到“最后一条 intent=BLOCK 的规则事件”
-
----
-
-## 4. 对接建议（最小实现）
-
-后端（NestJS）：
-- POST /policies/validate：上传 JSON/JSONL（JSON 模式）做 schema/业务校验，返回诊断（可复用本仓库测试器或嵌入 yyjson + 轻量校验）。
-- POST /policies/publish：原子落盘至版本目录（软链 current 切换）并执行 `nginx -s reload`。
-- POST /policies/rollback：切回历史版本目录并 reload。
-- GET /waf/status：读取运行中模块状态、最近发布版本与日志样例。
-
-前端（Vue3）：
-- 策略编辑/校验/发布/回滚；对 imported_set 的“重写/禁用”提供可视化辅助。
-
-目录与原子发布建议：
-- `/usr/local/nginx/conf/waf/releases/<semver-or-ts>/rules.json` + 软链 `current`；`waf_rules_json` 指向 `current`。
-
----
-
-## 5. 附：字段/取值速查（权威源自实现）
-
-Rule.match：CONTAINS | EXACT | REGEX | CIDR
-
-Rule.action：DENY | LOG | BYPASS（BYPASS 禁止出现 score）
-
-Rule.target：CLIENT_IP | URI | ALL_PARAMS(解析期展开) | ARGS_COMBINED | ARGS_NAME | ARGS_VALUE | BODY | HEADER（HEADER 需 headerName，且不能与其它目标并存）
-
-phase：ip_allow | ip_block | uri_allow | detect（可省略，由 target+action 推断，显式指定当前未实现）
-
-指令作用域：
-- MAIN：waf_jsons_dir / waf_json_log / waf_json_log_level / waf_shm_zone / waf_trust_xff / waf_dynamic_block_score_threshold / waf_dynamic_block_duration / waf_dynamic_block_window_size
-- LOC：waf / waf_default_action / waf_dynamic_block_enable / waf_rules_json / waf_json_extends_max_depth
-
-JSONL 顶层：time, clientIp, method, host?, uri, events[], finalAction, finalActionType, currentGlobalAction, blockRuleId?, status?, level
-
-
-## 6. 一套可跑通的完整示例（配置 + 规则 JSON + 日志样例 + 调试命令）
-
-- 目标：用最小可用配置跑通“扩展继承 + 重写目标 + 禁用父集规则 + 头部阻断 + JSONL 落盘”全链路。
-- 假设目录：
-  - 规则根：`/usr/local/nginx/conf/waf/releases/current/`
-  - 日志：`/var/log/nginx/waf.jsonl`
-
-### 6.1 nginx.conf 关键片段（MAIN + LOC 指令）
 ```nginx
-worker_processes  auto;
-
-events { worker_connections  1024; }
+# 加载模块 (若编译为动态模块)
+load_module modules/ngx_http_waf_module.so;
 
 http {
-    # MAIN 级（不继承）
-    waf_jsons_dir /usr/local/nginx/conf/waf/releases/current;
-    waf_json_log /var/log/nginx/waf.jsonl;
-    waf_json_log_level info;           # off|debug|info|alert|error
-    waf_shm_zone waf_dyn 32m;
-    waf_trust_xff on;
-
-    waf_dynamic_block_score_threshold 100;
-    waf_dynamic_block_duration 30m;
-    waf_dynamic_block_window_size 1m;
-
-    # LOC 可继承：直接在 http{} 设定，所有 server/location 生效
+    # ...
+    
+    # --- WAF 核心配置 ---
     waf on;
-    waf_default_action block;          # block|log
-    waf_dynamic_block_enable on;
-    waf_json_extends_max_depth 5;      # 0 表示不限
+    waf_shm_zone waf_block_zone 10m;            # 动态信誉共享内存
+    waf_jsons_dir WAF_RULES_JSON;               # 规则根目录(相对prefix)
+    
+    # 入口规则文件 (推荐继承核心集)
+    waf_rules_json user/gotestwaf_user_rules.json;
 
-    # 入口规则文件（可放 http/server/location，放 http{} 便于继承）
-    waf_rules_json /usr/local/nginx/conf/waf/releases/current/main.json;
+    # 审计日志
+    waf_json_log logs/waf.jsonl;
+    waf_json_log_level info;
 
-    server {
-        listen 8080;
-        server_name localhost;
-
-        location / {
-            proxy_pass http://127.0.0.1:9000;
-        }
-    }
+    # 执法策略
+    waf_default_action block;
+    waf_dynamic_block_enable on;                # 开启动态封禁
+    waf_dynamic_block_score_threshold 100;      # 封禁阈值
+    # -------------------
 }
 ```
 
-### 6.2 规则 JSON（父子两层 + 重写 + 禁用）
+**更多配置指令说明**：请参考 [docs/waf-directives-spec-v2.0.md](docs/waf-directives-spec-v2.0.md)。
 
-- 文件：`/usr/local/nginx/conf/waf/releases/current/base.json`
-```json
-{
-  "version": 1,
-  "meta": {
-    "name": "base",
-    "tags": ["baseline"]
-  },
-  "rules": [
-    {
-      "id": 100,
-      "tags": ["system"],
-      "target": "URI",
-      "match": "EXACT",
-      "pattern": "/healthz",
-      "action": "BYPASS",
-      "priority": 0
-    },
-    {
-      "id": 200,
-      "tags": ["legacy", "csrf"],
-      "target": "URI",
-      "match": "CONTAINS",
-      "pattern": "csrf",
-      "action": "LOG",
-      "score": 1,
-      "priority": 10
-    },
-    {
-      "id": 300,
-      "tags": ["apply:multi-surface", "sqli"],
-      "target": "URI",
-      "match": "REGEX",
-      "pattern": ".*(sql|select).*",
-      "caseless": true,
-      "action": "DENY",
-      "priority": 5
-    }
-  ]
-}
-```
+### 4. 启动与验证
 
-- 文件：`/usr/local/nginx/conf/waf/releases/current/child.json`
-```json
-{
-  "version": 1,
-  "meta": { "name": "child" },
-  "rules": [
-    {
-      "id": 301,
-      "tags": ["referer:csrf"],
-      "target": "HEADER",
-      "headerName": "Referer",
-      "match": "EXACT",
-      "pattern": "evil.com",
-      "action": "DENY",
-      "priority": 1
-    }
-  ]
-}
-```
-
-- 文件：`/usr/local/nginx/conf/waf/releases/current/main.json`（入口：继承 + 重写 + 禁用 + 本地规则）
-```json
-{
-  "version": 2,
-  "meta": {
-    "name": "main",
-    "extends": [
-      "./base.json",
-      {
-        "file": "./child.json",
-        "rewriteTargetsForTag": {
-          "apply:multi-surface": ["ALL_PARAMS"]
-        }
-      }
-    ],
-    "duplicatePolicy": "warn_keep_last"
-  },
-
-  "disableById": [200],
-  "disableByTag": ["legacy"],
-
-  "rules": [
-    {
-      "id": 400,
-      "tags": ["referer:strict"],
-      "target": "HEADER",
-      "headerName": "Referer",
-      "match": "EXACT",
-      "pattern": "evil.com",
-      "action": "DENY",
-      "priority": 0
-    }
-  ]
-}
-```
-
-说明要点：
-- `apply:multi-surface` 标签在入口通过 `rewriteTargetsForTag` 被改写为 `ALL_PARAMS`，解析期会展开为 `URI`、`ARGS_COMBINED`、`BODY`。
-- `disableById: [200]` 会把父集中 ID=200 的规则移除（只影响 imported_set）。
-- `HEADER` 目标要求必须提供非空 `headerName`；若通过重写去掉了 `HEADER`，实现会自动移除多余的 `headerName`。
-
-### 6.3 触发与观测
-
-- 重载并压一条请求触发 SQLi 阻断（命中 id=300，经 ALL_PARAMS 展开，对 `ARGS_COMBINED` 也生效）：
 ```bash
-nginx -s reload
-curl -H "User-Agent: BadBot/1.0" "http://127.0.0.1:8080/?q=select" -I
-tail -n 1 /var/log/nginx/waf.jsonl
+sudo /usr/local/nginx/sbin/nginx
+# 或重载
+sudo /usr/local/nginx/sbin/nginx -s reload
 ```
 
-- 参考 JSONL 样例（单行）：
+**验证方法**:
+1. **简单测试**:
+   访问 `http://localhost:8080/?id=1'%20or%20'1'='1`，应返回 `403 Forbidden`。
+   查看日志：`tail -f /usr/local/nginx/logs/waf.jsonl`。
+
+2. **GoTestWAF 完整测试**:
+   (推荐) 使用 `gotestwaf` 配合本项目提供的测试用例集：
+   ```bash
+   # 安装 gotestwaf
+   go install github.com/gotenberg/gotestwaf@latest
+   
+   # 运行测试，注意将路径替换为clone本项目的gotestwaf_testcases的绝对路径
+   ~/go/bin/gotestwaf --url http://localhost:8080/ \
+     --blockStatusCodes 403 \
+     --testCasesPath /path/to/nginx-http-waf-module-v2/gotestwaf_testcases
+   ```
+   *预期结果：评分 A+ (90分以上)*
+
+   预期测试图片：
+   ![GoTestWaf测试结果](doc/gotestwaf.png)
+
+   测试结果html见[doc/waf-evaluation-report-2025-December-07-23-35-30.html](doc/waf-evaluation-report-2025-December-07-23-35-30.html)
+
+---
+
+## 深度架构解析
+
+### 1. 规则引擎设计
+
+v2 规则引擎放弃了 v1 的自定义解析器，转而拥抱标准的 JSON 生态，利用 `yyjson` 高性能库进行解析。核心设计思想是 **“编译期平铺”**：
+
+- **继承与重写 (`extends`)**:
+  - 支持多层级继承（A extends B extends C）。
+  - 在合并阶段，父子规则被“平铺”到一个线性数组中。
+  - 子规则可以通过 `duplicatePolicy` 控制重复 ID 的处理策略（覆盖、跳过、报错）。
+  - 对于继承规则：支持针对特定 ID 或 Tag 的批量禁用 (`disableById`, `disableByTag`) ，和针对特定 IDs 或 Tag 的 Targets 重新批量指定 (`rewriteTargets`)。（这里较为复杂，建议查看详细JSON规范文档）
+
+- **高效匹配 (Compile-time Snapshot)**:
+  - 在 Nginx 配置加载阶段（Configuration Phase），规则被编译为内存快照 (`waf_compiled_snapshot_t`)。
+  - 规则按检测阶段（Phase）和目标（Target）被分桶存储。
+  - 运行时（Runtime）只需直接遍历对应桶中的规则，无额外的解析开销。
+
+- **规则 JSON 结构示例**:
+  ```json
+  {
+    "meta": {
+      "name": "my_policy",
+      "extends": [
+        "../core/core_sqli_rules.json"
+      ],
+      "duplicatePolicy": "warn_keep_last"
+    },
+    "rules": [
+      {
+        "id": 10001,
+        "target": "ARGS_COMBINED",
+        "match": "CONTAINS",
+        "pattern": "bad_value",
+        "action": "DENY",
+        "score": 10
+      }
+    ]
+  }
+  ```
+  *详细 JSON 规范请参考 [docs/waf-json-spec-v2.0-simplified.md](docs/waf-json-spec-v2.0-simplified.md)。*
+
+### 2. 五段流水线架构 (Pipeline)
+
+WAF 的请求处理逻辑严格遵循五段流水线，每一步都对应特定的防护目标。这种设计确保了高性能（低开销检查前置）和逻辑清晰。
+
+1.  **IP 白名单 (`waf_stage_ip_allow`)**:
+    -   **目标**: `CLIENT_IP`
+    -   **动作**: `BYPASS`
+    -   **逻辑**: 优先检查 IP 是否在白名单中。如果命中，直接放行，跳过后续所有检查（包括黑名单和规则检测）。
+
+2.  **IP 黑名单 (`waf_stage_ip_deny`)**:
+    -   **目标**: `CLIENT_IP`
+    -   **动作**: `DENY`
+    -   **逻辑**: 检查 IP 是否在黑名单中。命中则立即拦截。
+
+3.  **动态信誉检测 (`waf_stage_reputation_base_add`)**:
+    -   **逻辑**:
+        1.  为当前请求增加基础访问分（`base_score`）。
+        2.  检查该 IP 在共享内存中的累积评分是否超过阈值 (`dyn_block_threshold`)。
+        3.  检查该 IP 是否处于封禁窗口期。
+        4.  若已封禁，直接拦截；否则继续。
+    -   **特点**: 跨请求的风险累积，有效防御扫描器和 CC 攻击。即便 `waf_dynamic_block_enable` 关闭，系统仍会维护 IP 评分供日志展示（但不会封禁）。
+
+4.  **URI 白名单 (`waf_stage_uri_allow`)**:
+    -   **目标**: `URI`
+    -   **动作**: `BYPASS`
+    -   **逻辑**: 检查请求路径是否在白名单中（如静态资源、特定 API）。命中则放行，**不再读取请求体**，极大提升性能。
+
+5.  **深度检测 (`waf_stage_detect_bundle`)**:
+    -   **目标**: `URI`, `ARGS`, `HEADERS`, `BODY`
+    -   **逻辑**:
+        -   如果请求体尚未读取且需要检测 Body，模块会触发读取。
+        -   执行核心规则集检测（SQLi, XSS 等）。
+        -   **智能解码**: 对 `ARGS_COMBINED` 等目标自动进行 URL 解码；对 `application/x-www-form-urlencoded` 的 Body 自动解码。
+        -   **评分累积**: 命中规则后，除了执行动作（DENY/LOG），还会将 `score` 累积到 IP 动态信誉中，可能触发后续封禁。
+
+### 3. 审计日志 (JSONL) 详解
+
+v2 引入了生产级的 JSONL (JSON Lines) 日志，每行对应一个请求的完整画像。这比传统的 error.log 更加结构化，易于机器解析。
+
+**日志字段全解**:
+
 ```json
 {
-  "time": "2025-10-13T12:00:00Z",
-  "clientIp": "203.0.113.1",
+  "time": "2025-12-07T15:00:55Z",
+  "clientIp": "127.0.0.1",
   "method": "GET",
-  "host": "localhost",
-  "uri": "/?q=select",
-  "events": [
-    {
-      "type": "rule",
-      "ruleId": 300,
-      "intent": "BLOCK",
-      "scoreDelta": 10,
-      "totalScore": 10,
-      "matchedPattern": ".*(sql|select).*",
-      "patternIndex": 0,
-      "target": "ARGS_COMBINED",
-      "decisive": true
-    }
-  ],
+  "host": "localhost:8080",
+  "uri": "/test",
   "finalAction": "BLOCK",
   "finalActionType": "BLOCK_BY_RULE",
   "currentGlobalAction": "BLOCK",
-  "blockRuleId": 300,
+  "blockRuleId": 1002,
   "status": 403,
-  "level": "ALERT"
+  "level": "ALERT",
+  "events": [
+    {
+      "type": "rule",
+      "ruleId": 1002,
+      "intent": "BLOCK",
+      "scoreDelta": 50,
+      "totalScore": 100,
+      "target": "args",
+      "decisive": true
+    }
+  ]
 }
 ```
 
-- 触发 Referer 阻断（命中 id=400 或 301，二选一即可）：
-```bash
-curl -H "Referer: evil.com" "http://127.0.0.1:8080/" -I
-tail -n 1 /var/log/nginx/waf.jsonl
-```
+- **基础信息**:
+  - `time`, `clientIp`, `method`, `host`, `uri`: 请求基本元数据。
+- **决策结果**:
+  - `finalAction`: 最终对请求的处置 (`BLOCK`, `BYPASS`, `ALLOW`)。
+  - `finalActionType`: 处置的具体原因 (`BLOCK_BY_RULE`, `BLOCK_BY_DYNAMIC_BLOCK`, `BYPASS_BY_URI_WHITELIST` 等)。
+  - `currentGlobalAction`: 当前配置的全局默认动作 (`BLOCK` 或 `LOG`)。
+  - `blockRuleId`: 导致拦截的规则 ID（若是规则拦截）。
+  - `status`: 返回给客户端的 HTTP 状态码。
+- **事件详情 (`events`)**:
+  - 记录了请求处理过程中触发的所有重要事件。
+  - `type`: 事件类型 (`rule`, `ban`, `reputation` 等)。
+  - `ruleId`: 触发的规则 ID。
+  - `scoreDelta`: 该事件导致的分数增加值（若动态封禁关闭，此值为 0，不计入风险）。
+  - `totalScore`: 触发该事件后的 IP 即刻累计总分。**注意**：即便关闭了动态封禁功能，此字段仍会显示该 IP 在内存中的实时评分（如果有），方便运维观察风险值。
+  - `decisive`: **关键字段**。标记该事件是否是导致 `finalAction` 的决定性因素（例如，命中的那条阻断规则）。
 
-### 6.4 常见问题速记
-- 没有 `waf.jsonl`：检查 `waf_json_log` 是否配置；`off` 时仅输出 error_log 摘要。
-- BYPASS/ALLOW 不落盘：只有 `BLOCK/BYPASS` 强制落盘；ALLOW 需 `effective_level >= waf_json_log_level`。
-- `extends` 报循环：检查继承链是否自引用；超深度则调整 `waf_json_extends_max_depth` 或精简链路。
+*详细 审计日志JSONL 规范请参考 [docs/waf-jsonl-spec-v2.0.md](docs/waf-jsonl-spec-v2.0.md)。*
+
+---
+
+## 目录结构说明
+
+- `script/`: 包含交互式构建脚本 `interactive_build.sh`。
+- `nginx-http-waf-module-v2/`: 模块 v2 核心源码。
+  - `src/`: C 代码实现。
+  - `WAF_RULES_JSON/`: 官方规则集仓库。
+  - `docs/`: 详细设计文档与规范。
+- `gotestwaf_testcases/`: 专用测试用例集。
 

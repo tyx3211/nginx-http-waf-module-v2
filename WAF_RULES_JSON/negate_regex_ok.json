@@ -1,7 +1,0 @@
-{
-  "rules": [
-    { "id": 7002, "target": "URI", "match": "REGEX", "pattern": ["^/white1$", "^/white2$"], "negate": true, "action": "DENY" }
-  ]
-}
-
-

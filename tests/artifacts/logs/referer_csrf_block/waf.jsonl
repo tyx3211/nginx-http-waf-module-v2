@@ -1,1 +1,0 @@
-{"time":"2025-10-13T00:42:37Z","clientIp":"127.0.0.1","method":"GET","host":"127.0.0.1:8096","uri":"/","events":[{"type":"rule","ruleId":900001,"intent":"BLOCK","scoreDelta":10,"totalScore":10,"target":"header","negate":true,"decisive":true}],"finalAction":"BLOCK","finalActionType":"BLOCK_BY_RULE","currentGlobalAction":"BLOCK","blockRuleId":900001,"status":403,"level":"ALERT"}

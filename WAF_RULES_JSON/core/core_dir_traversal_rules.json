@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "name": "core_dir_traversal_rules",
+    "tags": ["core", "dir_traversal"]
+  },
+  "rules": [
+    { "id": 501, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "\\.\\.[/\\\\]", "action": "DENY", "score": 60 },
+    { "id": 502, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)(%2e%2e[/\\\\%]|%2e%2e/(?i)|%2e%2e\\\\(?i))", "action": "DENY", "score": 60 },
+    { "id": 503, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)(%c0%ae[/\\\\%]|%e0%80%ae[/\\\\%])", "action": "DENY", "score": 60 },
+    { "id": 504, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)(%252e%252e[/\\\\%])", "action": "DENY", "score": 60 },
+    { "id": 505, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)(\\\\u002e\\\\u002e/|\\\\u002e\\\\u002e\\\\|\\\\u0025\\\\u0032\\\\u0065\\\\u0025\\\\u0032\\\\u0065/)", "action": "DENY", "score": 60 },
+    { "id": 510, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "/\\./", "action": "DENY", "score": 20 },
+    { "id": 511, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "/\\.\\.", "action": "DENY", "score": 40 },
+    { "id": 512, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "\\\\\\.\\.", "action": "DENY", "score": 40 },
+    { "id": 513, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": ";\\.\\.", "action": "DENY", "score": 50 },
+    { "id": 514, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "\\.(%00|\\x00)", "action": "DENY", "score": 60 },
+    { "id": 520, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)^\\.\\.[/\\\\]", "action": "DENY", "score": 70 },
+    { "id": 521, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)^(%2e%2e[/\\\\%]|%2e%2e/(?i)|%2e%2e\\\\(?i))", "action": "DENY", "score": 70 },
+    { "id": 550, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "[/\\\\](etc/passwd|boot\\.ini|ntuser\\.dat|global\\.asax|web\\.config)", "action": "DENY", "score": 80 },
+    { "id": 551, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "[/\\\\](win\\.ini|system\\.ini|user\\.ini)", "action": "DENY", "score": 80 },
+    { "id": 552, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "[/\\\\](WEB-INF/web\\.xml|META-INF/MANIFEST\\.MF)", "action": "DENY", "score": 70 },
+    { "id": 553, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "[/\\\\](\\.htpasswd|\\.htaccess|\\.git/config|\\.svn/entries)", "action": "DENY", "score": 70 },
+    { "id": 554, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "[/\\\\](bash_history|history|error_log|access_log)", "action": "DENY", "score": 60 },
+    { "id": 555, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "[/\\\\]proc/self/environ", "action": "DENY", "score": 80 },
+    { "id": 560, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)::/|::$", "action": "DENY", "score": 30 },
+    { "id": 561, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "[a-zA-Z]:[/\\\\]", "action": "DENY", "score": 10 },
+    { "id": 562, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "\\\\\\\\(localhost|127\\.0\\.0\\.1|::1)", "action": "DENY", "score": 40 },
+    { "id": 570, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)(file=|include=|require=|load_file|show_source|readfile|fpassthru|virtual)\\s*=", "action": "LOG", "score": 10 },
+    { "id": 571, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "\\\\u0025", "action": "DENY", "score": 10 },
+    { "id": 572, "tags": ["core", "dir_traversal"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "\\\\u0025(\\\\u0032\\\\u0035)", "action": "DENY", "score": 20 }
+  ]
+}
+
+
+

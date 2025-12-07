@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "name": "core_rce_rules",
+    "tags": ["core", "rce"]
+  },
+  "rules": [
+    { "id": 2501, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)(system|exec|shell_exec|passthru|proc_open|popen|pcntl_exec)\\s*\\(", "action": "DENY", "score": 40 },
+    { "id": 2502, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "`[^`]+`", "action": "DENY", "score": 40 },
+    { "id": 2503, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)(?:\\b|(?<=\\d))(/bin/bash|/bin/sh|cmd\\.exe|powershell|perl|python|ruby|php)\\b", "action": "DENY", "score": 30 },
+    { "id": 2504, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "[;&|]\\s*(?i)\\b(cat|ls|id|whoami|uname|ifconfig|ipconfig|netstat)\\b", "action": "DENY", "score": 30 },
+    { "id": 2505, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": ">>?\\s*/(tmp|var/tmp|windows/temp)/", "action": "DENY", "score": 20 },
+    { "id": 2506, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)\\b(curl|wget)\\s+.*?(https?://|-[a-zA-Z])", "action": "DENY", "score": 30 },
+    { "id": 2510, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "\\(\\s*\\)\\s*\\{[^\\}]*;\\s*\\};", "action": "DENY", "score": 60 },
+    { "id": 2511, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)(eval|assert)\\s*\\(\\s*(base64_decode|str_rot13|gzuncompress|gzinflate)\\s*\\(", "action": "DENY", "score": 50 },
+    { "id": 2512, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "!!python/object/new", "action": "DENY", "score": 60 },
+    { "id": 2513, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)(\\$|#|%7B|%23)\\s*\\{.*?(exec|system|runtime).*?\\}", "action": "DENY", "score": 40 },
+    { "id": 2514, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)Execute\\s*\\(|getent|\\s*\\|\\s*echo", "action": "DENY", "score": 40 },
+    { "id": 2520, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(%7c|%3b|%26|%60)", "action": "DENY", "score": 20 },
+    { "id": 2521, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(\\\\u007c|\\\\u003b|\\\\u0026|\\\\u0060)", "action": "DENY", "score": 20 },
+    { "id": 2522, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "\\\\u0025(\\\\u0032\\\\u0035)", "action": "DENY", "score": 20 },
+    { "id": 2523, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "\\\\u0025", "action": "DENY", "score": 10 },
+    { "id": 2524, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "(?i)\\$\\(printf\\s*'.*?'\\s*\\)|\\$\\(echo\\s*'.*?'\\s*\\)|\\$\\(cat\\s*'.*?'\\s*\\)|\\$\\(ls\\s*'.*?'\\s*\\)|\\$\\(id\\s*'.*?'\\s*\\)|\\$\\(whoami\\s*'.*?'\\s*\\)|\\$\\(uname\\s*'.*?'\\s*\\)|\\$\\(ifconfig\\s*'.*?'\\s*\\)", "action": "DENY", "score": 30 },
+    { "id": 2525, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "Response\\.Write", "action": "DENY", "score": 30 },
+    { "id": 2526, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "\\$\\(printf 'hsab/nib/ e- 4321 1.0.0.721 cn'\\|rev\\)", "action": "DENY", "score": 30 },
+    { "id": 2527, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "\\\\s*;\\\\s*wget\\\\s*(http|https)://.*?\\\\s*\\\\.sh\\\\s*", "action": "DENY", "score": 30 },
+    { "id": 2528, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "\\\\s*.+?=[0-9]*?\\.[0-9]*?\\.[0-9]*?\\.[0-9]*?\\\\s*&&\\\\s*ls\\\\s*/etc", "action": "DENY", "score": 30 },
+    { "id": 2529, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "\\\\s*;cat\\\\s*/et'c/pa'ss'wd", "action": "DENY", "score": 30 },
+    { "id": 2530, "tags": ["core", "rce"], "target": ["URI", "ARGS_COMBINED", "BODY"], "match": "REGEX", "pattern": "\\\\s*%3B\\\\s*%20cat%20%2Fet'c%2Fpa'ss'wd%0A", "action": "DENY", "score": 30 }
+  ]
+}
+
+
+
