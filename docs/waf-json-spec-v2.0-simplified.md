@@ -1,6 +1,102 @@
 ## Nginx HTTP WAF v2.0 简化版规则规范（数据面 M1）
 
-本规范定义 v2.0（首版）规则 JSON 的最小合并语义，聚焦“够用、低心智负担、便于控制台可视化”。更丰富的阶段化过滤与补丁位请参考 v2.1 扩展草案（见 `waf-json-inheritance-merge-spec.md`）。
+本规范定义 v2.0（首版）规则 JSON 的最小合并语义，聚焦“够用、低心智负担、便于控制台可视化”。
+
+### 0. 规则文件全貌示例
+
+在详细阅读规范前，请参考以下包含 **继承、重写、禁用、规则定义** 等核心功能的完整示例：
+
+```json
+{
+  "version": 1,
+  
+  "meta": {
+    "name": "User-Policy-High-Security",
+    "versionId": "v1.0.2",
+    "tags": ["prod", "user"],
+    
+    /* 1. 继承机制：可引用多个父文件 */
+    "extends": [
+      /* 简单字符串形式：直接继承，路径相对 waf_jsons_dir 或当前文件 */
+      "../core/core_sqli_rules.json",
+      
+      /* 对象形式：支持“导入级重写”，仅修改引入的这批规则，不改动原文件 */
+      {
+        "file": "../core/core_xss_rules.json",
+        /* 将该文件中所有标签为 "xss-strict" 的规则，检测目标重写为 URI+ARGS+BODY */
+        "rewriteTargetsForTag": {
+          "xss-strict": ["URI", "ARGS_COMBINED", "BODY"]
+        },
+        /* 将指定 ID 的规则，检测目标重写为仅检测 HEADER 中的 User-Agent */
+        "rewriteTargetsForIds": [
+          {
+            "ids": [2001, 2002], 
+            "target": ["HEADER"], 
+            "headerName": "User-Agent"
+          }
+        ]
+      }
+    ],
+
+    /* 2. 去重策略：ID 冲突时的处理 (warn_skip: 保留先出现的; warn_keep_last: 覆盖旧的) */
+    "duplicatePolicy": "warn_keep_last"
+  },
+
+  /* 3. 禁用机制：在继承后，移除继承集合中的特定规则 */
+  "disableById": [1001, 1005],           /* 按 ID 精确移除 */
+  "disableByTag": ["legacy", "beta"],    /* 按 Tag 批量移除 */
+
+  /* 4. 动态信誉策略 (仅在入口文件生效，不合并) */
+  "policies": {
+    "dynamicBlock": {
+      "baseAccessScore": 1               /* 每次访问的基础得分 */
+    }
+  },
+
+  /* 5. 本地规则定义 (追加在继承规则之后) */
+  "rules": [
+    /* 示例 A: 基础正则拦截 */
+    {
+      "id": 90001,
+      "tags": ["custom", "sql-patch"],
+      "target": "ARGS_COMBINED",
+      "match": "REGEX",
+      "pattern": "(?i)union\\s+select.*from",
+      "action": "DENY",
+      "score": 50
+    },
+    /* 示例 B: 字符串精确匹配 (高效) */
+    {
+      "id": 90002,
+      "target": "URI",
+      "match": "EXACT",
+      "pattern": "/admin/hidden_backdoor",
+      "action": "DENY",
+      "score": 100
+    },
+    /* 示例 C: 多模式匹配 (数组为 OR 关系) */
+    {
+      "id": 90003,
+      "target": "BODY",
+      "match": "CONTAINS",
+      "pattern": ["<script>", "javascript:", "onload="],
+      "caseless": true,
+      "action": "DENY",
+      "score": 20
+    },
+    /* 示例 D: IP CIDR 白名单 (使用 BYPASS 跳过后续检查) */
+    {
+      "id": 90004,
+      "target": "CLIENT_IP",
+      "match": "CIDR",
+      "pattern": ["192.168.0.0/16", "10.0.0.0/8"],
+      "action": "BYPASS"
+    }
+  ]
+}
+```
+
+---
 
 ### 1. 总览
 
@@ -25,29 +121,23 @@
 
 - version
   - 类型：`number`
-  - 必填：否；默认值：1（未提供时按 1 处理）
-  - 继承：不继承；仅入口 JSON 透传到最终产物（如需）
-  - 作用域：标识规则文件版本；不参与合并与去重
+  - 必填：否；默认值：1
+  - 继承：不继承；仅入口 JSON 透传到最终产物。若入口文件未定义，最终产物中将不包含该字段（消费者/下游系统应逻辑上认定为 1）。
+  - 作用域：标识规则文件版本。
 
 - meta
   - 类型：`object`
-  - 必填：否；默认：缺省为空对象
-  - 继承：不跨层拷贝；每层仅在自身合并过程中读取其 `meta` 控制项；最终产物的 `meta` 取自入口 JSON
+  - 必填：否
+  - 继承：不跨层拷贝；仅入口 JSON 的 `meta`（除去 `extends`）会被保留到最终产物。
   - 字段：
     - name
       - 类型：`string`
-      - 必填：否；默认：无
-      - 继承：不继承；最终产物保留入口 JSON 的该值（便于标识）
-      - 作用域：标识用途
-    - versionId
-      - 类型：`string`
-      - 必填：否；默认：无
-      - 继承：不继承；最终产物保留入口 JSON 的该值
-      - 作用域：版本标识/对账
+      - 必填：否
+      - 继承：不继承；仅入口生效。
     - tags
       - 类型：`string[]`
-      - 必填：否；默认：无
-      - 继承：不继承；仅作为文件级标签信息（当前未用于合并控制）
+      - 必填：否
+      - 继承：不继承；仅入口生效。作为文件级标签，不影响规则逻辑。
     - extends
       - 类型：`Array<string | object>`（文件路径或带重写配置的对象）
       - 必填：否；默认：空数组
@@ -85,9 +175,9 @@
 
 - policies
   - 类型：`object`
-  - 必填：否；默认：无
-  - 继承：不继承字段值；最终产物保留入口 JSON 中的该对象（在 v2.0 中透传，不参与 M1 合并）
-  - 作用域：运行期策略（M2 处理）。例如 `dynamicBlock` 等；本版仅透传。
+  - 必填：否
+  - 继承：不继承；仅入口 JSON 的 `policies` 会被保留到最终产物。被继承文件中的 `policies` 会被完全忽略。
+  - 作用域：运行期策略（M2 处理）。例如 `dynamicBlock` 等。
 
 2.2 规则项 Rule
 
@@ -198,37 +288,6 @@
 - 禁用后（对 imported_set）：去掉 id=200 与含 blockedTag 的 200(base) → [100,300]
 - 追加本地 rules → [100,300,400,200(entry)]
 - 去重（keep_last）：无冲突需要处理 → 最终结果为 4 条。
-
-—— 完 ——
-
-
-### 8. Target 数组、导入级重写与日志（实现指引）
-
-本节为实现与控制台展示的指导性说明，不构成强制规范；用于统一心智模型，降低使用门槛。
-
-8.1 Target 数组
-- 语义：`target: string[]` 表示同一规则对多个目标独立评估；匹配日志写入命中的 `effectiveTarget`。
-- 语法糖：`ALL_PARAMS` 在加载期展开为 `URI|ARGS_COMBINED|BODY` 三者；无需手写数组。
-- 约束：包含 `HEADER` 时，数组长度必须为 1，且需提供 `headerName`。
-
-8.2 导入级重写（针对 imported_set）
-- 入口 JSON 的 `meta.extends` 可使用对象形态，按文件来源对父集应用 target 重写：
-  - `rewriteTargetsForTag: { "apply:multi-surface": ["URI","ARGS_COMBINED","BODY"] }`
-  - `rewriteTargetsForIds: [{ ids: [101,102], target: ["ARGS_COMBINED","BODY"] }]`
-- 重写仅改变当前层 imported_set 的规则目标，不影响父文件内容；随后再执行禁用与本地规则追加。
-- 标签不具备特殊语义，`apply:multi-surface` 仅为一种约定俗成的提示标签；任何标签均可用作选择器。
-
-8.3 运行期日志与编译期元信息（可选增强）
-- 日志建议包含：`ruleId`、`effectiveTarget`、`action`、`score`、`importedFrom`（若可用）。
-- 当发生重写时，建议额外记录：`originalTarget` 与 `rewriteSource`（如 `via=tag|ids`，以及匹配到的标签或 ID 列表）。
-- 为便于排查，可在构建后的内存结构或导出调试 JSON 中注入供应商扩展字段（OpenAPI 风格）：
-  - 规则级 `x-originalTarget`、`x-effectiveTarget`、`x-rewriteInfo`（含来源文件、匹配选择器）。
-
-8.4 控制台展示建议
-- 以 imported_set 分组：每个父文件一块，显示规则数与“已应用重写/禁用”统计。
-- 将“重写 targets”放在该分组的“高级”入口；进入后展示该父集出现过的所有标签便于选择；若检测到 `apply:multi-surface`，提供温馨提示可一键重写。
-- 提供预览与回滚：对比“父集→应用重写→最终目标”的变化；支持 Reset。
-- 校验即时反馈：当选择 `HEADER` 同时勾选了其他目标时给出错误提示；`ALL_PARAMS` 自动展开为三项。
 
 
 ### 7. 与 v1 行级 DSL 的映射与差异对照
@@ -385,3 +444,30 @@
 - 宽等价：语义相近但 v2 更强（如 `pattern` 支持数组、`action` 新增 `BYPASS`、新增 `priority`、`tags`）。
 - 增强能力：v1 无直接对应（如 `meta.extends`、`disableById/disableByTag`、`meta.duplicatePolicy`、`CIDR` 匹配）。
 
+### 8. Target 数组、导入级重写与日志（实现指引）
+
+本节为实现与控制台展示的指导性说明，不构成强制规范；用于统一心智模型，降低使用门槛。
+
+8.1 Target 数组
+- 语义：`target: string[]` 表示同一规则对多个目标独立评估；匹配日志写入命中的 `effectiveTarget`。
+- 语法糖：`ALL_PARAMS` 在加载期展开为 `URI|ARGS_COMBINED|BODY` 三者；无需手写数组。
+- 约束：包含 `HEADER` 时，数组长度必须为 1，且需提供 `headerName`。
+
+8.2 导入级重写（针对 imported_set）
+- 入口 JSON 的 `meta.extends` 可使用对象形态，按文件来源对父集应用 target 重写：
+  - `rewriteTargetsForTag: { "apply:multi-surface": ["URI","ARGS_COMBINED","BODY"] }`
+  - `rewriteTargetsForIds: [{ ids: [101,102], target: ["ARGS_COMBINED","BODY"] }]`
+- 重写仅改变当前层 imported_set 的规则目标，不影响父文件内容；随后再执行禁用与本地规则追加。
+- 标签不具备特殊语义，`apply:multi-surface` 仅为一种约定俗成的提示标签；任何标签均可用作选择器。
+
+8.3 运行期日志与编译期元信息（可选增强）
+- 日志建议包含：`ruleId`、`effectiveTarget`、`action`、`score`、`importedFrom`（若可用）。
+- 当发生重写时，建议额外记录：`originalTarget` 与 `rewriteSource`（如 `via=tag|ids`，以及匹配到的标签或 ID 列表）。
+- 为便于排查，可在构建后的内存结构或导出调试 JSON 中注入供应商扩展字段（OpenAPI 风格）：
+  - 规则级 `x-originalTarget`、`x-effectiveTarget`、`x-rewriteInfo`（含来源文件、匹配选择器）。
+
+8.4 控制台展示建议
+- 以 imported_set 分组：每个父文件一块，显示规则数与“已应用重写/禁用”统计。
+- 将“重写 targets”放在该分组的“高级”入口；进入后展示该父集出现过的所有标签便于选择；若检测到 `apply:multi-surface`，提供温馨提示可一键重写。
+- 提供预览与回滚：对比“父集→应用重写→最终目标”的变化；支持 Reset。
+- 校验即时反馈：当选择 `HEADER` 同时勾选了其他目标时给出错误提示；`ALL_PARAMS` 自动展开为三项。

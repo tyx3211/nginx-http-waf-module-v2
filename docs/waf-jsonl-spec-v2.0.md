@@ -1,6 +1,63 @@
 ### WAF 请求日志 JSONL 规范 v2.0（实现抽离版）
 
-说明：本规范对应 v2 当前实现（见 `src/core/ngx_http_waf_log.c` 与 `后续详细设计.md`），用于测试与对齐。一次请求最多落盘一行 JSONL。
+说明：本规范对应 v2 当前实现。**日志文件为 JSON Lines 格式，即一次请求对应一行完整的 JSON 对象**。
+
+### 0. 完整日志示例
+
+为了便于阅读，以下示例进行了格式化展示。**实际落盘时，每条日志将压缩为单行。**
+
+```json
+{
+  "time": "2025-10-12T08:00:00Z",          /* 请求时间 (UTC ISO8601) */
+  "clientIp": "192.168.1.105",             /* 客户端 IP */
+  "method": "POST",                        /* HTTP 方法 */
+  "host": "api.example.com",               /* Host 头 */
+  "uri": "/login?user=admin",              /* 请求 URI (含 Query) */
+  "status": 403,                           /* 返回给客户端的 HTTP 状态码 */
+  
+  /* -------------------------------------------------------------
+     决策结果区
+     ------------------------------------------------------------- */
+  "finalAction": "BLOCK",                  /* 最终动作: BLOCK | BYPASS | ALLOW */
+  "finalActionType": "BLOCK_BY_RULE",      /* 具体原因类型 */
+  "currentGlobalAction": "BLOCK",          /* 当前配置的全局默认动作 */
+  "blockRuleId": 200010,                   /* (仅 BLOCK_BY_RULE) 导致阻断的规则 ID */
+  "level": "ALERT",                        /* 日志级别: ALERT | ERROR | INFO | DEBUG */
+  
+  /* -------------------------------------------------------------
+     事件详情区 (记录触发的所有规则/信誉变动)
+     ------------------------------------------------------------- */
+  "events": [
+    /* 事件 1: 访问基础分 (每次请求 +1) */
+    { 
+      "type": "reputation", 
+      "scoreDelta": 1, 
+      "totalScore": 101,                   /* 触发时的累积总分 (信誉分仅在此处体现) */
+      "reason": "base_access" 
+    },
+    
+    /* 事件 2: 命中 SQL 注入规则 */
+    { 
+      "type": "rule", 
+      "ruleId": 200010, 
+      "intent": "BLOCK",                   /* 规则意图拦截 */
+      "scoreDelta": 20, 
+      "totalScore": 121,                   /* 触发该规则后的即刻 IP 总分 */
+      "target": "ARGS_COMBINED",           /* 命中目标 */
+      "matchedPattern": "union select",    /* (可选) 命中的特征串 */
+      "decisive": true                     /* 关键标记: 导致 finalAction 的决定性事件 */
+    },
+    
+    /* 事件 3: 触发动态封禁 (因总分 121 > 阈值 100) */
+    { 
+      "type": "ban", 
+      "window": 60000                      /* 封禁时长 (ms) */
+    }
+  ]
+}
+```
+
+---
 
 #### 1. 顶层字段
 - `time:string`：UTC ISO8601（`%Y-%m-%dT%H:%M:%SZ`）
@@ -48,30 +105,7 @@
   - `finalAction=BLOCK`：必落盘（至少 `alert`）。
   - `finalAction=BYPASS|ALLOW`：若 `effective_level >= waf_json_log_level` 则落盘。
 
-#### 4. 示例
-```json
-{
-  "time": "2025-10-12T08:00:00Z",
-  "clientIp": "1.2.3.4",
-  "method": "POST",
-  "host": "example.com",
-  "uri": "/login?x=1",
-  "events": [
-    { "type": "reputation", "scoreDelta": 1,  "totalScore": 1,  "reason": "base_access" },
-    { "type": "rule", "ruleId": 200010, "intent": "BLOCK", "scoreDelta": 20, "totalScore": 21,
-      "matchedPattern": null, "patternIndex": 0, "target": "ALL_PARAMS", "negate": true, "decisive": true },
-    { "type": "ban",  "window": 60000 }
-  ],
-  "finalAction": "BLOCK",
-  "finalActionType": "BLOCK_BY_RULE",
-  "blockRuleId": 200010,
-  "status": 403,
-  "level": "ALERT",
-  "currentGlobalAction": "BLOCK"
-}
-```
-
-#### 5. 测试要点
+#### 4. 测试要点
 - 断言仅一行 JSONL/请求；BLOCK 必落盘；BYPASS/ALLOW 随阈值。
 - 验证 `decisive` 选择逻辑与 `blockRuleId` 联动。
 - 验证空事件 ALLOW 不落盘；有事件但未执法在 `info|debug` 打开时落盘。

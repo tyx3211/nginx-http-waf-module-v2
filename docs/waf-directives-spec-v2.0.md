@@ -1,6 +1,82 @@
 ### Nginx 指令规范 v2.0（运维面）
 
-说明：本规范定义运维侧可在 `nginx.conf` 中配置的指令与行为边界，覆盖全局动作策略、JSON 日志、动态封禁、共享内存与规则工件加载等。与规则 JSON v2.0 互补：数据面匹配/策略由 JSON 工件描述，控制面全局策略与运行期设施由本指令集控制。
+说明：本规范定义运维侧可在 `nginx.conf` 中配置的指令与行为边界。
+
+### 0. 全量配置示例
+
+在阅读详细指令说明前，请先参考以下全量配置示例，它涵盖了 v2.0 所有可用指令及其推荐用法：
+
+```nginx
+http {
+    # -----------------------------------------------------------
+    # MAIN 级指令 (仅允许在 http 块设置，全局单例)
+    # -----------------------------------------------------------
+
+    # 1. 规则文件根目录：JSON 文件中相对路径的基准
+    waf_jsons_dir /usr/local/nginx/WAF_RULES_JSON;
+
+    # 2. 审计日志：路径与记录级别
+    waf_json_log logs/waf.jsonl;
+    waf_json_log_level info;  # debug|info|alert|error|off
+
+    # 3. 动态信誉：共享内存定义与全局参数
+    waf_shm_zone waf_shm_zone 10m;               # 必须定义，用于存储 IP 评分与黑名单
+    waf_dynamic_block_score_threshold 1000;      # IP 累计分超过此值触发封禁
+    waf_dynamic_block_duration 30m;              # 封禁持续时间
+    waf_dynamic_block_window_size 1m;            # 评分滑动窗口大小
+
+    # 4. 其它全局设置
+    waf_trust_xff on;                            # 是否信任 X-Forwarded-For 首个 IP
+
+    # -----------------------------------------------------------
+    # LOC 级指令 (可在 http/server/location 设置，支持继承与覆盖)
+    # -----------------------------------------------------------
+
+    # 5. 模块总开关 (off 时完全旁路，不执行任何检测与日志)
+    waf on;
+
+    # 6. 默认动作策略 (BLOCK: 拦截并返回 403; LOG: 仅记录日志放行)
+    waf_default_action BLOCK;
+
+    # 7. 动态封禁开关 (推荐在 http 级全局开启)
+    waf_dynamic_block_enable on;
+
+    # 8. 规则入口文件 (支持相对路径，相对于 waf_jsons_dir)
+    waf_rules_json user/my_website_rules.json;
+
+    # 9. JSON 继承深度限制
+    waf_json_extends_max_depth 5;
+
+    server {
+        listen 80;
+        server_name example.com;
+
+        # 继承 http 级的 waf on, BLOCK, dynamic_block_enable 等配置...
+
+        location /api/upload {
+            # 针对特定路径加载不同的规则集 (覆盖上层)
+            waf_rules_json user/upload_strict_rules.json;
+        }
+
+        location /static/ {
+            # 静态资源完全关闭 WAF (性能优化)
+            waf off;
+        }
+
+        location /admin/ {
+            # 敏感区域：强制开启动态封禁 (即使上层关了)
+            waf_dynamic_block_enable on;
+        }
+
+        location /test/ {
+            # 测试区域：仅记录日志，不拦截
+            waf_default_action LOG;
+        }
+    }
+}
+```
+
+---
 
 ### 指令支持 Roadmap（v2.0 运维面）
 
@@ -12,11 +88,11 @@
 - [x] `waf_json_log_level debug|info|alert|error|off`（MAIN）
 - [x] `waf on|off`（HTTP/SRV/LOC，loc 可覆盖；off 完全旁路）✅ 已实现
 - [x] `waf_default_action BLOCK|LOG`（HTTP/SRV/LOC，loc 可覆盖）✅ 已实现
-- [ ] `waf_trust_xff on|off`（MAIN）⚠️ 字段已存在，待注册指令
+- [x] `waf_trust_xff on|off`（MAIN）✅ 已实现
 - [x] `waf_dynamic_block_enable on|off`（HTTP/SRV/LOC，推荐仅在 http 设置，方案C）✅ 已实现
-- [ ] `waf_dynamic_block_score_threshold <num>`（MAIN）⚠️ 字段已存在，待注册指令
-- [ ] `waf_dynamic_block_duration <time>`（MAIN）⚠️ 字段已存在，待注册指令
-- [ ] `waf_dynamic_block_window_size <time>`（MAIN）⚠️ 字段已存在，待注册指令
+- [x] `waf_dynamic_block_score_threshold <num>`（MAIN）✅ 已实现
+- [x] `waf_dynamic_block_duration <time>`（MAIN）✅ 已实现
+- [x] `waf_dynamic_block_window_size <time>`（MAIN）✅ 已实现
 - [ ] `waf_json_log_allow_empty on|off|sample(N)`（MAIN，v2.1 规划，目前版本不考虑）
 - [ ] `waf_debug_final_doc on|off`（MAIN，v2.1 规划，目前版本不考虑）
 
@@ -170,7 +246,7 @@
 
 - 名称：`waf_dynamic_block_score_threshold <number>`
 - 作用域：`http`（MAIN）
-- 默认值：`100`
+- 默认值：`1000`
 - 说明：当某 IP 累计分达到阈值即进入封禁。
 
 - 名称：`waf_dynamic_block_duration <time>`
@@ -276,62 +352,4 @@
 
 - v1 中的多数组合指令（如各类 `*_rules_file`、`*_defense_enabled`）在 v2 被 JSON 工件统一承载。
 - v1 的 `waf on|off` 可选在 v2 以同名指令保留（规划中），也可通过是否提供 `waf_rules_json` 决定启用范围；最终以 Roadmap 公布为准。
-
----
-
-## 5. 最小示例
-
-```nginx
-http {
-    # 模块总开关（推荐在 http 级设置，location 可覆盖）
-    waf on;
-
-    # 执法策略（LOC 级，推荐在 http 设置默认值，location 可覆盖）
-    waf_default_action BLOCK;
-
-    # JSON 请求日志
-    waf_json_log        logs/waf_json.log;
-    waf_json_log_level  info;
-
-    # 动态封禁：共享内存 + 全局参数（MAIN 级）
-    waf_shm_zone                        waf_block_zone 10m;
-    waf_dynamic_block_score_threshold   100;
-    waf_dynamic_block_duration          30m;
-    waf_dynamic_block_window_size       1m;
-
-    # 动态封禁开关（LOC 级，推荐仅在 http 设置一次）
-    waf_dynamic_block_enable            on;
-
-    # XFF
-    waf_trust_xff on;
-
-    # 规则工件
-    waf_jsons_dir       ../WAF_RULES;
-    waf_json_extends_max_depth 5;
-    
-    server {
-        listen 8080;
-        
-        location / {
-            waf_rules_json  ../WAF_RULES/core.json;  # v2 规则工件
-        }
-        
-        location /static/ {
-            waf off;  # 静态路径完全旁路 WAF
-            # waf_dynamic_block_enable 也会被自动禁用（因为 waf off 优先级更高）
-        }
-        
-        location /health {
-            # 健康检查：仅关闭动态封禁，但仍执行 WAF 规则检查
-            waf_dynamic_block_enable off;
-        }
-        
-        location /api/beta/ {
-            # Beta API：仅记录，不拦截（用于灰度观察）
-            waf_default_action LOG;
-        }
-    }
-}
-```
-
 
