@@ -2,7 +2,7 @@
 
 ## 简介
 
-Nginx HTTP WAF (Web Application Firewall) v2 是一个基于 Nginx 的高性能、生产级 Web 应用防火墙。相比 v1 版本，v2 重构了数据面（Data Plane）架构，引入了基于 JSON 的机器友好型规则引擎。这一设计实现了引擎内核与策略管理的彻底解耦，不仅便于人类阅读，更天然支持Web GUI 控制台、AI 自动化运维 Agent 等上层控制面（Control Plane）的程序化集成。并基于 JSON 的结构化特点实现了灵活的继承/重写机制、以及一次请求一行（JSONL）的审计日志系统。
+Nginx HTTP WAF (Web Application Firewall) v2 是一个基于 Nginx 的高性能、生产级 Web 应用防火墙。相比 [v1 版本](https://github.com/tyx3211/nginx-http-waf-module)，v2 重构了数据面（Data Plane）架构，引入了基于 JSON 的机器友好型规则引擎。这一设计实现了引擎内核与策略管理的彻底解耦，不仅便于人类阅读，更天然支持Web GUI 控制台、AI 自动化运维 Agent 等上层控制面（Control Plane）的程序化集成。并基于 JSON 的结构化特点实现了灵活的继承/重写机制、以及一次请求一行（JSONL）的审计日志系统。
 
 本项目旨在为 Nginx 提供“开箱即用”的安全防护能力，覆盖 OWASP Top 10 等常见 Web 攻击，同时保持配置的简洁与运维的友好性。
 
