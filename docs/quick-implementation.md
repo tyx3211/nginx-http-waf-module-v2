@@ -4,29 +4,30 @@
 
 ## 目标
 - 提供 `$waf_*` 变量用于 `access_log` JSON 输出，支撑「近5分钟/近1小时/近24小时」滑窗统计。
-- 提供可 `include` 的最小化配置片段：`waf_core.conf` 与 `waf_access_log.conf`。
+- 提供可 `include` 的最小化配置片段：`waf_access_log.conf`（仅用于访问日志 JSONL 输出）。
 - 保持与模块内部 JSONL (`waf_json_log`) 的对齐：`finalAction/finalActionType/blockRuleId` 语义一致。
 
 ## 本次实现要点
-1. 在模块 `postconfiguration` 注册 4 个只读变量：
+1. 在模块 `postconfiguration` 注册 5 个只读变量：
    - `$waf_blocked`：0|1（最终是否阻断）
    - `$waf_action`：`BLOCK|BYPASS|ALLOW`
    - `$waf_rule_id`：当 `finalActionType=BLOCK_BY_RULE` 时输出对应 `ruleId`，否则为空
-   - `$waf_attack_type`：`ALLOW|BYPASS_BY_*|BLOCK_BY_*`
+   - `$waf_attack_type`：按规则 tags 推断的攻击类型（大屏/审计聚合用，含 SQL_INJECTION/XSS/...，动态封禁/黑名单输出固定枚举）
+   - `$waf_attack_category`：`ALLOW|BYPASS_BY_*|BLOCK_BY_*`（旧语义保留，用于兼容）
 2. 变量 `get_handler` 在 log 阶段读取请求主上下文 `ctx`（`r->main`），确保取到“最终动作”。
-3. 新增 `waf_access_log.conf` 与 `waf_core.conf`（安装至 `/usr/local/nginx/conf/waf/`）：
-   - `waf_access_log.conf` 定义 `log_format waf_json` 并输出至 `/var/log/nginx/access_waf.json`；字段包含 `ts/$msec`、`status`、`blocked`、`waf_*` 等。
-   - `waf_core.conf` 统一设置模块指令（`waf on; waf_default_action; waf_json_log;` 等），避免用户分散配置。仓库内示例位于 `conf/waf/`。
+3. 提供 `waf_access_log.conf`（建议安装至 `/usr/local/nginx/conf/waf/`）：
+   - 定义 `log_format waf_json` 并输出至 `/usr/local/nginx/logs/access_waf.jsonl`。
+   - 字段包含 `ts/$msec`、`status`、`blocked`、`waf_*`，以及增强字段 `host/scheme/up_status/up_rt/req_len`（用于大屏与审计统计）。
+   - 仓库内模板位于 `conf-template/waf/waf_access_log.conf`。
 
 ## Nginx include 用法
 在 `http {}` 中加入：
 ```
-include waf/waf_core.conf;
-include waf/waf_access_log.conf;  # 可选，用于大屏统计
+include waf/waf_access_log.conf;  # 用于大屏统计（JSONL，每请求一行）
 ```
 
 ## 后端滑窗统计建议
-- 从 `/var/log/nginx/access_waf.json` 增量读取（`tail -F` 或 inotify），以 `$msec` 作为时间戳。
+- 从 `/usr/local/nginx/logs/access_waf.jsonl` 增量读取（`tail -F` 或 inotify），以 `$msec` 作为时间戳。
 - 建议维护：
   - 近 5 分钟：按秒 300 桶（req/block/4xx/5xx）
   - 近 1 小时：按分 60 桶
@@ -34,11 +35,12 @@ include waf/waf_access_log.conf;  # 可选，用于大屏统计
   - UV/攻击 IP：每桶可用 HyperLogLog 或限长集合（后续演进）。
 
 ## 与 JSONL 的关系
-- `access_waf.json`：面向实时指标的高吞吐简日志（每请求一行，固定字段）。
+- `access_waf.jsonl`：面向实时指标的高吞吐简日志（每请求一行，固定字段）。
 - `waf.jsonl`（`waf_json_log`）：面向审计回放的丰富事件日志（一次请求最多一行，含 events）。
 - 两者字段对齐：
   - `$waf_action` ← `finalAction`
-  - `$waf_attack_type` ← `finalActionType`
+  - `$waf_attack_category` ← `finalActionType`（旧语义）
+  - `$waf_attack_type` ← `attackType`（规则 tags 推断，供大屏/审计聚合）
   - `$waf_rule_id` ← `blockRuleId`
 
 ## 后续重构方向
@@ -49,7 +51,5 @@ include waf/waf_access_log.conf;  # 可选，用于大屏统计
 
 ## 验收清单
 - `$waf_*` 变量在 BLOCK/BYPASS/ALLOW 路径正确输出。
-- `include waf/*.conf` 后生成 `access_waf.json`，可按窗口聚合得到近 5 分钟/1 小时/24 小时指标。
+- `include waf/waf_access_log.conf` 后生成 `access_waf.jsonl`，可按窗口聚合得到近 5 分钟/1 小时/24 小时指标。
 - `waf_json_log` 正常输出 JSONL，字段对齐无冲突。
-
-

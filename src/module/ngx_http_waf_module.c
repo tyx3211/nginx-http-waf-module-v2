@@ -41,6 +41,9 @@ static ngx_int_t ngx_http_waf_var_get_rule_id(ngx_http_request_t *r,
 static ngx_int_t ngx_http_waf_var_get_attack_type(ngx_http_request_t *r,
                                                   ngx_http_variable_value_t *v,
                                                   uintptr_t data);
+static ngx_int_t ngx_http_waf_var_get_attack_category(ngx_http_request_t *r,
+                                                      ngx_http_variable_value_t *v,
+                                                      uintptr_t data);
 
 static ngx_int_t ngx_http_waf_register_variables(ngx_conf_t *cf)
 {
@@ -66,6 +69,11 @@ static ngx_int_t ngx_http_waf_register_variables(ngx_conf_t *cf)
   var = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_NOCACHEABLE);
   if (var == NULL) { return NGX_ERROR; }
   var->get_handler = ngx_http_waf_var_get_attack_type; var->data = 0;
+
+  name.len = sizeof("waf_attack_category") - 1; name.data = (u_char *)"waf_attack_category";
+  var = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_NOCACHEABLE);
+  if (var == NULL) { return NGX_ERROR; }
+  var->get_handler = ngx_http_waf_var_get_attack_category; var->data = 0;
 
   return NGX_OK;
 }
@@ -154,6 +162,24 @@ static ngx_int_t ngx_http_waf_var_get_attack_type(ngx_http_request_t *r,
 {
   (void)data;
   ngx_http_waf_ctx_t *ctx = ngx_http_waf_get_main_ctx(r);
+  const char *s = NULL;
+  if (ctx && ctx->attack_type) {
+    s = ctx->attack_type;
+  } else {
+    /* 回退到 final_action_type 字符串，保证不为空 */
+    s = ngx_http_waf_action_type_to_str(ctx ? ctx->final_action_type : WAF_FINAL_ACTION_TYPE_ALLOW);
+  }
+  v->len = (size_t)ngx_strlen(s); v->data = (u_char *)s;
+  v->valid = 1; v->no_cacheable = 0; v->not_found = 0;
+  return NGX_OK;
+}
+
+static ngx_int_t ngx_http_waf_var_get_attack_category(ngx_http_request_t *r,
+                                                      ngx_http_variable_value_t *v,
+                                                      uintptr_t data)
+{
+  (void)data;
+  ngx_http_waf_ctx_t *ctx = ngx_http_waf_get_main_ctx(r);
   const char *s = ngx_http_waf_action_type_to_str(ctx ? ctx->final_action_type : WAF_FINAL_ACTION_TYPE_ALLOW);
   v->len = (size_t)ngx_strlen(s); v->data = (u_char *)s;
   v->valid = 1; v->no_cacheable = 0; v->not_found = 0;
@@ -219,6 +245,7 @@ static waf_rc_e waf_stage_ip_allow(ngx_http_request_t *r, ngx_http_waf_main_conf
       waf_event_details_t det = {0};
       det.target_tag = "clientIp";
       det.negate = rule->negate;
+      det.rule_tags = rule->tags;
       waf_final_action_type_e hint = WAF_FINAL_ACTION_TYPE_BYPASS_BY_IP_WHITELIST;
       return waf_enforce_bypass(r, mcf, lcf, ctx, rule->id, &det, &hint);
     }
@@ -286,6 +313,7 @@ static waf_rc_e waf_stage_ip_deny(ngx_http_request_t *r, ngx_http_waf_main_conf_
       waf_event_details_t det = (waf_event_details_t){0};
       det.target_tag = "clientIp";
       det.negate = rule->negate;
+      det.rule_tags = rule->tags;
       /* 通过 hint 明确最终动作类型为 IP 黑名单阻断 */
       waf_final_action_type_e hint = WAF_FINAL_ACTION_TYPE_BLOCK_BY_IP_BLACKLIST;
       waf_rc_e rc = waf_enforce_block_hint(r, mcf, lcf, ctx, NGX_HTTP_FORBIDDEN, rule->id,
@@ -399,6 +427,7 @@ static waf_rc_e waf_stage_uri_allow(ngx_http_request_t *r, ngx_http_waf_main_con
       waf_event_details_t det = {0};
       det.target_tag = "uri";
       det.negate = rule->negate;
+      det.rule_tags = rule->tags;
       waf_final_action_type_e hint = WAF_FINAL_ACTION_TYPE_BYPASS_BY_URI_WHITELIST;
       return waf_enforce_bypass(r, mcf, lcf, ctx, rule->id, &det, &hint);
     }
@@ -657,12 +686,13 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
                                       ? "args"
                                       : (rule->target == WAF_T_ARGS_NAME)
                                             ? "argsName"
-                                            : (rule->target == WAF_T_ARGS_VALUE)
+                                      : (rule->target == WAF_T_ARGS_VALUE)
                                                   ? "argsValue"
                                                   : (rule->target == WAF_T_HEADER)
                                                         ? (const char *)"header"
                                                         : NULL;
           det.negate = rule->negate;
+          det.rule_tags = rule->tags;
 
           waf_rc_e rc = waf_enforce_block(r, mcf, lcf, ctx, NGX_HTTP_FORBIDDEN, rule->id,
                                           (ngx_uint_t)(rule->score > 0 ? rule->score : 0), &det);
@@ -689,6 +719,7 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
                                                         ? (const char *)"header"
                                                         : NULL;
           det2.negate = rule->negate;
+          det2.rule_tags = rule->tags;
           waf_final_action_type_e bypass_hint = WAF_FINAL_ACTION_TYPE_BYPASS_BY_URI_WHITELIST;
 
           waf_rc_e rc = waf_enforce_bypass(r, mcf, lcf, ctx, rule->id, &det2, &bypass_hint);
@@ -716,6 +747,7 @@ static waf_rc_e waf_stage_detect_bundle(ngx_http_request_t *r, ngx_http_waf_main
                                                         ? (const char *)"header"
                                                         : NULL;
           det3.negate = rule->negate;
+          det3.rule_tags = rule->tags;
 
           waf_enforce_log(r, mcf, lcf, ctx, rule->id,
                           (ngx_uint_t)(rule->score > 0 ? rule->score : 0), &det3);

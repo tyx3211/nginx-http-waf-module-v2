@@ -66,6 +66,119 @@ static const char *waf_final_action_str(waf_final_action_e action)
   }
 }
 
+static ngx_int_t waf_tag_eq(const char *tag, size_t tag_len, const char *lit)
+{
+  if (tag == NULL || lit == NULL) {
+    return 0;
+  }
+
+  size_t lit_len = ngx_strlen(lit);
+  if (tag_len != lit_len) {
+    return 0;
+  }
+
+  return (ngx_strncasecmp((u_char *)tag, (u_char *)lit, tag_len) == 0);
+}
+
+static const char *waf_attack_type_from_tag_slice(const char *tag, size_t tag_len)
+{
+  if (tag == NULL || tag_len == 0) {
+    return NULL;
+  }
+
+  /* 约定：tags 推荐使用小写；这里做不区分大小写匹配 */
+  if (waf_tag_eq(tag, tag_len, "sqli") ||
+      waf_tag_eq(tag, tag_len, "sql") ||
+      waf_tag_eq(tag, tag_len, "sql-injection") ||
+      waf_tag_eq(tag, tag_len, "sql_injection")) {
+    return "SQL_INJECTION";
+  }
+  if (waf_tag_eq(tag, tag_len, "xss")) {
+    return "XSS";
+  }
+  if (waf_tag_eq(tag, tag_len, "cmdi") ||
+      waf_tag_eq(tag, tag_len, "command-injection") ||
+      waf_tag_eq(tag, tag_len, "command_injection")) {
+    return "COMMAND_INJECTION";
+  }
+  if (waf_tag_eq(tag, tag_len, "xxe")) {
+    return "XXE";
+  }
+  if (waf_tag_eq(tag, tag_len, "ssrf")) {
+    return "SSRF";
+  }
+  if (waf_tag_eq(tag, tag_len, "rce")) {
+    return "RCE";
+  }
+  if (waf_tag_eq(tag, tag_len, "lfi")) {
+    return "LFI";
+  }
+  if (waf_tag_eq(tag, tag_len, "dir_traversal") ||
+      waf_tag_eq(tag, tag_len, "directory_traversal") ||
+      waf_tag_eq(tag, tag_len, "path_traversal") ||
+      waf_tag_eq(tag, tag_len, "path-traversal") ||
+      waf_tag_eq(tag, tag_len, "traversal")) {
+    return "PATH_TRAVERSAL";
+  }
+  if (waf_tag_eq(tag, tag_len, "file-upload") ||
+      waf_tag_eq(tag, tag_len, "file_upload") ||
+      waf_tag_eq(tag, tag_len, "upload")) {
+    return "FILE_UPLOAD";
+  }
+  if (waf_tag_eq(tag, tag_len, "info-leak") ||
+      waf_tag_eq(tag, tag_len, "info_leak") ||
+      waf_tag_eq(tag, tag_len, "info") ||
+      waf_tag_eq(tag, tag_len, "information-disclosure") ||
+      waf_tag_eq(tag, tag_len, "information_disclosure")) {
+    return "INFO_DISCLOSURE";
+  }
+
+  return NULL;
+}
+
+static const char *waf_attack_type_from_rule_tags(const ngx_array_t *rule_tags)
+{
+  if (rule_tags == NULL || rule_tags->nelts == 0) {
+    return NULL;
+  }
+
+  ngx_str_t *elts = rule_tags->elts;
+  for (ngx_uint_t i = 0; i < rule_tags->nelts; i++) {
+    if (elts[i].len == 0) {
+      continue;
+    }
+    const char *mapped = waf_attack_type_from_tag_slice((const char *)elts[i].data, (size_t)elts[i].len);
+    if (mapped) {
+      return mapped;
+    }
+  }
+
+  return NULL;
+}
+
+static const char *waf_attack_type_from_tags_val(yyjson_mut_val *tags)
+{
+  if (tags == NULL || !yyjson_mut_is_arr(tags)) {
+    return NULL;
+  }
+
+  size_t n = yyjson_mut_arr_size(tags);
+  for (size_t i = 0; i < n; i++) {
+    yyjson_mut_val *it = yyjson_mut_arr_get(tags, i);
+    if (it == NULL || !yyjson_mut_is_str(it)) {
+      continue;
+    }
+    const char *tag = yyjson_mut_get_str(it);
+    size_t tag_len = yyjson_mut_get_len(it);
+    const char *mapped = waf_attack_type_from_tag_slice(tag, tag_len);
+    if (mapped) {
+      return mapped;
+    }
+  }
+
+  return NULL;
+}
+
 void waf_log_init_ctx(ngx_http_request_t *r, ngx_http_waf_ctx_t *ctx)
 {
   if (ctx == NULL || r == NULL)
@@ -161,6 +274,28 @@ void waf_log_append_rule_event(ngx_http_request_t *r, ngx_http_waf_main_conf_t *
     }
     if (details->negate) {
       yyjson_mut_obj_add_bool(doc, event, "negate", true);
+    }
+
+    if (details->rule_tags && details->rule_tags->nelts > 0) {
+      const char *mapped_attack_type = waf_attack_type_from_rule_tags(details->rule_tags);
+      if (mapped_attack_type) {
+        yyjson_mut_obj_add_str(doc, event, "attackType", mapped_attack_type);
+      }
+
+      yyjson_mut_val *tags_arr = yyjson_mut_arr(doc);
+      ngx_str_t *elts = details->rule_tags->elts;
+      for (ngx_uint_t i = 0; i < details->rule_tags->nelts; i++) {
+        if (elts[i].len == 0) {
+          continue;
+        }
+        yyjson_mut_val *sv = yyjson_mut_strn(doc, (const char *)elts[i].data, elts[i].len);
+        if (sv) {
+          yyjson_mut_arr_append(tags_arr, sv);
+        }
+      }
+      if (yyjson_mut_arr_size(tags_arr) > 0) {
+        yyjson_mut_obj_add_val(doc, event, "tags", tags_arr);
+      }
     }
   }
 
@@ -461,6 +596,99 @@ void waf_log_flush_final(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
 
   /* 在最终输出前集中判定并标记 decisive 事件 */
   waf_log_mark_decisive_on_flush(r, ctx);
+
+  /* attackType：用于大屏/审计聚合（优先基于 decisive 规则事件的 tags 推断） */
+  const char *attack_type = NULL;
+  switch (ctx->final_action_type) {
+    case WAF_FINAL_ACTION_TYPE_BLOCK_BY_DYNAMIC_BLOCK:
+      attack_type = "DYNAMIC_BLOCK";
+      break;
+    case WAF_FINAL_ACTION_TYPE_BLOCK_BY_IP_BLACKLIST:
+      attack_type = "IP_BLACKLIST";
+      break;
+    case WAF_FINAL_ACTION_TYPE_BLOCK_BY_REPUTATION:
+      attack_type = "REPUTATION";
+      break;
+    case WAF_FINAL_ACTION_TYPE_BYPASS_BY_IP_WHITELIST:
+      attack_type = "IP_WHITELIST";
+      break;
+    case WAF_FINAL_ACTION_TYPE_BYPASS_BY_URI_WHITELIST:
+      attack_type = "URI_WHITELIST";
+      break;
+    default:
+      break;
+  }
+
+  if (attack_type == NULL && ctx->events) {
+    /* BLOCK_BY_RULE：优先按 blockRuleId 精确匹配对应的规则事件 */
+    if (ctx->final_action_type == WAF_FINAL_ACTION_TYPE_BLOCK_BY_RULE && ctx->block_rule_id > 0) {
+      size_t n = yyjson_mut_arr_size(ctx->events);
+      for (ngx_int_t i = (ngx_int_t)n - 1; i >= 0; i--) {
+        yyjson_mut_val *ev = yyjson_mut_arr_get(ctx->events, (size_t)i);
+        if (ev == NULL) {
+          continue;
+        }
+
+        yyjson_mut_val *type = yyjson_mut_obj_get(ev, "type");
+        const char *type_str = type ? yyjson_mut_get_str(type) : NULL;
+        if (type_str == NULL || ngx_strcmp(type_str, "rule") != 0) {
+          continue;
+        }
+
+        yyjson_mut_val *rid = yyjson_mut_obj_get(ev, "ruleId");
+        if (rid && yyjson_mut_is_uint(rid) && (ngx_uint_t)yyjson_mut_get_uint(rid) == ctx->block_rule_id) {
+          yyjson_mut_val *atype = yyjson_mut_obj_get(ev, "attackType");
+          if (atype && yyjson_mut_is_str(atype)) {
+            attack_type = yyjson_mut_get_str(atype);
+          }
+          if (attack_type == NULL) {
+            yyjson_mut_val *tags = yyjson_mut_obj_get(ev, "tags");
+            attack_type = waf_attack_type_from_tags_val(tags);
+          }
+          break;
+        }
+      }
+    }
+
+    /* 回退：使用 decisive 规则事件的 tags 推断 */
+    size_t n = yyjson_mut_arr_size(ctx->events);
+    for (ngx_int_t i = (ngx_int_t)n - 1; i >= 0; i--) {
+      yyjson_mut_val *ev = yyjson_mut_arr_get(ctx->events, (size_t)i);
+      if (ev == NULL) {
+        continue;
+      }
+      yyjson_mut_val *dec = yyjson_mut_obj_get(ev, "decisive");
+      if (dec == NULL || !yyjson_mut_is_true(dec)) {
+        continue;
+      }
+
+      yyjson_mut_val *type = yyjson_mut_obj_get(ev, "type");
+      const char *type_str = type ? yyjson_mut_get_str(type) : NULL;
+      if (type_str && ngx_strcmp(type_str, "rule") == 0) {
+        yyjson_mut_val *atype = yyjson_mut_obj_get(ev, "attackType");
+        if (atype && yyjson_mut_is_str(atype)) {
+          attack_type = yyjson_mut_get_str(atype);
+        }
+        if (attack_type == NULL) {
+          yyjson_mut_val *tags = yyjson_mut_obj_get(ev, "tags");
+          attack_type = waf_attack_type_from_tags_val(tags);
+        }
+      }
+      break;
+    }
+  }
+
+  if (attack_type == NULL &&
+      ctx->final_action == WAF_FINAL_BLOCK &&
+      ctx->final_action_type == WAF_FINAL_ACTION_TYPE_BLOCK_BY_RULE) {
+    attack_type = "OTHER";
+  }
+
+  if (attack_type) {
+    yyjson_mut_obj_add_str(doc, root, "attackType", attack_type);
+  }
+  /* 保存到 ctx，供 $waf_attack_type 与 access_log 使用 */
+  ctx->attack_type = attack_type;
 
   /* 7. finalAction */
   yyjson_mut_obj_add_str(doc, root, "finalAction", waf_final_action_str(ctx->final_action));

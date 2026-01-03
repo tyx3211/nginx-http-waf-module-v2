@@ -1,0 +1,125 @@
+user  www-data;
+
+worker_processes  auto;
+
+load_module modules/ngx_http_waf_module.so; # v2 动态模块
+
+error_log  logs/error.log  notice;
+pid        logs/nginx.pid;
+
+events {
+    worker_connections  1024;
+}
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    access_log  logs/access.log  combined;
+
+    sendfile        on;
+    keepalive_timeout  65;
+
+    include waf/waf_access_log.conf; # 非常重要，这个是我们实现普通数据指标动态变化的基础。后面可能还需要再修改完善这个conf文件，可能需要再编译测试waf动态模块（如果有新指标需要支持，且好支持），不过这个内容的增加应该是不难的。
+
+    # =========================================================
+    # [全局基础设施] 仅在 http 块定义，全局单例
+    # =========================================================
+
+    # 1. 规则仓库根目录
+    #    所有规则 JSON 中的相对路径（extends/file）都将以此为基准。
+    waf_jsons_dir /usr/local/nginx/WAF_RULES_JSON; # 建议下游控制台不动，硬编码。
+
+    # 2. 审计日志 (JSONL)
+    #    极为详细的结构化日志，建议通过 Loki 采集。
+    waf_json_log logs/waf.jsonl; # 建议控制台不动，硬编码。
+    waf_json_log_level info;  # debug|info|alert|error|off # 控制台可以考虑提供改动能力？或者不动，之后商酌。
+
+    # 3. 动态信誉子系统 (Dynamic Reputation)
+    #    必须分配一块共享内存，用于跨 Worker 共享 IP 评分与黑名单。
+    waf_shm_zone waf_shm_zone 10m; # 控制台需要配置改动这个接口的能力。name size，但是控制台提供个改size的能力就行。
+    
+    #    封禁阈值：累计分超过 1000 即封禁（需配合 dynamic_block_enable 使用）。下面三项控制台都得可以动，具体在哪个界面动看前端要求。
+    waf_dynamic_block_score_threshold 1000;
+    waf_dynamic_block_duration 30m;      # 封禁时长
+    waf_dynamic_block_window_size 1m;    # 评分滑动窗口
+
+    # 4. 信任代理
+    #    如果是部署在 CDN/LB 后，请开启此项以提取真实 Client IP。
+    waf_trust_xff on; # 默认值on，控制台可动。
+
+    # =========================================================
+    # [业务策略] 可在 http/server/location 继承与覆盖
+    # =========================================================
+
+    # 5. 模块总开关
+    waf on; # 硬编码，控制台不动，和前面那个dynamic_enable一样，crossplane对server级别分析覆写。
+
+    # 6. 执法力度
+    #    BLOCK: 发现威胁直接拦截 (返回 403)
+    #    LOG:   仅记录日志，放行请求 (适合灰度上线)
+    waf_default_action BLOCK; # 控制台可动。
+
+    # 7. 动态封禁开关
+    #    建议在 http 层全局开启，让所有业务共享 IP 信誉防御能力。
+    waf_dynamic_block_enable on; # http 块下先显式开启一下，不影响server后续覆盖。 # 这个感觉控制台可以不动。crossplane分析出各个server情况就会，反正可以覆盖。
+
+    # 8. 规则入口文件
+    #    指向具体的业务规则集。推荐按业务线拆分。
+    # waf_rules_json user/global_rules.json; # 不在http级别写规则文件路径。
+
+    # 9. 继承深度保护
+    waf_json_extends_max_depth 0; # 干脆默认不限，因为这个功能不打算做到控制台。（时间紧，控制台功能简化一下也好）
+
+    # 多站点防护，我们本地就用linux host文件整两个站点名域名解析，模拟一下。
+    server {
+        listen 8080;
+        server_name example1.com;
+
+        waf on; # 可以在 server 级别覆写配置。
+        waf_dynamic_block_enable on; # 可以在 server 级别覆写配置。
+        waf_rules_json user/example1.json; # 十分重要！ # 为了方便，直接先硬编码？或者前端确实做个指定json文件名字 + 后端crossplane相应处理。
+
+
+        location /api/test1 {
+            # 针对上传接口加载更严格的规则
+            # waf_rules_json user/upload_strict_rules.json; # 为了GUI设计方便，不做到location级别了。
+        }
+
+        location /static/ {
+            # 静态资源完全关闭 WAF，极致性能
+            # waf off; # 为了GUI设计方便，不做到location级别了。
+        }
+
+        location /admin/ {
+            # 敏感区域：强制开启封禁，即使上层关了
+            # waf_dynamic_block_enable on; # 为了GUI设计方便，不做到location级别了。
+        }
+    }
+
+    # 多站点防护，我们本地就用linux host文件整两个站点名域名解析，模拟一下。
+    server {
+        listen 8080;
+        server_name example2.com;
+
+        waf on; # 可以在 server 级别覆写配置。
+        waf_dynamic_block_enable on; # 可以在 server 级别覆写配置。
+        waf_rules_json user/example2.json; # 十分重要！ # 为了方便，直接先硬编码？或者前端确实做个指定json文件名字 + 后端crossplane相应处理。
+
+
+        location /api/test1 {
+            # 针对上传接口加载更严格的规则
+            # waf_rules_json user/upload_strict_rules.json; # 为了GUI设计方便，不做到location级别了。
+        }
+
+        location /static/ {
+            # 静态资源完全关闭 WAF，极致性能
+            # waf off; # 为了GUI设计方便，不做到location级别了。
+        }
+
+        location /admin/ {
+            # 敏感区域：强制开启封禁，即使上层关了
+            # waf_dynamic_block_enable on; # 为了GUI设计方便，不做到location级别了。
+        }
+    }
+}

@@ -1,0 +1,89 @@
+user www-data;
+
+worker_processes auto;
+
+load_module modules/ngx_http_waf_module.so;
+
+error_log logs/error.log notice;
+pid logs/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include mime.types;
+    default_type application/octet-stream;
+
+    access_log logs/access.log combined;
+
+    sendfile on;
+    keepalive_timeout 65;
+
+    include waf/waf_access_log.conf;
+
+    waf_jsons_dir /usr/local/nginx/WAF_RULES_JSON;
+
+    waf_json_log logs/waf.jsonl;
+    waf_json_log_level info;
+
+    waf_shm_zone waf_shm_zone 10m;
+
+    waf_dynamic_block_score_threshold 1000;
+    waf_dynamic_block_duration 30m;
+    waf_dynamic_block_window_size 1m;
+
+    waf_trust_xff on;
+
+    waf on;
+
+    waf_default_action BLOCK;
+
+    waf_dynamic_block_enable on;
+
+    waf_json_extends_max_depth 0;
+
+    server {
+        listen 8080;
+        server_name example1.com;
+
+        waf on;
+        waf_dynamic_block_enable on;
+        waf_rules_json user/example1.json;
+
+
+        location /api/test1 {
+
+        }
+
+        location /static/ {
+
+        }
+
+        location /admin/ {
+
+        }
+    }
+
+    server {
+        listen 8080;
+        server_name example2.com;
+
+        waf on;
+        waf_dynamic_block_enable on;
+        waf_rules_json user/example2.json;
+
+
+        location /api/test1 {
+
+        }
+
+        location /static/ {
+
+        }
+
+        location /admin/ {
+
+        }
+    }
+}

@@ -75,6 +75,7 @@
 | `uri` | string | ✅ | 请求 URI（`r->uri` 原文，包含 Query String）。 |
 | `status` | uint | ⚪ | 最终返回给客户端的 HTTP 状态码。**仅 BLOCK/BYPASS 路径会设置此字段**。 |
 | `level` | string | ✅ | 日志级别，取值：`DEBUG`、`INFO`、`ALERT`、`ERROR`。（内部还有 `NONE` 作为初始值，但不会出现在日志中） |
+| `attackType` | string | ⚪ | 攻击类型（用于大屏/审计聚合）。规则阻断时会优先基于 `decisive: true` 的 `rule` 事件（或 `blockRuleId` 对应规则事件）推断；若无法推断，规则阻断可能为 `OTHER`；动态封禁/黑名单等会输出固定值（如 `DYNAMIC_BLOCK`、`IP_BLACKLIST`）。 |
 
 ---
 
@@ -134,6 +135,8 @@ WAF 的处理过程不是单点的，而是一个流。`events` 数组记录了�
 | `negate` | bool | ⚪ | 如果规则使用了取反逻辑（`negate: true`），这里会标记出来。 |
 | `scoreDelta` | uint | ⚪ | 这条规则扣了多少分。 |
 | `totalScore` | uint | ✅ | 扣分后的 IP 总分。 |
+| `tags` | string[] | ⚪ | 规则的 tags（来自规则 JSON 的 `tags` 字段），用于攻击类型归类与前端展示。 |
+| `attackType` | string | ⚪ | 攻击类型（按该规则 `tags` 推断），便于审计列表直接展示；顶层 `attackType` 会优先选择 decisive 事件的该值。 |
 | `decisive` | bool | ⚪ | 如果为 `true`，说明**就是这条事件导致了最终的拦截/放行**。 |
 
 ### 3.2 信誉事件 (`type: "reputation"`)

@@ -49,6 +49,7 @@ typedef struct ngx_http_waf_ctx_s {
   waf_final_action_e final_action;  /* 最终动作：NONE/BLOCK/BYPASS */
   waf_final_action_type_e final_action_type; /* 最终动作类型（用于JSONL） */
   ngx_uint_t block_rule_id;         /* 导致阻断的规则ID（仅BLOCK_BY_RULE时有效） */
+  const char *attack_type;          /* 依据规则 tags 推断的攻击类型（用于审计/大屏聚合） */
   unsigned has_complete_events : 1; /* 是否写入过完整性事件 */
   unsigned log_flushed : 1;         /* 是否已最终落盘（去重保护） */
   unsigned decisive_set : 1;        /* 是否已设置decisive事件（同一请求最多一个） */
@@ -79,6 +80,7 @@ typedef struct {
   ngx_str_t matched_pattern;        /* 可为空表示未知 */
   ngx_uint_t pattern_index;         /* 未知为 0 */
   ngx_flag_t negate;                /* 规则是否取反 */
+  ngx_array_t *rule_tags;           /* 规则 tags（ngx_array_t(ngx_str_t)），可为 NULL */
 } waf_event_details_t;
 
 /* 记录规则事件（使用聚合结构） */
