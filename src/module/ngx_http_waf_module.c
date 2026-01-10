@@ -372,7 +372,7 @@ static waf_rc_e waf_stage_reputation_base_add(ngx_http_request_t *r, ngx_http_wa
     return WAF_RC_CONTINUE;
   }
 
-  /* 从编译产物透传的 policies 中解析 baseAccessScore（若不存在则为 0） */
+  /* 从编译产物透传的 policies 中解析 baseAccessScore（若不存在则为 1） */
   ngx_uint_t base_score = 0;
   if (lcf && lcf->compiled && lcf->compiled->raw_policies) {
     yyjson_doc *pol = lcf->compiled->raw_policies;
@@ -383,6 +383,8 @@ static waf_rc_e waf_stage_reputation_base_add(ngx_http_request_t *r, ngx_http_wa
         yyjson_val *bs = yyjson_obj_get(dyn, "baseAccessScore");
         if (bs && yyjson_is_num(bs)) {
           base_score = (ngx_uint_t)yyjson_get_sint(bs);
+        } else {
+          base_score = 1; /* Default to 1 */
         }
       }
     }
