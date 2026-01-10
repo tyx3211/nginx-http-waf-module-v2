@@ -44,6 +44,9 @@ static ngx_int_t ngx_http_waf_var_get_attack_type(ngx_http_request_t *r,
 static ngx_int_t ngx_http_waf_var_get_attack_category(ngx_http_request_t *r,
                                                       ngx_http_variable_value_t *v,
                                                       uintptr_t data);
+static ngx_int_t ngx_http_waf_var_get_client_ip(ngx_http_request_t *r,
+                                                 ngx_http_variable_value_t *v,
+                                                 uintptr_t data);
 
 static ngx_int_t ngx_http_waf_register_variables(ngx_conf_t *cf)
 {
@@ -74,6 +77,12 @@ static ngx_int_t ngx_http_waf_register_variables(ngx_conf_t *cf)
   var = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_NOCACHEABLE);
   if (var == NULL) { return NGX_ERROR; }
   var->get_handler = ngx_http_waf_var_get_attack_category; var->data = 0;
+
+  /* $waf_client_ip - 真实客户端 IP（尊重 waf_trust_xff 配置） */
+  name.len = sizeof("waf_client_ip") - 1; name.data = (u_char *)"waf_client_ip";
+  var = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_NOCACHEABLE);
+  if (var == NULL) { return NGX_ERROR; }
+  var->get_handler = ngx_http_waf_var_get_client_ip; var->data = 0;
 
   return NGX_OK;
 }
@@ -183,6 +192,36 @@ static ngx_int_t ngx_http_waf_var_get_attack_category(ngx_http_request_t *r,
   const char *s = ngx_http_waf_action_type_to_str(ctx ? ctx->final_action_type : WAF_FINAL_ACTION_TYPE_ALLOW);
   v->len = (size_t)ngx_strlen(s); v->data = (u_char *)s;
   v->valid = 1; v->no_cacheable = 0; v->not_found = 0;
+  return NGX_OK;
+}
+
+/* $waf_client_ip - 返回真实客户端 IP，尊重 waf_trust_xff 配置 */
+static ngx_int_t ngx_http_waf_var_get_client_ip(ngx_http_request_t *r,
+                                                 ngx_http_variable_value_t *v,
+                                                 uintptr_t data)
+{
+  (void)data;
+  ngx_http_waf_ctx_t *ctx = ngx_http_waf_get_main_ctx(r);
+  
+  if (ctx && ctx->client_ip != 0) {
+    /* 使用 waf_utils_ip_to_str 转换 IP 为字符串 */
+    ngx_str_t ip_str = waf_utils_ip_to_str(ctx->client_ip, r->pool);
+    if (ip_str.len > 0 && ip_str.data != NULL) {
+      v->len = ip_str.len;
+      v->data = ip_str.data;
+      v->valid = 1;
+      v->no_cacheable = 0;
+      v->not_found = 0;
+      return NGX_OK;
+    }
+  }
+  
+  /* 回退到 $remote_addr */
+  v->len = r->connection->addr_text.len;
+  v->data = r->connection->addr_text.data;
+  v->valid = 1;
+  v->no_cacheable = 0;
+  v->not_found = 0;
   return NGX_OK;
 }
 

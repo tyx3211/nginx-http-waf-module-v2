@@ -3,6 +3,7 @@ user  www-data;
 worker_processes  auto;
 
 load_module modules/ngx_http_waf_module.so; # v2 动态模块
+load_module modules/ngx_http_geoip2_module.so; # GeoIP地理支持
 
 error_log  logs/error.log  notice;
 pid        logs/nginx.pid;
@@ -19,6 +20,19 @@ http {
 
     sendfile        on;
     keepalive_timeout  65;
+
+    # GeoIP2 databases，为支持GeoIP地理位置，这个是固定写在这里的
+    geoip2 /usr/share/GeoIP2/GeoLite2-Country.mmdb {
+        auto_reload 60m;
+        $geoip2_data_country_code country iso_code;
+        $geoip2_data_country_name country names zh-CN;
+    }
+
+    geoip2 /usr/share/GeoIP2/GeoLite2-City.mmdb {
+        auto_reload 60m;
+        $geoip2_data_city_name city names zh-CN;
+        $geoip2_data_subdivision_name subdivisions 0 names zh-CN;
+    }
 
     include waf/waf_access_log.conf; # 非常重要，这个是我们实现普通数据指标动态变化的基础。后面可能还需要再修改完善这个conf文件，可能需要再编译测试waf动态模块（如果有新指标需要支持，且好支持），不过这个内容的增加应该是不难的。
 

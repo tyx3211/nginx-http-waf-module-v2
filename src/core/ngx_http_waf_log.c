@@ -586,6 +586,35 @@ void waf_log_flush_final(ngx_http_request_t *r, ngx_http_waf_main_conf_t *mcf,
                             r->headers_in.host->value.len);
   }
 
+  /* 4.1 GeoIP Data (Optional) */
+  /* Country Code */
+  {
+      ngx_str_t name = ngx_string("geoip2_data_country_code");
+      ngx_uint_t key = ngx_hash_key(name.data, name.len);
+      ngx_http_variable_value_t *v = ngx_http_get_variable(r, &name, key);
+      if (v && !v->not_found && v->valid && v->len > 0) {
+          yyjson_mut_obj_add_strn(doc, root, "country", (const char *)v->data, v->len);
+      }
+  }
+  /* Province */
+  {
+      ngx_str_t name = ngx_string("geoip2_data_subdivision_name");
+      ngx_uint_t key = ngx_hash_key(name.data, name.len);
+      ngx_http_variable_value_t *v = ngx_http_get_variable(r, &name, key);
+      if (v && !v->not_found && v->valid && v->len > 0) {
+          yyjson_mut_obj_add_strn(doc, root, "province", (const char *)v->data, v->len);
+      }
+  }
+  /* City */
+  {
+      ngx_str_t name = ngx_string("geoip2_data_city_name");
+      ngx_uint_t key = ngx_hash_key(name.data, name.len);
+      ngx_http_variable_value_t *v = ngx_http_get_variable(r, &name, key);
+      if (v && !v->not_found && v->valid && v->len > 0) {
+          yyjson_mut_obj_add_strn(doc, root, "city", (const char *)v->data, v->len);
+      }
+  }
+
   /* 5. URI */
   yyjson_mut_obj_add_strn(doc, root, "uri", (const char *)r->uri.data, r->uri.len);
 
